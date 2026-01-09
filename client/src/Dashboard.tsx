@@ -29,7 +29,7 @@ import {
   Line
 } from 'recharts'
 import './Dashboard.css'
-import { api } from '../utils/api'
+import { api } from './utils/api'
 
 interface DashboardStats {
   total_quizzes: number

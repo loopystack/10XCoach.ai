@@ -1,0 +1,437 @@
+// Prisma Schema for 10XCoach.ai
+// This defines the database models and relationships
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// USER MODEL
+// =============================================
+model User {
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(100)
+  email             String    @unique @db.VarChar(255)
+  passwordHash      String?   @map("password_hash") @db.VarChar(255)
+  role              UserRole  @default(USER)
+  businessName      String?   @map("business_name") @db.VarChar(255)
+  industry          String?   @db.VarChar(100)
+  plan              PlanTier  @default(FOUNDATION)
+  status            UserStatus @default(ACTIVE)
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  verificationToken String?   @map("verification_token") @db.VarChar(255)
+  verificationTokenExpiry DateTime? @map("verification_token_expiry")
+  lastLogin         DateTime? @map("last_login")
+  lastSession       DateTime? @map("last_session")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  primaryCoachId Int?      @map("primary_coach_id")
+  primaryCoach   Coach?    @relation("PrimaryCoach", fields: [primaryCoachId], references: [id])
+  sessions       Session[]
+  quizzes        Quiz[]
+  quizResults    QuizResult[]
+  huddles        Huddle[]
+  notes          Note[]
+  todos          Todo[]
+  actionSteps    ActionStep[]
+  coachAssignments CoachAssignment[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  COACH_ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  TRIAL
+  CANCELED
+  PAST_DUE
+}
+
+enum PlanTier {
+  FOUNDATION
+  MOMENTUM
+  ELITE
+}
+
+// =============================================
+// COACH MODEL
+// =============================================
+model Coach {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  email       String?   @unique @db.VarChar(255)
+  role        CoachRole @default(STRATEGY)
+  specialty   String?   @db.VarChar(255)
+  description String?   @db.Text
+  tagline     String?   @db.VarChar(255)
+  avatar      String?   @db.VarChar(255)
+  personaJson Json?     @map("persona_json")
+  voiceId     String?   @map("voice_id") @db.VarChar(100)
+  active      Boolean   @default(true)
+  model       String    @default("gpt-4") @db.VarChar(50)
+  temperature Float     @default(0.7)
+  maxTokens   Int       @default(2000) @map("max_tokens")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  primaryUsers User[]    @relation("PrimaryCoach")
+  sessions     Session[]
+  quizzes      Quiz[]
+  huddles      Huddle[]
+  notes        Note[]
+  assignments  CoachAssignment[]
+  quizResults  QuizResult[]
+
+  @@map("coaches")
+}
+
+enum CoachRole {
+  STRATEGY
+  SALES
+  MARKETING
+  OPERATIONS
+  FINANCE
+  CULTURE
+  CUSTOMER_CENTRICITY
+  EXIT_STRATEGY
+}
+
+// =============================================
+// PLAN MODEL
+// =============================================
+model Plan {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique @db.VarChar(100)
+  tier         PlanTier  @unique
+  price        Float
+  yearlyPrice  Float?    @map("yearly_price")
+  featuresJson Json      @map("features_json")
+  maxMinutes   Int?      @map("max_minutes")
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("plans")
+}
+
+// =============================================
+// SESSION MODEL
+// =============================================
+model Session {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @map("user_id")
+  coachId       Int       @map("coach_id")
+  startTime     DateTime  @map("start_time")
+  endTime       DateTime? @map("end_time")
+  duration      Decimal?  @db.Decimal(5, 2) // in minutes (supports fractional minutes)
+  // Store full transcript JSON (can exceed 500 chars)
+  transcriptRef String?   @map("transcript_ref") @db.Text
+  notesRef      String?   @map("notes_ref") @db.Text
+  summary       String?   @db.Text
+  status        SessionStatus @default(SCHEDULED)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach       Coach       @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  actionSteps ActionStep[]
+
+  @@map("sessions")
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// =============================================
+// ACTION STEP MODEL
+// =============================================
+model ActionStep {
+  id          Int             @id @default(autoincrement())
+  sessionId   Int?            @map("session_id")
+  userId      Int             @map("user_id")
+  description String          @db.Text
+  dueDate     DateTime?       @map("due_date")
+  status      ActionStepStatus @default(PENDING)
+  priority    Priority        @default(MEDIUM)
+  completedAt DateTime?       @map("completed_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  session Session? @relation(fields: [sessionId], references: [id])
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("action_steps")
+}
+
+enum ActionStepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// =============================================
+// QUIZ MODELS
+// =============================================
+model QuizTemplate {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(255)
+  description String?   @db.Text
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  questions QuizQuestion[]
+  results   QuizResult[]
+
+  @@map("quiz_templates")
+}
+
+model QuizQuestion {
+  id          Int       @id @default(autoincrement())
+  quizId      Int       @map("quiz_id")
+  text        String    @db.Text
+  type        QuestionType @default(SCALE)
+  pillarTag   String    @map("pillar_tag") @db.VarChar(100)
+  weight      Float     @default(1.0)
+  order       Int       @default(0)
+  options     Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  quiz QuizTemplate @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@map("quiz_questions")
+  @@index([quizId])
+  @@index([pillarTag])
+}
+
+enum QuestionType {
+  SCALE
+  MULTIPLE_CHOICE
+  OPEN
+}
+
+model Pillar {
+  id          Int       @id @default(autoincrement())
+  tag         String    @unique @db.VarChar(100)
+  name        String    @db.VarChar(255)
+  icon        String?   @db.VarChar(50)
+  color       String?   @db.VarChar(50)
+  description String?   @db.Text
+  active      Boolean   @default(true)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("pillars")
+  @@index([tag])
+  @@index([active])
+}
+
+model QuizResult {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  quizId      Int       @map("quiz_id")
+  coachId     Int?      @map("coach_id")
+  scoresJson  Json      @map("scores_json")
+  totalScore  Float     @map("total_score")
+  answersJson Json?     @map("answers_json")
+  emailSent   Boolean   @default(false) @map("email_sent")
+  emailSentAt DateTime? @map("email_sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz QuizTemplate @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  coach Coach? @relation(fields: [coachId], references: [id])
+  coachAssignments CoachAssignment[]
+
+  @@map("quiz_results")
+  @@index([userId])
+  @@index([quizId])
+}
+
+// =============================================
+// COACH ASSIGNMENT MODEL
+// =============================================
+model CoachAssignment {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  coachId     Int       @map("coach_id")
+  reason      String
+  quizResultId Int?     @map("quiz_result_id")
+  priority    String    @default("PRIMARY")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach      Coach      @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  quizResult QuizResult? @relation(fields: [quizResultId], references: [id])
+
+  @@map("coach_assignments")
+  @@index([userId])
+  @@index([coachId])
+  @@index([createdAt])
+}
+
+// Legacy Quiz model (kept for backward compatibility)
+model Quiz {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  coachId   Int       @map("coach_id")
+  score     Int?
+  completed Boolean   @default(false)
+  quizDate  DateTime  @default(now()) @map("quiz_date")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach Coach @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@map("quizzes")
+}
+
+// =============================================
+// HUDDLE MODEL
+// =============================================
+model Huddle {
+  id             Int          @id @default(autoincrement())
+  title          String       @db.VarChar(255)
+  huddleDate     DateTime     @default(now()) @map("huddle_date")
+  coachId        Int          @map("coach_id")
+  userId         Int          @map("user_id")
+  hasShortAgenda Boolean      @default(false) @map("has_short_agenda")
+  hasNotetaker   Boolean      @default(false) @map("has_notetaker")
+  hasActionSteps Boolean      @default(false) @map("has_action_steps")
+  status         HuddleStatus @default(SCHEDULED)
+  notes          String?      @db.Text
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach Coach @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@map("huddles")
+}
+
+enum HuddleStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+// =============================================
+// NOTE MODEL
+// =============================================
+model Note {
+  id          Int      @id @default(autoincrement())
+  sessionDate DateTime @default(now()) @map("session_date")
+  coachId     Int      @map("coach_id")
+  userId      Int      @map("user_id")
+  content     String?  @db.Text
+  sent        Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach Coach @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@map("notes")
+}
+
+// =============================================
+// TODO MODEL
+// =============================================
+model Todo {
+  id          Int        @id @default(autoincrement())
+  title       String     @db.VarChar(255)
+  description String?    @db.Text
+  userId      Int        @map("user_id")
+  assignedTo  String?    @map("assigned_to") @db.VarChar(100)
+  dueDate     DateTime?  @map("due_date")
+  status      TodoStatus @default(PENDING)
+  priority    Priority   @default(MEDIUM)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("todos")
+}
+
+enum TodoStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// =============================================
+// ADMIN SETTINGS MODEL
+// =============================================
+model AdminSettings {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(100)
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_settings")
+}
+
+// =============================================
+// BLOG POST MODEL
+// =============================================
+model BlogPost {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(500)
+  excerpt     String?   @db.Text
+  category    String?   @db.VarChar(100)
+  author      String?   @db.VarChar(100)
+  date        String    @db.VarChar(50)
+  readTime    String?   @map("read_time") @db.VarChar(50)
+  image       String?   @db.VarChar(255)
+  content     String?   @db.Text
+  published   Boolean   @default(true)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("blog_posts")
+  @@index([published])
+  @@index([order])
+}
+

@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  transcript String? // Full conversation transcript (can be stored as text or S3 reference)
+  createdAt DateTime @default(now())
+  updatedAt DateTime? @updatedAt
+  messages  SessionMessage[]
+  notes     SessionNotes?
+}
+
+model SessionMessage {
+  id        String   @id @default(uuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  from      String   // "user" or "coach"
+  text      String
+  timestamp DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([timestamp])
+  @@map("session_messages")
+}
+
+// Long-term memory: Embeddings of key conversation segments
+model CoachMemory {
+  id          String   @id @default(uuid())
+  sessionId   String?  // Optional: link to original session
+  text        String   // The text segment that was embedded
+  embedding   String   // JSON array of embedding vector (stored as text for SQLite)
+  metadata    String?  // JSON metadata (topics, importance, etc.)
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("coach_memories")
+}
+
+// Coaching notes generated at end of session
+model SessionNotes {
+  id         String   @id @default(uuid())
+  sessionId  String   @unique
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  summary    String   // Session summary
+  pillarsJson String  // JSON array of pillars touched (e.g., ["Strategy", "Sales"])
+  actionsJson String  // JSON array of action steps (3-7 items)
+  redFlags   String?  // Any red flags or concerns identified
+  nextFocus  String?  // What to focus on next
+  createdAt  DateTime @default(now())
+
+  @@map("session_notes")
+}
+

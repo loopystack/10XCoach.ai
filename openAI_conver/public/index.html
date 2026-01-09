@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10X Coach Voice Conversation</title>
+    <link rel="stylesheet" href="/conversation/style.css">
+</head>
+<body>
+    <!-- Certificate Acceptance Guide (shown on first visit) -->
+    <div class="cert-guide-overlay" id="certGuideOverlay">
+        <div class="cert-guide-content">
+            <div class="cert-guide-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <path d="M9 12l2 2 4-4"></path>
+                </svg>
+            </div>
+            <h2 class="cert-guide-title">Secure Connection Required</h2>
+            <p class="cert-guide-subtitle">HTTPS is required for microphone access</p>
+            
+            <div class="cert-steps">
+                <div class="cert-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>If you see a security warning</h3>
+                        <p>Click on <strong>"Advanced"</strong> or <strong>"Show Details"</strong> button</p>
+                    </div>
+                </div>
+                <div class="cert-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Proceed to the site</h3>
+                        <p>Click <strong>"Proceed to 95.216.225.37"</strong> or <strong>"Accept the Risk"</strong></p>
+                    </div>
+                </div>
+                <div class="cert-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>You're all set!</h3>
+                        <p>The page will reload automatically and you can start using voice chat</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cert-guide-actions">
+                <button class="cert-guide-btn cert-guide-btn-primary" id="certGuideContinue">
+                    I Understand - Continue
+                </button>
+                <button class="cert-guide-btn cert-guide-btn-secondary" id="certGuideDismiss">
+                    Don't Show Again
+                </button>
+            </div>
+            
+            <p class="cert-guide-note">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+                This is a self-signed certificate for secure microphone access. Your connection is encrypted and safe.
+            </p>
+        </div>
+    </div>
+
+    <div class="voice-chat-container">
+        <!-- Header -->
+        <div class="voice-chat-header">
+            <div class="header-content">
+                <div class="header-text">
+                    <h1 class="header-title">
+                        <span class="title-gradient">10X Coach</span> Voice Chat
+                    </h1>
+                    <p class="header-subtitle">Select a coach and start a real-time voice conversation</p>
+                </div>
+                <a href="#" class="back-to-dashboard-btn" id="backToDashboardBtn">
+                    <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    <span>Back to Dashboard</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content: Two Column Layout -->
+        <div class="main-content-layout">
+            <!-- Left: Coach Selection -->
+            <div class="coach-selection-panel">
+                <h2 class="panel-title">Select Your Coach</h2>
+                <div class="coaches-grid" id="coachesGrid">
+                    <!-- Coaches will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- Right: Chat Interface -->
+            <div class="chat-panel" id="chatPanel">
+                <div class="chat-placeholder" id="chatPlaceholder">
+                    <div class="placeholder-content">
+                        <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        <h3>Select a Coach</h3>
+                        <p>Choose a coach from the left panel to start a conversation</p>
+                    </div>
+                </div>
+
+                <div class="chat-interface" id="chatInterface" style="display: none;">
+                    <div class="selected-coach-info">
+                        <div class="coach-avatar-container">
+                            <img id="coachAvatar" src="" alt="Coach Avatar" class="coach-avatar-image">
+                        </div>
+                        <div class="coach-details">
+                            <h3 id="coachName" class="coach-name"></h3>
+                            <p id="coachSpecialty" class="coach-specialty"></p>
+                            <p id="coachTagline" class="coach-tagline"></p>
+                        </div>
+                    </div>
+
+                    <div class="voice-controls">
+                        <button id="startBtn" class="voice-btn voice-btn-primary">
+                            <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="23"></line>
+                                <line x1="8" y1="23" x2="16" y2="23"></line>
+                            </svg>
+                            <span>Start Conversation</span>
+                        </button>
+                        <button id="stopBtn" class="voice-btn voice-btn-secondary" disabled>
+                            <svg class="stop-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+                            </svg>
+                            <span>Stop & Save</span>
+                        </button>
+                        <button id="saveConversationBtn" class="voice-btn voice-btn-save" disabled>
+                            <svg class="save-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            <span>Save Conversation</span>
+                        </button>
+                        <button id="changeCoachBtn" class="voice-btn voice-btn-tertiary">
+                            <svg class="change-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="8.5" cy="7" r="4"></circle>
+                                <line x1="20" y1="8" x2="20" y2="14"></line>
+                                <line x1="23" y1="11" x2="17" y2="11"></line>
+                            </svg>
+                            <span>Change Coach</span>
+                        </button>
+                    </div>
+
+                    <div class="status-container" id="statusContainer">
+                        <div class="status-indicator" id="statusIndicator"></div>
+                        <span id="statusText" class="status-text">Ready to start</span>
+                    </div>
+
+                    <div class="audio-visualizer-container">
+                        <canvas id="visualizer" width="600" height="120"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/conversation/app.js"></script>
+</body>
+</html>

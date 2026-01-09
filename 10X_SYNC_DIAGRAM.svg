@@ -1,0 +1,251 @@
+<svg width="1200" height="1400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="1400" fill="#f8fafc"/>
+  
+  <!-- Title -->
+  <text x="600" y="40" font-family="Arial, sans-serif" font-size="28" font-weight="bold" text-anchor="middle" fill="#1e293b">
+    10X Coaches &amp; 10X BOS Synchronization Architecture
+  </text>
+  
+  <!-- 10X Coaches Section -->
+  <rect x="50" y="70" width="1100" height="120" rx="8" fill="#3b82f6" opacity="0.1" stroke="#3b82f6" stroke-width="2"/>
+  <text x="600" y="100" font-family="Arial, sans-serif" font-size="20" font-weight="bold" text-anchor="middle" fill="#1e40af">
+    10X COACHES (8 Specialized AI Coaches)
+  </text>
+  <text x="600" y="130" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#475569">
+    Strategy • Sales • Marketing • Operations • Finance • Culture • Customer Centricity • Exit Strategy
+  </text>
+  <text x="600" y="155" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#64748b">
+    Each coach has unique personality, specialty, and coaching style
+  </text>
+  
+  <!-- Arrows from Coaches -->
+  <line x1="600" y1="190" x2="600" y2="240" stroke="#3b82f6" stroke-width="3" marker-end="url(#arrowhead)"/>
+  
+  <!-- Interaction Points -->
+  <rect x="300" y="240" width="200" height="80" rx="8" fill="#8b5cf6" opacity="0.1" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="400" y="270" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#6d28d9">
+    Voice Sessions
+  </text>
+  <text x="400" y="295" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#475569">
+    Real-time conversations
+  </text>
+  <text x="400" y="310" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#475569">
+    Transcript storage
+  </text>
+  
+  <rect x="700" y="240" width="200" height="80" rx="8" fill="#ec4899" opacity="0.1" stroke="#ec4899" stroke-width="2"/>
+  <text x="800" y="270" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#be185d">
+    10-Min Huddles
+  </text>
+  <text x="800" y="295" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#475569">
+    Agenda → Notes
+  </text>
+  <text x="800" y="310" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="#475569">
+    Action Steps
+  </text>
+  
+  <!-- Arrows to BOS -->
+  <line x1="400" y1="320" x2="400" y2="370" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="800" y1="320" x2="800" y2="370" stroke="#ec4899" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- 10X BOS Section -->
+  <rect x="200" y="370" width="800" height="180" rx="8" fill="#10b981" opacity="0.1" stroke="#10b981" stroke-width="3"/>
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="22" font-weight="bold" text-anchor="middle" fill="#047857">
+    10X BOS (Business Operating System)
+  </text>
+  
+  <!-- BOS Components -->
+  <rect x="250" y="420" width="150" height="60" rx="6" fill="#ffffff" stroke="#10b981" stroke-width="1"/>
+  <text x="325" y="445" font-family="Arial, sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#065f46">
+    Action Steps
+  </text>
+  <text x="325" y="465" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#64748b">
+    From Sessions
+  </text>
+  
+  <rect x="425" y="420" width="150" height="60" rx="6" fill="#ffffff" stroke="#10b981" stroke-width="1"/>
+  <text x="500" y="445" font-family="Arial, sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#065f46">
+    Coach Notes
+  </text>
+  <text x="500" y="465" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#64748b">
+    AI Generated
+  </text>
+  
+  <rect x="600" y="420" width="150" height="60" rx="6" fill="#ffffff" stroke="#10b981" stroke-width="1"/>
+  <text x="675" y="445" font-family="Arial, sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#065f46">
+    Todos
+  </text>
+  <text x="675" y="465" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#64748b">
+    Task Lists
+  </text>
+  
+  <rect x="775" y="420" width="150" height="60" rx="6" fill="#ffffff" stroke="#10b981" stroke-width="1"/>
+  <text x="850" y="445" font-family="Arial, sans-serif" font-size="13" font-weight="bold" text-anchor="middle" fill="#065f46">
+    Quizzes
+  </text>
+  <text x="850" y="465" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#64748b">
+    Coach Assign
+  </text>
+  
+  <!-- Arrows to Database -->
+  <line x1="600" y1="550" x2="600" y2="600" stroke="#10b981" stroke-width="3" marker-end="url(#arrowhead)"/>
+  
+  <!-- Database Section -->
+  <rect x="300" y="600" width="600" height="120" rx="8" fill="#f59e0b" opacity="0.1" stroke="#f59e0b" stroke-width="3"/>
+  <text x="600" y="630" font-family="Arial, sans-serif" font-size="20" font-weight="bold" text-anchor="middle" fill="#92400e">
+    PostgreSQL Database
+  </text>
+  <text x="600" y="655" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#78350f">
+    Centralized Data Storage
+  </text>
+  
+  <!-- Database Tables -->
+  <rect x="350" y="670" width="100" height="40" rx="4" fill="#ffffff" stroke="#f59e0b" stroke-width="1"/>
+  <text x="400" y="690" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Sessions</text>
+  <text x="400" y="705" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Huddles</text>
+  
+  <rect x="470" y="670" width="100" height="40" rx="4" fill="#ffffff" stroke="#f59e0b" stroke-width="1"/>
+  <text x="520" y="690" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Notes</text>
+  <text x="520" y="705" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Quizzes</text>
+  
+  <rect x="590" y="670" width="100" height="40" rx="4" fill="#ffffff" stroke="#f59e0b" stroke-width="1"/>
+  <text x="640" y="690" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Actions</text>
+  <text x="640" y="705" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Todos</text>
+  
+  <rect x="710" y="670" width="100" height="40" rx="4" fill="#ffffff" stroke="#f59e0b" stroke-width="1"/>
+  <text x="760" y="690" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Coaches</text>
+  <text x="760" y="705" font-family="Arial, sans-serif" font-size="11" text-anchor="middle" fill="#78350f">Users</text>
+  
+  <!-- Sync Flow Details -->
+  <rect x="50" y="750" width="1100" height="600" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+  <text x="600" y="780" font-family="Arial, sans-serif" font-size="20" font-weight="bold" text-anchor="middle" fill="#1e293b">
+    Synchronization Flow Details
+  </text>
+  
+  <!-- Flow 1: Voice Session -->
+  <rect x="80" y="800" width="500" height="140" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="1"/>
+  <text x="330" y="825" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1e40af">
+    1. Voice Session Flow
+  </text>
+  <text x="100" y="850" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    User → Talk to Coach → Voice Session (openAI_conver)
+  </text>
+  <text x="100" y="870" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="100" y="890" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    SESSION Table (coachId, userId, transcript, summary)
+  </text>
+  <text x="100" y="910" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="100" y="930" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ACTION_STEPS + NOTES (AI-generated)
+  </text>
+  
+  <!-- Flow 2: Huddles -->
+  <rect x="620" y="800" width="500" height="140" rx="6" fill="#fdf2f8" stroke="#ec4899" stroke-width="1"/>
+  <text x="870" y="825" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#be185d">
+    2. Huddle Flow
+  </text>
+  <text x="640" y="850" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    User → Create Huddle → 10-Minute Meeting
+  </text>
+  <text x="640" y="870" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="640" y="890" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    HUDDLE Table (coachId, hasActionSteps, notes)
+  </text>
+  <text x="640" y="910" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="640" y="930" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ACTION_STEPS (from meeting agenda)
+  </text>
+  
+  <!-- Flow 3: Quizzes -->
+  <rect x="80" y="960" width="500" height="140" rx="6" fill="#f0fdf4" stroke="#10b981" stroke-width="1"/>
+  <text x="330" y="985" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#047857">
+    3. Quiz Flow
+  </text>
+  <text x="100" y="1010" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    User → Take Business Success Quiz
+  </text>
+  <text x="100" y="1030" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="100" y="1050" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    QUIZ_RESULTS Table (scores, pillar analysis)
+  </text>
+  <text x="100" y="1070" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="100" y="1090" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    COACH_ASSIGNMENT (Primary + Secondary coaches)
+  </text>
+  
+  <!-- Flow 4: Action Steps to Todos -->
+  <rect x="620" y="960" width="500" height="140" rx="6" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+  <text x="870" y="985" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#92400e">
+    4. Action Steps → Todos
+  </text>
+  <text x="640" y="1010" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ACTION_STEPS Table (from Sessions/Huddles)
+  </text>
+  <text x="640" y="1030" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="640" y="1050" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    Optional Sync to TODOS Table
+  </text>
+  <text x="640" y="1070" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    ↓
+  </text>
+  <text x="640" y="1090" font-family="Arial, sans-serif" font-size="12" fill="#475569">
+    TO-DO List (Kanban board)
+  </text>
+  
+  <!-- Key Relationships -->
+  <rect x="80" y="1120" width="1040" height="200" rx="6" fill="#f1f5f9" stroke="#64748b" stroke-width="1"/>
+  <text x="600" y="1145" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#1e293b">
+    Key Database Relationships
+  </text>
+  
+  <text x="120" y="1175" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">
+    COACH (1) ──→ (N) SESSIONS ──→ (N) ACTION_STEPS
+  </text>
+  <text x="120" y="1200" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">
+    COACH (1) ──→ (N) HUDDLES
+  </text>
+  <text x="120" y="1225" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">
+    COACH (1) ──→ (N) NOTES
+  </text>
+  <text x="120" y="1250" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">
+    COACH (1) ──→ (N) QUIZ_RESULTS ──→ COACH_ASSIGNMENT
+  </text>
+  <text x="120" y="1275" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">
+    USER (1) ──→ (N) [Sessions, Huddles, Notes, Todos, Action Steps]
+  </text>
+  <text x="120" y="1300" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#334155">
+    ACTION_STEPS (sessionId) ──→ Optional ──→ TODOS
+  </text>
+  
+  <!-- Sync Triggers Box -->
+  <rect x="80" y="1340" width="1040" height="50" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="600" y="1360" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#92400e">
+    Sync Triggers: Voice Session End → Notes + Actions | Huddle Create → Actions | Quiz Submit → Coach Assign
+  </text>
+  <text x="600" y="1380" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#78350f">
+    All data is user-scoped (userId) and coach-linked (coachId) for complete traceability
+  </text>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#475569"/>
+    </marker>
+  </defs>
+</svg>
+

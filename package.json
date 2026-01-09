@@ -1,0 +1,27 @@
+{
+  "name": "10x-dashboard",
+  "version": "1.0.0",
+  "description": "10X Dashboard - Business Coaching Management System",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev:prod": "npm run unified",
+    "unified": "cd server && npm run unified",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "watch": "cd client && npm run watch",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": [
+    "dashboard",
+    "coaching",
+    "10x"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

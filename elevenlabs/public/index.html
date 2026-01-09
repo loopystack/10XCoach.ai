@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-to-Voice Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="voice-chat-page">
+        <!-- Left Coach Panel -->
+        <aside class="coach-panel">
+            <div class="coach-panel-header">
+                <h2 class="coach-panel-title">Choose Your Coach</h2>
+                <p class="coach-panel-subtitle">Select an AI coach to start</p>
+            </div>
+            <div class="coach-list" id="coachList">
+                <div class="coach-card" data-value="alan">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Alan-Wozniak-CEC.jpg" alt="Alan Wozniak" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">👑</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Alan Wozniak</div>
+                        <div class="coach-card-title">Business Strategy</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+                <div class="coach-card" data-value="rob">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Robertini-Rob-Mercer.jpg" alt="Rob Mercer" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">💰</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Rob Mercer</div>
+                        <div class="coach-card-title">Sales Coach</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+                <div class="coach-card" data-value="teresa">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Teresa-Lane.jpg" alt="Teresa Lane" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">🎯</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Teresa Lane</div>
+                        <div class="coach-card-title">Marketing Coach</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+                <div class="coach-card" data-value="camille">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Camille-Quinn.jpg" alt="Camille Quinn" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">✨</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Camille Quinn</div>
+                        <div class="coach-card-title">Customer Experience</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+                <div class="coach-card" data-value="jeffrey">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Jeffrey-Wells.jpg" alt="Jeffrey Wells" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">⚙️</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Jeffrey Wells</div>
+                        <div class="coach-card-title">Operations Coach</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+                <div class="coach-card" data-value="chelsea">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Chelsea-Fox.jpg" alt="Chelsea Fox" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">🧬</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Chelsea Fox</div>
+                        <div class="coach-card-title">Culture/HR Coach</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+                <div class="coach-card" data-value="hudson">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Hudson-Jaxson.jpg" alt="Hudson Jaxon" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">📊</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Hudson Jaxon</div>
+                        <div class="coach-card-title">Finance Coach</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+                <div class="coach-card" data-value="tanner">
+                    <div class="coach-card-avatar">
+                        <img src="/coaches/Tanner-Chase.jpg" alt="Tanner Chase" class="coach-avatar-image" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="coach-avatar-fallback" style="display: none;">💼</div>
+                    </div>
+                    <div class="coach-card-content">
+                        <div class="coach-card-name">Tanner Chase</div>
+                        <div class="coach-card-title">BIG EXIT Coach</div>
+                    </div>
+                    <div class="coach-card-indicator"></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Container -->
+        <main class="chat-container">
+            <div class="chat-card">
+                <div class="chat-main-layout">
+                    <!-- Left Half: Large Avatar with Info -->
+                    <div class="chat-left-section">
+                        <div class="coach-large-avatar-container" id="coachLargeAvatarContainer">
+                            <div class="coach-large-avatar" id="coachLargeAvatar">
+                                <img id="coachLargeAvatarImg" src="" alt="" style="display: none;">
+                                <div id="coachLargeAvatarFallback">👤</div>
+                            </div>
+                            <div class="coach-large-info">
+                                <h1 class="coach-large-name" id="coachLargeName">Select a Coach</h1>
+                                <p class="coach-large-description" id="coachLargeDescription">Choose from the left panel to start</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Half: Start Button and Caption -->
+                    <div class="chat-right-section">
+                        <div class="chat-action-area">
+                            <div class="button-container">
+                                <button id="voiceButton" class="voice-button" aria-label="Voice Chat">
+                                    <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div class="chat-caption-area">
+                                <div id="status" class="status"></div>
+                                <div id="transcript" class="transcript"></div>
+                                <div id="response" class="response"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden select for compatibility -->
+    <select id="coachSelect" class="coach-select-hidden" style="display: none;">
+        <option value="alan">👑 Alan Wozniak - Business Strategy</option>
+        <option value="rob">💰 Rob Mercer - Sales Coach</option>
+        <option value="teresa">🎯 Teresa Lane - Marketing Coach</option>
+        <option value="camille">✨ Camille Quinn - Customer Experience</option>
+        <option value="jeffrey">⚙️ Jeffrey Wells - Operations Coach</option>
+        <option value="chelsea">🧬 Chelsea Fox - Culture/HR Coach</option>
+        <option value="hudson">📊 Hudson Jaxon - Finance Coach</option>
+        <option value="tanner">💼 Tanner Chase - BIG EXIT Coach</option>
+    </select>
+
+    <audio id="audioPlayer" style="display: none;"></audio>
+    <script src="/app.js"></script>
+</body>
+</html>
+

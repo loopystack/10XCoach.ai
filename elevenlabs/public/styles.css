@@ -1,0 +1,630 @@
+/* ============================================
+   10XCoach.ai Voice Chat - Premium Design
+   Matching 10X Homepage Style
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* CSS Variables - Theme System */
+:root {
+  /* Colors */
+  --primary: #00d4ff;
+  --primary-dark: #00a8cc;
+  --secondary: #7c3aed;
+  --accent: #ff006e;
+  --success: #10b981;
+  --warning: #f59e0b;
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #7c3aed 50%, #ff006e 100%);
+  --gradient-glow: linear-gradient(135deg, rgba(0, 212, 255, 0.4), rgba(124, 58, 237, 0.4));
+  
+  /* Dark Theme (Default) */
+  --bg-primary: #050508;
+  --bg-secondary: #0a0a12;
+  --bg-tertiary: #12121a;
+  --bg-card: rgba(255, 255, 255, 0.02);
+  --bg-card-hover: rgba(255, 255, 255, 0.05);
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.voice-chat-page {
+  display: flex;
+  min-height: 100vh;
+  gap: 24px;
+  padding: 24px;
+  position: relative;
+}
+
+/* Background Effects */
+.voice-chat-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 255, 0.15), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(124, 58, 237, 0.15), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Left Coach Panel */
+.coach-panel {
+  width: 320px;
+  min-width: 320px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 24px;
+  backdrop-filter: blur(20px);
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  transition: all 0.3s ease;
+}
+
+.coach-panel:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 12px 48px var(--shadow-color);
+}
+
+.coach-panel-header {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.coach-panel-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.coach-panel-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* Coach List */
+.coach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Coach Card */
+.coach-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.coach-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(124, 58, 237, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.coach-card:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(0, 212, 255, 0.3);
+  transform: translateX(4px);
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.15);
+}
+
+.coach-card:hover::before {
+  opacity: 1;
+}
+
+.coach-card.selected {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(124, 58, 237, 0.15));
+  border-color: var(--primary);
+  box-shadow: 
+    0 4px 24px rgba(0, 212, 255, 0.25),
+    inset 0 0 0 1px rgba(0, 212, 255, 0.2);
+}
+
+.coach-card.selected::before {
+  opacity: 1;
+}
+
+.coach-card-avatar {
+  min-width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.coach-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 14px;
+  transition: all 0.3s ease;
+}
+
+.coach-avatar-fallback {
+  font-size: 2.5rem;
+  line-height: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+.coach-card:hover .coach-card-avatar {
+  transform: scale(1.05);
+  border-color: var(--primary);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+.coach-card:hover .coach-avatar-image {
+  transform: scale(1.1);
+  filter: brightness(1.1);
+}
+
+.coach-card.selected .coach-card-avatar {
+  border-color: var(--primary);
+  box-shadow: 0 0 24px rgba(0, 212, 255, 0.4);
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(124, 58, 237, 0.2));
+}
+
+.coach-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.coach-card-name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.coach-card-title {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.coach-card-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  box-shadow: 0 0 12px var(--primary);
+}
+
+.coach-card.selected .coach-card-indicator {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Main Chat Container */
+.chat-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.chat-card {
+  width: 100%;
+  max-width: 900px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 40px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px var(--shadow-color);
+  transition: all 0.3s ease;
+}
+
+.chat-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 12px 48px var(--shadow-color);
+}
+
+.chat-main-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+/* Left Section: Large Avatar */
+.chat-left-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.coach-large-avatar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.coach-large-avatar {
+  width: 280px;
+  height: 280px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.coach-large-avatar:hover {
+  border-color: var(--primary);
+  box-shadow: 0 12px 48px rgba(0, 212, 255, 0.3);
+  transform: scale(1.02);
+}
+
+.coach-large-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+.coach-large-avatar #coachLargeAvatarFallback {
+  font-size: 8rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+}
+
+.coach-large-info {
+  text-align: center;
+  width: 100%;
+}
+
+.coach-large-name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.coach-large-description {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.6;
+  max-width: 100%;
+}
+
+/* Right Section: Start Button and Caption */
+.chat-right-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.chat-action-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  width: 100%;
+}
+
+.chat-caption-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Voice Button */
+.button-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.voice-button {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: none;
+  background: var(--gradient-primary);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 8px 32px rgba(0, 212, 255, 0.3),
+    0 0 0 0 rgba(0, 212, 255, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.voice-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.2), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.voice-button:hover {
+  transform: scale(1.05);
+  box-shadow: 
+    0 12px 48px rgba(0, 212, 255, 0.4),
+    0 0 0 4px rgba(0, 212, 255, 0.2);
+}
+
+.voice-button:hover::before {
+  opacity: 1;
+}
+
+.voice-button:active {
+  transform: scale(0.95);
+}
+
+.voice-button.listening {
+  background: linear-gradient(135deg, #ff006e 0%, #7c3aed 100%);
+  animation: pulse 1.5s ease-in-out infinite;
+  box-shadow: 
+    0 8px 32px rgba(255, 0, 110, 0.4),
+    0 0 0 0 rgba(255, 0, 110, 0.6);
+}
+
+.voice-button.processing {
+  background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+  animation: spin 1s linear infinite;
+}
+
+.voice-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mic-icon {
+  width: 56px;
+  height: 56px;
+  stroke-width: 2.5;
+  z-index: 1;
+  position: relative;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 
+      0 8px 32px rgba(255, 0, 110, 0.4),
+      0 0 0 0 rgba(255, 0, 110, 0.6);
+  }
+  50% {
+    box-shadow: 
+      0 8px 40px rgba(255, 0, 110, 0.6),
+      0 0 0 8px rgba(255, 0, 110, 0.2);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Status */
+.status {
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 500;
+  min-height: 24px;
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.status.active {
+  color: #ff006e;
+  background: rgba(255, 0, 110, 0.1);
+  border: 1px solid rgba(255, 0, 110, 0.3);
+}
+
+.status.processing {
+  color: var(--primary);
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+}
+
+/* Transcript & Response */
+.transcript, .response {
+  padding: 20px;
+  border-radius: 16px;
+  text-align: left;
+  min-height: 60px;
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+
+.transcript {
+  border-left: 4px solid var(--primary);
+}
+
+.response {
+  border-left: 4px solid var(--secondary);
+}
+
+.transcript::before {
+  content: "You said: ";
+  font-weight: 600;
+  color: var(--primary);
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.response::before {
+  content: var(--coach-name, "AI replied: ");
+  font-weight: 600;
+  color: var(--secondary);
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.transcript:empty, .response:empty {
+  display: none;
+}
+
+/* Hidden Select */
+.coach-select-hidden {
+  display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .voice-chat-page {
+    flex-direction: column;
+    padding: 16px;
+  }
+  
+  .coach-panel {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .coach-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  
+  .chat-main-layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  
+  .coach-large-avatar {
+    width: 240px;
+    height: 240px;
+  }
+  
+  .coach-large-name {
+    font-size: 1.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-card {
+    padding: 24px;
+  }
+  
+  .coach-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .voice-button {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .mic-icon {
+    width: 48px;
+    height: 48px;
+  }
+}

@@ -5,7 +5,7 @@ module.exports = {
       script: 'server/index.js',
       instances: 1,
       exec_mode: 'fork',
-      cwd: '/home/user/10x-dashboard',
+      cwd: '/var/www/10XCoach.ai',
       env: {
         NODE_ENV: 'production',
         PORT: 3001,

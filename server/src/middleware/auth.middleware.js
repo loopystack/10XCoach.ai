@@ -8,9 +8,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
  */
 const authenticate = async (req, res, next) => {
   try {
+    console.log('[AUTH] Authenticating request:', req.method, req.path);
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[AUTH] No token provided for:', req.path);
       return res.status(401).json({ error: 'No token provided' });
     }
 
@@ -39,15 +41,17 @@ const authenticate = async (req, res, next) => {
     }
 
     req.user = user;
+    console.log('[AUTH] Authentication successful for user:', user.email, 'role:', user.role);
     next();
   } catch (error) {
+    console.error('[AUTH] Authentication error:', error.name, error.message);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token expired' });
     }
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Invalid token' });
     }
-    console.error('Auth middleware error:', error);
+    console.error('[AUTH] Auth middleware error:', error);
     return res.status(500).json({ error: 'Authentication error' });
   }
 };

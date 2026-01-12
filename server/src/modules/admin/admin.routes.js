@@ -4,6 +4,12 @@ const prisma = require('../../lib/prisma');
 const db = require('../../../db');
 const { authenticate, requireAdmin, requireSuperAdmin } = require('../../middleware/auth.middleware');
 
+// Test endpoint (no auth) to verify routing works
+router.get('/test', (req, res) => {
+  console.log('[ADMIN TEST] Route hit successfully');
+  res.json({ message: 'Admin routes are working!', timestamp: new Date().toISOString() });
+});
+
 // All admin routes require authentication and admin role
 router.use(authenticate, requireAdmin);
 
@@ -93,6 +99,10 @@ router.get('/overview', async (req, res) => {
 // Get all users with detailed info
 // =============================================
 router.get('/users', async (req, res) => {
+  console.log('[ADMIN USERS] Route hit - GET /api/admin/users');
+  console.log('[ADMIN USERS] User:', req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : 'No user');
+  console.log('[ADMIN USERS] Query params:', req.query);
+  
   try {
     const { plan, status, search, sortBy, sortOrder } = req.query;
 
@@ -242,6 +252,9 @@ router.get('/users', async (req, res) => {
 // Get all coaches with stats
 // =============================================
 router.get('/coaches', async (req, res) => {
+  console.log('[ADMIN COACHES] Route hit - GET /api/admin/coaches');
+  console.log('[ADMIN COACHES] User:', req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : 'No user');
+  
   try {
     const coaches = await prisma.coach.findMany({
       select: {
@@ -267,10 +280,26 @@ router.get('/coaches', async (req, res) => {
       orderBy: { id: 'asc' }
     });
 
+    console.log('[ADMIN COACHES] Found coaches:', coaches.length);
     res.json(coaches);
   } catch (error) {
-    console.error('Get admin coaches error:', error);
-    res.status(500).json({ error: 'Failed to get coaches' });
+    console.error('[ADMIN COACHES] Get admin coaches error:', error);
+    console.error('[ADMIN COACHES] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      meta: error.meta
+    });
+    
+    // Ensure we always return JSON, never HTML
+    if (!res.headersSent) {
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json({ 
+        error: error.message || 'Failed to get coaches',
+        message: 'An error occurred while fetching coaches. Please check the server logs for details.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
   }
 });
 

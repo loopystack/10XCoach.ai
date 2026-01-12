@@ -1083,11 +1083,18 @@ wss.on('connection', (ws, req) => {
 // ERROR HANDLING
 // =============================================
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
+  console.error('[ERROR HANDLER] Error caught:', err);
+  console.error('[ERROR HANDLER] Request path:', req.path);
+  console.error('[ERROR HANDLER] Request method:', req.method);
+  
+  // ALWAYS return JSON, never HTML
+  if (!res.headersSent) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(err.status || 500).json({
+      error: err.message || 'Internal Server Error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
+  }
 });
 
 // =============================================

@@ -1590,8 +1590,13 @@ app.get('/api/admin/users', async (req, res) => {
 });
 
 // Admin Coaches List
+// NOTE: This route is duplicated in admin.routes.js - consider removing this one
 app.get('/api/admin/coaches', async (req, res) => {
+  console.log('[LEGACY COACHES] Route hit - GET /api/admin/coaches (legacy route in server/index.js)');
   try {
+    // ALWAYS set JSON header first
+    res.setHeader('Content-Type', 'application/json');
+    
     const result = await db.query(`
       SELECT 
         id, name, 
@@ -1604,10 +1609,26 @@ app.get('/api/admin/coaches', async (req, res) => {
       FROM coaches 
       ORDER BY id
     `);
+    
+    console.log('[LEGACY COACHES] Found coaches:', result.rows.length);
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching admin coaches:', error);
-    res.status(500).json({ error: 'Failed to fetch admin coaches' });
+    console.error('[LEGACY COACHES] Error fetching admin coaches:', error);
+    console.error('[LEGACY COACHES] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    
+    // ALWAYS return JSON, never HTML
+    if (!res.headersSent) {
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json({ 
+        error: error.message || 'Failed to fetch admin coaches',
+        message: 'An error occurred while fetching coaches. Please check the server logs.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
   }
 });
 
@@ -1622,6 +1643,12 @@ const adminRoutes = require('./src/modules/admin/admin.routes');
 app.use('/api', quizRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Log route registration
+console.log('✅ Routes registered:');
+console.log('   - /api (quiz routes)');
+console.log('   - /api/auth (auth routes)');
+console.log('   - /api/admin (admin routes)');
 
 // ============================================
 // STATIC FILE SERVING - Must be after API routes
@@ -1642,6 +1669,13 @@ app.use((req, res, next) => {
 app.all('/api/*', (req, res, next) => {
   // Only handle if no route matched (this should rarely be hit for defined routes)
   console.log(`[404] API route not found: ${req.method} ${req.path}`);
+  console.log(`[404] Request headers:`, {
+    'content-type': req.headers['content-type'],
+    'authorization': req.headers['authorization'] ? 'Present' : 'Missing'
+  });
+  
+  // ALWAYS return JSON, never HTML
+  res.setHeader('Content-Type', 'application/json');
   res.status(404).json({ 
     error: 'API route not found', 
     path: req.path, 
@@ -1654,7 +1688,15 @@ app.all('/api/*', (req, res, next) => {
 app.get('*', (req, res) => {
   // Skip API routes (shouldn't reach here for API routes, but just in case)
   if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API route not found' });
+    console.log(`[SPA FALLBACK] API route caught by SPA fallback: ${req.path}`);
+    console.log(`[SPA FALLBACK] This should not happen - API routes should be handled above`);
+    // ALWAYS return JSON for API routes, never HTML
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(404).json({ 
+      error: 'API route not found',
+      path: req.path,
+      message: 'The API route was not matched by any handler. Check server logs for route registration.'
+    });
   }
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });

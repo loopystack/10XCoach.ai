@@ -1,17 +1,56 @@
+console.log('[ADMIN ROUTES] Loading admin routes module...');
+
 const express = require('express');
 const router = express.Router();
-const prisma = require('../../lib/prisma');
-const db = require('../../../db');
-const { authenticate, requireAdmin, requireSuperAdmin } = require('../../middleware/auth.middleware');
+
+console.log('[ADMIN ROUTES] Router created');
+
+let prisma, db, authenticate, requireAdmin, requireSuperAdmin;
+
+try {
+  prisma = require('../../lib/prisma');
+  console.log('[ADMIN ROUTES] ✅ Prisma loaded');
+} catch (error) {
+  console.error('[ADMIN ROUTES] ❌ Error loading prisma:', error.message);
+}
+
+try {
+  db = require('../../../db');
+  console.log('[ADMIN ROUTES] ✅ Database module loaded');
+} catch (error) {
+  console.error('[ADMIN ROUTES] ❌ Error loading db:', error.message);
+}
+
+try {
+  const authMiddleware = require('../../middleware/auth.middleware');
+  authenticate = authMiddleware.authenticate;
+  requireAdmin = authMiddleware.requireAdmin;
+  requireSuperAdmin = authMiddleware.requireSuperAdmin;
+  console.log('[ADMIN ROUTES] ✅ Auth middleware loaded');
+} catch (error) {
+  console.error('[ADMIN ROUTES] ❌ Error loading auth middleware:', error.message);
+  console.error('[ADMIN ROUTES] Error stack:', error.stack);
+}
 
 // Test endpoint (no auth) to verify routing works
 router.get('/test', (req, res) => {
-  console.log('[ADMIN TEST] Route hit successfully');
+  console.log('[ADMIN TEST] ✅ Route hit successfully');
+  console.log('[ADMIN TEST] Request path:', req.path);
+  console.log('[ADMIN TEST] Request method:', req.method);
   res.json({ message: 'Admin routes are working!', timestamp: new Date().toISOString() });
 });
 
+console.log('[ADMIN ROUTES] Test route registered');
+
 // All admin routes require authentication and admin role
-router.use(authenticate, requireAdmin);
+if (authenticate && requireAdmin) {
+  router.use(authenticate, requireAdmin);
+  console.log('[ADMIN ROUTES] ✅ Auth middleware applied to all routes');
+} else {
+  console.error('[ADMIN ROUTES] ❌ Cannot apply auth middleware - functions not loaded!');
+}
+
+console.log('[ADMIN ROUTES] Module setup complete, registering routes...');
 
 // =============================================
 // GET /api/admin/overview
@@ -757,5 +796,11 @@ router.delete('/users/:id', requireSuperAdmin, async (req, res) => {
   }
 });
 
+console.log('[ADMIN ROUTES] All routes registered, exporting router...');
+console.log('[ADMIN ROUTES] Router type:', typeof router);
+console.log('[ADMIN ROUTES] Router is function?', typeof router === 'function');
+
 module.exports = router;
+
+console.log('[ADMIN ROUTES] ✅ Module exported successfully');
 

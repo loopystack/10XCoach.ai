@@ -1669,14 +1669,60 @@ app.get('/api/admin/coaches', async (req, res) => {
 // ============================================
 // MODULE ROUTES - Mount quiz and auth routes
 // ============================================
-const quizRoutes = require('./src/modules/quizzes/quiz.routes');
-const authRoutes = require('./src/modules/users/auth.routes');
-const adminRoutes = require('./src/modules/admin/admin.routes');
+console.log('[ROUTE SETUP] Loading route modules...');
+try {
+  const quizRoutes = require('./src/modules/quizzes/quiz.routes');
+  console.log('[ROUTE SETUP] ✅ Quiz routes loaded');
+} catch (error) {
+  console.error('[ROUTE SETUP] ❌ Error loading quiz routes:', error.message);
+}
+
+try {
+  const authRoutes = require('./src/modules/users/auth.routes');
+  console.log('[ROUTE SETUP] ✅ Auth routes loaded');
+} catch (error) {
+  console.error('[ROUTE SETUP] ❌ Error loading auth routes:', error.message);
+}
+
+let adminRoutes;
+try {
+  adminRoutes = require('./src/modules/admin/admin.routes');
+  console.log('[ROUTE SETUP] ✅ Admin routes loaded');
+  console.log('[ROUTE SETUP] Admin routes module type:', typeof adminRoutes);
+  console.log('[ROUTE SETUP] Admin routes is function?', typeof adminRoutes === 'function');
+} catch (error) {
+  console.error('[ROUTE SETUP] ❌ ERROR loading admin routes:', error);
+  console.error('[ROUTE SETUP] Error stack:', error.stack);
+  console.error('[ROUTE SETUP] This is why admin routes are failing!');
+}
 
 // Mount routes
-app.use('/api', quizRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
+console.log('[ROUTE SETUP] Mounting routes...');
+try {
+  app.use('/api', quizRoutes);
+  console.log('[ROUTE SETUP] ✅ /api (quiz routes) mounted');
+} catch (error) {
+  console.error('[ROUTE SETUP] ❌ Error mounting quiz routes:', error.message);
+}
+
+try {
+  app.use('/api/auth', authRoutes);
+  console.log('[ROUTE SETUP] ✅ /api/auth (auth routes) mounted');
+} catch (error) {
+  console.error('[ROUTE SETUP] ❌ Error mounting auth routes:', error.message);
+}
+
+try {
+  if (adminRoutes) {
+    app.use('/api/admin', adminRoutes);
+    console.log('[ROUTE SETUP] ✅ /api/admin (admin routes) mounted');
+  } else {
+    console.error('[ROUTE SETUP] ❌ Cannot mount admin routes - module not loaded!');
+  }
+} catch (error) {
+  console.error('[ROUTE SETUP] ❌ ERROR mounting admin routes:', error);
+  console.error('[ROUTE SETUP] Error stack:', error.stack);
+}
 
 // Log route registration
 console.log('✅ Routes registered:');
@@ -1693,14 +1739,23 @@ console.log('   - /api/admin (admin routes)');
 app.use((req, res, next) => {
   // If this is an API route and we reach here, no route matched
   if (req.path.startsWith('/api/')) {
-    console.error(`[API MISS] API route not matched: ${req.method} ${req.path}`);
+    console.error(`[API MISS] ❌ API route not matched: ${req.method} ${req.path}`);
+    console.error(`[API MISS] Request details:`, {
+      method: req.method,
+      path: req.path,
+      originalUrl: req.originalUrl,
+      baseUrl: req.baseUrl,
+      url: req.url
+    });
     console.error(`[API MISS] This route should have been handled by a route handler above`);
+    console.error(`[API MISS] Check route registration logs to see if routes were loaded`);
     res.setHeader('Content-Type', 'application/json');
     return res.status(404).json({
       error: 'API route not found',
       path: req.path,
       method: req.method,
-      message: 'The requested API endpoint does not exist. Check server logs for route registration.'
+      message: 'The requested API endpoint does not exist. Check server logs for route registration.',
+      debug: 'No route handler matched this path'
     });
   }
   next();
@@ -1744,20 +1799,26 @@ app.all('/api/*', (req, res) => {
 
 // SPA fallback - serve index.html for all non-API GET routes
 // CRITICAL: This must NOT match /api/* routes - they should be handled above
+// Express matches routes in order, so this should only match if no route above matched
 app.get('*', (req, res, next) => {
   // CRITICAL CHECK: If this is an API route, we should NEVER reach here
   if (req.path.startsWith('/api/')) {
-    console.error(`[SPA FALLBACK ERROR] API route caught by SPA fallback: ${req.path}`);
-    console.error(`[SPA FALLBACK ERROR] This means API routes are NOT registered correctly!`);
-    console.error(`[SPA FALLBACK ERROR] Check route registration logs above`);
+    console.error(`[SPA FALLBACK ERROR] API route caught by SPA fallback: ${req.method} ${req.path}`);
+    console.error(`[SPA FALLBACK ERROR] This means API routes are NOT registered or not matching!`);
+    console.error(`[SPA FALLBACK ERROR] Request details:`, {
+      method: req.method,
+      path: req.path,
+      originalUrl: req.originalUrl,
+      headers: req.headers
+    });
     // ALWAYS return JSON for API routes, never HTML
     res.setHeader('Content-Type', 'application/json');
     return res.status(404).json({ 
       error: 'API route not found',
       path: req.path,
       method: req.method,
-      message: 'API route was caught by SPA fallback. This indicates route registration failed.',
-      debug: 'Check server logs for route registration errors'
+      message: 'API route was caught by SPA fallback. This indicates no route handler matched.',
+      debug: 'Check server startup logs for route registration'
     });
   }
   

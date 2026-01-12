@@ -84,6 +84,40 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// CRITICAL: Ensure all API routes return JSON, never HTML
+// This middleware MUST come before static file serving
+app.use('/api', (req, res, next) => {
+  // Set JSON content-type for all API routes
+  res.setHeader('Content-Type', 'application/json');
+  
+  // Override res.sendFile to prevent HTML responses for API routes
+  const originalSend = res.send;
+  res.send = function(body) {
+    if (typeof body === 'string' && body.trim().startsWith('<!DOCTYPE')) {
+      console.error('[API ERROR] Attempted to send HTML to API route:', req.path);
+      return res.status(500).json({ 
+        error: 'Internal server error',
+        message: 'API route attempted to return HTML instead of JSON',
+        path: req.path
+      });
+    }
+    return originalSend.call(this, body);
+  };
+  
+  // Override res.sendFile for API routes
+  const originalSendFile = res.sendFile;
+  res.sendFile = function(file) {
+    console.error('[API ERROR] Attempted to sendFile for API route:', req.path, file);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      message: 'API route attempted to send a file instead of JSON',
+      path: req.path
+    });
+  };
+  
+  next();
+});
+
 // Serve static files from avatars folder
 app.use('/avatars', express.static(path.join(__dirname, '../avatars')));
 
@@ -1654,20 +1688,44 @@ console.log('   - /api/admin (admin routes)');
 // STATIC FILE SERVING - Must be after API routes
 // ============================================
 
+// CRITICAL: Add middleware BEFORE static files to catch any /api/* requests
+// This ensures they NEVER get served as static files
+app.use((req, res, next) => {
+  // If this is an API route and we reach here, no route matched
+  if (req.path.startsWith('/api/')) {
+    console.error(`[API MISS] API route not matched: ${req.method} ${req.path}`);
+    console.error(`[API MISS] This route should have been handled by a route handler above`);
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(404).json({
+      error: 'API route not found',
+      path: req.path,
+      method: req.method,
+      message: 'The requested API endpoint does not exist. Check server logs for route registration.'
+    });
+  }
+  next();
+});
+
 // Serve built frontend (production) - only for non-API routes
 const staticMiddleware = express.static(path.join(__dirname, '../client/dist'));
 app.use((req, res, next) => {
-  // Skip static file serving for API routes
+  // Double-check: Skip static file serving for API routes
   if (req.path.startsWith('/api/')) {
-    return next();
+    // This should never be reached due to middleware above, but just in case
+    console.error(`[STATIC ERROR] API route caught by static middleware: ${req.path}`);
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(404).json({
+      error: 'API route not found',
+      path: req.path,
+      message: 'API route was caught by static file middleware. This should never happen.'
+    });
   }
   staticMiddleware(req, res, next);
 });
 
-// 404 handler for unmatched API routes (must be after all specific API routes)
-// This will only catch routes that don't match any specific handler above
-app.all('/api/*', (req, res, next) => {
-  // Only handle if no route matched (this should rarely be hit for defined routes)
+// 404 handler for unmatched API routes (redundant, but extra safety)
+// This should never be hit due to middleware above, but just in case
+app.all('/api/*', (req, res) => {
   console.log(`[404] API route not found: ${req.method} ${req.path}`);
   console.log(`[404] Request headers:`, {
     'content-type': req.headers['content-type'],

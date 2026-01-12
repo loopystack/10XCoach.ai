@@ -53,7 +53,7 @@ const Users = () => {
     }
 
     // Fetch users
-    api.get('/api/admin/users')
+    api.get('/api/manage-users')
       .then(data => {
         // Ensure data is an array
         if (Array.isArray(data)) {
@@ -132,7 +132,7 @@ const Users = () => {
         return
       }
       
-      const response = await api.put(`/api/admin/users/${userId}/role`, { role: newRole })
+      const response = await api.put(`/api/manage-users/${userId}/role`, { role: newRole })
       
       // Update local state with response data
       setUsers(prevUsers => 
@@ -185,7 +185,7 @@ const Users = () => {
 
     setDeletingUserId(userId)
     try {
-      await api.delete(`/api/admin/users/${userId}`)
+      await api.delete(`/api/manage-users/${userId}`)
       
       // Remove user from state
       setUsers(prevUsers => prevUsers.filter(u => u.id !== userId))

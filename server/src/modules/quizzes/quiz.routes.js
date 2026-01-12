@@ -1099,7 +1099,7 @@ router.get('/quiz/results/:resultId/export', authenticate, async (req, res) => {
 // GET /api/admin/quiz/questions
 // Get all quiz questions organized by pillar (admin only)
 // =============================================
-router.get('/admin/quiz/questions', authenticate, requireAdmin, async (req, res) => {
+router.get('/manage-quiz-questions', authenticate, requireAdmin, async (req, res) => {
   try {
     console.log('📋 Admin: Fetching quiz questions...');
     
@@ -1225,7 +1225,7 @@ router.get('/admin/quiz/questions', authenticate, requireAdmin, async (req, res)
 // POST /api/admin/quiz/questions
 // Create a new quiz question (admin only)
 // =============================================
-router.post('/admin/quiz/questions', authenticate, requireAdmin, async (req, res) => {
+router.post('/manage-quiz-questions', authenticate, requireAdmin, async (req, res) => {
   try {
     const { text, type, pillarTag, weight, order, options } = req.body;
 
@@ -1297,7 +1297,7 @@ router.post('/admin/quiz/questions', authenticate, requireAdmin, async (req, res
 // PUT /api/admin/quiz/questions/:id
 // Update a quiz question (admin only)
 // =============================================
-router.put('/admin/quiz/questions/:id', authenticate, requireAdmin, async (req, res) => {
+router.put('/manage-quiz-questions/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const questionId = parseInt(req.params.id);
     const { text, type, pillarTag, weight, order, options } = req.body;
@@ -1351,7 +1351,7 @@ router.put('/admin/quiz/questions/:id', authenticate, requireAdmin, async (req, 
 // DELETE /api/admin/quiz/questions/:id
 // Delete a quiz question (admin only)
 // =============================================
-router.delete('/admin/quiz/questions/:id', authenticate, requireAdmin, async (req, res) => {
+router.delete('/manage-quiz-questions/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const questionId = parseInt(req.params.id);
 
@@ -1384,7 +1384,7 @@ router.delete('/admin/quiz/questions/:id', authenticate, requireAdmin, async (re
 // GET /api/admin/pillars
 // Get all pillars (admin only)
 // =============================================
-router.get('/admin/pillars', authenticate, requireAdmin, async (req, res) => {
+router.get('/manage-pillars', authenticate, requireAdmin, async (req, res) => {
   try {
     // Use raw SQL to avoid Prisma schema issues
     try {
@@ -1433,7 +1433,7 @@ router.get('/admin/pillars', authenticate, requireAdmin, async (req, res) => {
 // POST /api/admin/pillars
 // Create a new pillar (admin only)
 // =============================================
-router.post('/admin/pillars', authenticate, requireAdmin, async (req, res) => {
+router.post('/manage-pillars', authenticate, requireAdmin, async (req, res) => {
   try {
     const { tag, name, icon, color, description, order } = req.body;
 
@@ -1491,7 +1491,7 @@ router.post('/admin/pillars', authenticate, requireAdmin, async (req, res) => {
 // PUT /api/admin/pillars/:id
 // Update a pillar (admin only)
 // =============================================
-router.put('/admin/pillars/:id', authenticate, requireAdmin, async (req, res) => {
+router.put('/manage-pillars/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const pillarId = parseInt(req.params.id);
     const { name, icon, color, description, active, order } = req.body;
@@ -1528,7 +1528,7 @@ router.put('/admin/pillars/:id', authenticate, requireAdmin, async (req, res) =>
 // DELETE /api/admin/pillars/:id
 // Delete a pillar (admin only)
 // =============================================
-router.delete('/admin/pillars/:id', authenticate, requireAdmin, async (req, res) => {
+router.delete('/manage-pillars/:id', authenticate, requireAdmin, async (req, res) => {
   try {
     const pillarId = parseInt(req.params.id);
 

@@ -33,7 +33,7 @@ try {
 }
 
 // Test endpoint (no auth) to verify routing works
-router.get('/test', (req, res) => {
+router.get('/manage-test', (req, res) => {
   console.log('[ADMIN TEST] ✅ Route hit successfully');
   console.log('[ADMIN TEST] Request path:', req.path);
   console.log('[ADMIN TEST] Request method:', req.method);
@@ -53,10 +53,10 @@ if (authenticate && requireAdmin) {
 console.log('[ADMIN ROUTES] Module setup complete, registering routes...');
 
 // =============================================
-// GET /api/admin/overview
+// GET /api/manage-overview
 // Get admin dashboard overview stats
 // =============================================
-router.get('/overview', async (req, res) => {
+router.get('/manage-overview', async (req, res) => {
   try {
     const [
       userStats,
@@ -134,11 +134,11 @@ router.get('/overview', async (req, res) => {
 });
 
 // =============================================
-// GET /api/admin/users
+// GET /api/manage-users
 // Get all users with detailed info
 // =============================================
-router.get('/users', async (req, res) => {
-  console.log('[ADMIN USERS] Route hit - GET /api/admin/users');
+router.get('/manage-users', async (req, res) => {
+  console.log('[ADMIN USERS] Route hit - GET /api/manage-users');
   console.log('[ADMIN USERS] User:', req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : 'No user');
   console.log('[ADMIN USERS] Query params:', req.query);
   
@@ -287,11 +287,11 @@ router.get('/users', async (req, res) => {
 });
 
 // =============================================
-// GET /api/admin/coaches
+// GET /api/manage-coaches
 // Get all coaches with stats
 // =============================================
-router.get('/coaches', async (req, res) => {
-  console.log('[ADMIN COACHES] Route hit - GET /api/admin/coaches');
+router.get('/manage-coaches', async (req, res) => {
+  console.log('[ADMIN COACHES] Route hit - GET /api/manage-coaches');
   console.log('[ADMIN COACHES] User:', req.user ? { id: req.user.id, email: req.user.email, role: req.user.role } : 'No user');
   
   try {
@@ -343,10 +343,10 @@ router.get('/coaches', async (req, res) => {
 });
 
 // =============================================
-// GET /api/admin/sessions
+// GET /api/manage-sessions
 // Get all sessions with filters
 // =============================================
-router.get('/sessions', async (req, res) => {
+router.get('/manage-sessions', async (req, res) => {
   try {
     const { coachId, userId, status, from, to } = req.query;
 
@@ -401,10 +401,10 @@ router.get('/sessions', async (req, res) => {
 });
 
 // =============================================
-// GET /api/admin/settings
+// GET /api/manage-settings
 // Get all admin settings (from database, with env fallback)
 // =============================================
-router.get('/settings', async (req, res) => {
+router.get('/manage-settings', async (req, res) => {
   try {
     const settings = await prisma.adminSettings.findMany();
     
@@ -450,10 +450,10 @@ router.get('/settings', async (req, res) => {
 });
 
 // =============================================
-// POST /api/admin/settings
+// POST /api/manage-settings
 // Update admin settings (feature toggles)
 // =============================================
-router.post('/settings', async (req, res) => {
+router.post('/manage-settings', async (req, res) => {
   try {
     const { settings } = req.body;
 
@@ -480,10 +480,10 @@ router.post('/settings', async (req, res) => {
 });
 
 // =============================================
-// POST /api/admin/emails/test
+// POST /api/manage-emails-test
 // Send a test email to verify SMTP configuration
 // =============================================
-router.post('/emails/test', async (req, res) => {
+router.post('/manage-emails-test', async (req, res) => {
   try {
     const { to, subject, message } = req.body;
 
@@ -565,10 +565,10 @@ router.post('/emails/test', async (req, res) => {
 });
 
 // =============================================
-// GET /api/admin/analytics
+// GET /api/manage-analytics
 // Get analytics data
 // =============================================
-router.get('/analytics', async (req, res) => {
+router.get('/manage-analytics', async (req, res) => {
   try {
     const { period = '30d' } = req.query;
     
@@ -761,7 +761,7 @@ router.put('/users/:id/role', requireSuperAdmin, async (req, res) => {
 // DELETE /api/admin/users/:id
 // Delete a user (Super Admin only)
 // =============================================
-router.delete('/users/:id', requireSuperAdmin, async (req, res) => {
+router.delete('/manage-users/:id', requireSuperAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     

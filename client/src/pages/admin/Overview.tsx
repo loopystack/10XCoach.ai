@@ -42,7 +42,7 @@ const Overview = () => {
     }
 
     // Fetch overview stats
-    api.get('/api/admin/overview')
+    api.get('/api/manage-overview')
       .then(data => {
         // Validate that data has required properties, otherwise use mock data
         if (data && typeof data.totalUsers === 'number') {

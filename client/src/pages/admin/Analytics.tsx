@@ -86,7 +86,7 @@ const Analytics = () => {
     try {
       setLoading(true)
       // Try to fetch from API
-      await api.get(`/api/admin/analytics?period=${period}`).catch(() => null)
+      await api.get(`/api/manage-analytics?period=${period}`).catch(() => null)
       
       // Use mock data for now (replace with real API data when available)
       const mockData: KPIData = {

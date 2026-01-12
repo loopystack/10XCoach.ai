@@ -1714,8 +1714,8 @@ try {
 
 try {
   if (adminRoutes) {
-    app.use('/api/admin', adminRoutes);
-    console.log('[ROUTE SETUP] ✅ /api/admin (admin routes) mounted');
+    app.use('/api', adminRoutes);
+    console.log('[ROUTE SETUP] ✅ /api (admin routes as manage-* routes) mounted');
   } else {
     console.error('[ROUTE SETUP] ❌ Cannot mount admin routes - module not loaded!');
   }
@@ -1728,7 +1728,7 @@ try {
 console.log('✅ Routes registered:');
 console.log('   - /api (quiz routes)');
 console.log('   - /api/auth (auth routes)');
-console.log('   - /api/admin (admin routes)');
+console.log('   - /api (admin routes as manage-* routes)');
 
 // ============================================
 // STATIC FILE SERVING - Must be after API routes

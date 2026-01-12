@@ -131,7 +131,7 @@ const Homepage = () => {
               </button>
             </div>
           </div>
-          <p className="homepage-subtitle">Choose your platform</p>
+          <p className="homepage-subtitle">Choose your platform!</p>
         </div>
 
         <div className="dashboard-options">

@@ -8,12 +8,12 @@ module.exports = {
       cwd: '/var/www/10XCoach.ai',
       env: {
         NODE_ENV: 'production',
-        PORT: 3001,
+        PORT: 3080,
         HTTPS: 'true'
       },
       env_production: {
         NODE_ENV: 'production',
-        PORT: 3001,
+        PORT: 3080,
         HTTPS: 'true'
       }
     }

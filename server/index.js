@@ -1743,20 +1743,31 @@ app.all('/api/*', (req, res) => {
 });
 
 // SPA fallback - serve index.html for all non-API GET routes
-app.get('*', (req, res) => {
-  // Skip API routes (shouldn't reach here for API routes, but just in case)
+// CRITICAL: This must NOT match /api/* routes - they should be handled above
+app.get('*', (req, res, next) => {
+  // CRITICAL CHECK: If this is an API route, we should NEVER reach here
   if (req.path.startsWith('/api/')) {
-    console.log(`[SPA FALLBACK] API route caught by SPA fallback: ${req.path}`);
-    console.log(`[SPA FALLBACK] This should not happen - API routes should be handled above`);
+    console.error(`[SPA FALLBACK ERROR] API route caught by SPA fallback: ${req.path}`);
+    console.error(`[SPA FALLBACK ERROR] This means API routes are NOT registered correctly!`);
+    console.error(`[SPA FALLBACK ERROR] Check route registration logs above`);
     // ALWAYS return JSON for API routes, never HTML
     res.setHeader('Content-Type', 'application/json');
     return res.status(404).json({ 
       error: 'API route not found',
       path: req.path,
-      message: 'The API route was not matched by any handler. Check server logs for route registration.'
+      method: req.method,
+      message: 'API route was caught by SPA fallback. This indicates route registration failed.',
+      debug: 'Check server logs for route registration errors'
     });
   }
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  
+  // Only serve HTML for non-API routes
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'), (err) => {
+    if (err) {
+      console.error('Error sending index.html:', err);
+      res.status(500).json({ error: 'Failed to serve index.html' });
+    }
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

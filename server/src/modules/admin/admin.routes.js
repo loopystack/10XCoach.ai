@@ -646,7 +646,7 @@ router.get('/manage-analytics', async (req, res) => {
 // PUT /api/admin/users/:id/role
 // Update user role (Super Admin only)
 // =============================================
-router.put('/users/:id/role', requireSuperAdmin, async (req, res) => {
+router.put('/manage-users/:id/role', requireSuperAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     const { role } = req.body;

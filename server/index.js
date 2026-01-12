@@ -1576,95 +1576,14 @@ app.get('/api/dashboard/stats', async (req, res) => {
 // ============================================
 
 // Admin Overview Stats
-app.get('/api/admin/overview', async (req, res) => {
-  try {
-    const stats = await db.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM users WHERE status = 'Active') as active_subscribers,
-        (SELECT COUNT(*) FROM users WHERE plan = 'Foundation') as foundation_plan,
-        (SELECT COUNT(*) FROM users WHERE plan = 'Momentum') as momentum_plan,
-        (SELECT COUNT(*) FROM users WHERE plan = 'Elite') as elite_plan,
-        (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '7 days') as new_signups_7d,
-        (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '30 days') as new_signups_30d
-    `);
-    
-    // Add some computed stats
-    const result = {
-      ...stats.rows[0],
-      avgBusinessHealth: 68.5,
-      healthTrend: 4.2,
-      sessionsPerUser: 3.2,
-      avgSessionLength: 18,
-      activeUsers7d: 72,
-      redFlagUsers: 23,
-      inactiveUsers30d: 89
-    };
-    
-    res.json(result);
-  } catch (error) {
-    console.error('Error fetching admin overview:', error);
-    res.status(500).json({ error: 'Failed to fetch admin overview' });
-  }
-});
-
-// Admin Users List
-app.get('/api/admin/users', async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT u.*, c.name as primary_coach 
-      FROM users u 
-      LEFT JOIN coaches c ON u.primary_coach_id = c.id 
-      ORDER BY u.id
-    `);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching admin users:', error);
-    res.status(500).json({ error: 'Failed to fetch admin users' });
-  }
-});
-
-// Admin Coaches List
-// NOTE: This route is duplicated in admin.routes.js - consider removing this one
-app.get('/api/admin/coaches', async (req, res) => {
-  console.log('[LEGACY COACHES] Route hit - GET /api/admin/coaches (legacy route in server/index.js)');
-  try {
-    // ALWAYS set JSON header first
-    res.setHeader('Content-Type', 'application/json');
-    
-    const result = await db.query(`
-      SELECT 
-        id, name, 
-        CASE 
-          WHEN specialty LIKE 'Business%' THEN 'Strategy'
-          ELSE SPLIT_PART(specialty, ' ', 1)
-        END as pillar,
-        tagline, active, model, temperature, max_tokens,
-        (SELECT COUNT(*) FROM users WHERE primary_coach_id = coaches.id) as knowledge_sources
-      FROM coaches 
-      ORDER BY id
-    `);
-    
-    console.log('[LEGACY COACHES] Found coaches:', result.rows.length);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('[LEGACY COACHES] Error fetching admin coaches:', error);
-    console.error('[LEGACY COACHES] Error details:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
-    
-    // ALWAYS return JSON, never HTML
-    if (!res.headersSent) {
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ 
-        error: error.message || 'Failed to fetch admin coaches',
-        message: 'An error occurred while fetching coaches. Please check the server logs.',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  }
-});
+// ============================================
+// LEGACY ADMIN ROUTES REMOVED
+// ============================================
+// These routes have been moved to /api/manage-* routes in admin.routes.js:
+// - /api/admin/overview → /api/manage-overview
+// - /api/admin/users → /api/manage-users
+// - /api/admin/coaches → /api/manage-coaches
+// All routes are now handled by the admin.routes.js module
 
 // ============================================
 // MODULE ROUTES - Mount quiz and auth routes

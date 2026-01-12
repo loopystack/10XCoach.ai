@@ -163,7 +163,38 @@ router.get('/users', async (req, res) => {
     `;
 
     // Use db.js connection for more reliable queries
-    const result = await db.query(query, queryParams);
+    let result;
+    try {
+      result = await db.query(query, queryParams);
+    } catch (dbError) {
+      console.error('Database query error:', dbError);
+      console.error('Database error details:', {
+        message: dbError.message,
+        code: dbError.code,
+        stack: dbError.stack
+      });
+      
+      // Check for specific database errors
+      if (dbError.code === '42P01' || dbError.message?.includes('does not exist')) {
+        return res.status(500).json({ 
+          error: 'Database table not found',
+          message: 'The users table does not exist. Please check your database schema.',
+          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+        });
+      }
+      
+      if (dbError.code === 'ECONNREFUSED' || dbError.code === 'ENOTFOUND' || dbError.message?.includes('connection')) {
+        return res.status(500).json({ 
+          error: 'Database connection failed',
+          message: 'Unable to connect to the database. Please check your database configuration.',
+          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+        });
+      }
+      
+      // Re-throw to be caught by outer catch block
+      throw dbError;
+    }
+    
     const users = result.rows || [];
 
     // Format the response to match expected structure
@@ -191,9 +222,18 @@ router.get('/users', async (req, res) => {
     console.error('Error details:', {
       message: error.message,
       stack: error.stack,
+      code: error.code,
       query: req.query
     });
-    res.status(500).json({ error: error.message || 'Failed to get users' });
+    
+    // Ensure we always return JSON, never HTML
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: error.message || 'Failed to get users',
+        message: 'An error occurred while fetching users. Please check the server logs for details.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
   }
 });
 

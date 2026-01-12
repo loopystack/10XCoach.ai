@@ -24,7 +24,18 @@ export const api = {
       headers: getAuthHeaders(),
     })
     
-    const data = await response.json()
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type')
+    let data
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json()
+    } else {
+      // If not JSON, it's probably HTML (404 page) or text
+      const text = await response.text()
+      console.error('Non-JSON response received:', text.substring(0, 200))
+      throw new Error(`Server returned non-JSON response. Status: ${response.status}. The API endpoint may not exist or the server may need to be restarted.`)
+    }
     
     if (!response.ok) {
       throw new Error(data.error || `HTTP error! status: ${response.status}`)
@@ -40,7 +51,18 @@ export const api = {
       body: JSON.stringify(body),
     })
     
-    const data = await response.json()
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type')
+    let data
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json()
+    } else {
+      // If not JSON, it's probably HTML (404 page) or text
+      const text = await response.text()
+      console.error('Non-JSON response received:', text.substring(0, 200))
+      throw new Error(`Server returned non-JSON response. Status: ${response.status}. The API endpoint may not exist or the server may need to be restarted.`)
+    }
     
     if (!response.ok) {
       throw new Error(data.error || `HTTP error! status: ${response.status}`)
@@ -56,7 +78,18 @@ export const api = {
       body: JSON.stringify(body),
     })
     
-    const data = await response.json()
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type')
+    let data
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json()
+    } else {
+      // If not JSON, it's probably HTML (404 page) or text
+      const text = await response.text()
+      console.error('Non-JSON response received:', text.substring(0, 200))
+      throw new Error(`Server returned non-JSON response. Status: ${response.status}. The API endpoint may not exist or the server may need to be restarted.`)
+    }
     
     if (!response.ok) {
       throw new Error(data.error || `HTTP error! status: ${response.status}`)

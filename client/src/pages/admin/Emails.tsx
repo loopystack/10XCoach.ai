@@ -174,9 +174,9 @@ const Emails = () => {
                 type="text"
                 value={settings.smtpHost}
                 onChange={(e) => handleChange('smtpHost', e.target.value)}
-                placeholder={settings.smtpHost || "Enter SMTP host"}
+                placeholder={settings.smtpHost || "smtpout.secureserver.net (GoDaddy)"}
               />
-              <small>Your SMTP server hostname</small>
+              <small>GoDaddy: smtpout.secureserver.net | Zoho: smtp.zoho.com | Gmail: smtp.gmail.com | Outlook: smtp-mail.outlook.com</small>
             </div>
             
             <div className="settings-form-field">
@@ -201,7 +201,7 @@ const Emails = () => {
                 onChange={(e) => handleChange('smtpUsername', e.target.value)}
                 placeholder={settings.smtpUsername || "Enter SMTP username/email"}
               />
-              <small>Your SMTP account username/email</small>
+              <small>For GoDaddy: Use full email address (e.g., support@10xcoach.ai)</small>
             </div>
 
             <div className="settings-form-field">

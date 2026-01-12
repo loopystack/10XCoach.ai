@@ -21,8 +21,27 @@ const Coaches = () => {
 
   useEffect(() => {
     fetch('/api/coaches')
-      .then(res => res.json())
-      .then(data => setCoaches(data))
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch coaches: ${res.status} ${res.statusText}`)
+        }
+        return res.json()
+      })
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCoaches(data)
+          if (data.length === 0) {
+            console.warn('⚠️ No coaches returned from API. Check if coaches are set to active=true in database.')
+          }
+        } else {
+          console.error('❌ Invalid coaches data format:', data)
+          setCoaches([])
+        }
+      })
+      .catch(err => {
+        console.error('❌ Error fetching coaches:', err)
+        setCoaches([])
+      })
   }, [])
 
   // Handle page restoration from bfcache (back/forward cache)
@@ -32,8 +51,20 @@ const Coaches = () => {
       // If page was restored from bfcache, refresh the coaches data
       if (event.persisted) {
         fetch('/api/coaches')
-          .then(res => res.json())
-          .then(data => setCoaches(data))
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch coaches: ${res.status} ${res.statusText}`)
+            }
+            return res.json()
+          })
+          .then(data => {
+            if (Array.isArray(data)) {
+              setCoaches(data)
+            } else {
+              console.error('❌ Invalid coaches data format:', data)
+              setCoaches([])
+            }
+          })
           .catch(err => console.error('Error refreshing coaches:', err))
       }
     }
@@ -175,8 +206,25 @@ const Coaches = () => {
           </select>
         </div>
 
-        <div className="coaches-grid">
-          {filteredCoaches.map(coach => (
+        {filteredCoaches.length === 0 ? (
+          <div className="coaches-empty-state">
+            <Sparkles size={48} />
+            <h3>No Coaches Available</h3>
+            <p>
+              No coaches are currently available. This may be because:
+            </p>
+            <ul>
+              <li>Coaches are not set to active in the database</li>
+              <li>The database connection is not working</li>
+              <li>The API endpoint is not responding correctly</li>
+            </ul>
+            <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666' }}>
+              Please check the server logs or contact support if this issue persists.
+            </p>
+          </div>
+        ) : (
+          <div className="coaches-grid">
+            {filteredCoaches.map(coach => (
             <div key={coach.id} className="coach-card">
               <div className="coach-avatar-wrapper">
                 {coach.avatar ? (
@@ -235,7 +283,8 @@ const Coaches = () => {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

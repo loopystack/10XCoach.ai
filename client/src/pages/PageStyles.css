@@ -1122,6 +1122,64 @@
    COACHES PAGE
    ============================================ */
 
+/* Empty State for Coaches */
+.coaches-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--gray-700);
+}
+
+.coaches-empty-state svg {
+  color: var(--primary);
+  opacity: 0.5;
+  margin-bottom: 20px;
+}
+
+.coaches-empty-state h3 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin: 0 0 16px 0;
+}
+
+.coaches-empty-state p {
+  font-size: 16px;
+  color: var(--gray-600);
+  margin: 0 0 20px 0;
+  max-width: 600px;
+}
+
+.coaches-empty-state ul {
+  text-align: left;
+  max-width: 500px;
+  margin: 0 auto 20px;
+  padding-left: 20px;
+}
+
+.coaches-empty-state li {
+  font-size: 14px;
+  color: var(--gray-600);
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+[data-theme="dark"] .coaches-empty-state {
+  color: var(--gray-300);
+}
+
+[data-theme="dark"] .coaches-empty-state h3 {
+  color: var(--gray-100);
+}
+
+[data-theme="dark"] .coaches-empty-state p,
+[data-theme="dark"] .coaches-empty-state li {
+  color: var(--gray-400);
+}
+
 /* 4x2 Grid Layout - 4 coaches per row, 2 rows total */
 .coaches-grid {
   display: grid;

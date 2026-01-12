@@ -17,7 +17,8 @@ async function seedDatabase() {
         description: 'Confident visionary strategist bringing sharp clarity, decisive action steps, and uplifting intensity.',
         tagline: "Let's think bigger and move faster—with focus.",
         avatar: 'Alan-Wozniak-CEC.jpg',
-        voiceId: 'alloy'
+        voiceId: 'alloy',
+        active: true
       },
       {
         name: 'Rob Mercer',
@@ -27,7 +28,8 @@ async function seedDatabase() {
         description: 'Charismatic closer—smooth, gritty, high-confidence. Turns objections into opportunities.',
         tagline: 'Turn problems into conversions.',
         avatar: 'Robertini-Rob-Mercer.jpg',
-        voiceId: 'echo'
+        voiceId: 'echo',
+        active: true
       },
       {
         name: 'Teresa Lane',
@@ -37,7 +39,8 @@ async function seedDatabase() {
         description: 'Persuasive, feminine creative who makes brands irresistible. Elegant, high-emotion, and deeply intuitive.',
         tagline: "Let's make your message magnetic.",
         avatar: 'Teresa-Lane.jpg',
-        voiceId: 'alloy'
+        voiceId: 'alloy',
+        active: true
       },
       {
         name: 'Camille Quinn',
@@ -47,7 +50,8 @@ async function seedDatabase() {
         description: 'Luxury experience architect—poised, warm, and emotionally attuned. Builds brands people fall in love with.',
         tagline: 'Every touchpoint should feel unforgettable.',
         avatar: 'Camille-Quinn.jpg',
-        voiceId: 'alloy'
+        voiceId: 'alloy',
+        active: true
       },
       {
         name: 'Jeffrey Wells',
@@ -57,7 +61,8 @@ async function seedDatabase() {
         description: 'Tactical powerhouse—disciplined, structured, and efficiency-driven. Makes complexity feel simple.',
         tagline: 'We build businesses that run without you.',
         avatar: 'Jeffrey-Wells.jpg',
-        voiceId: 'onyx'
+        voiceId: 'onyx',
+        active: true
       },
       {
         name: 'Chelsea Fox',
@@ -67,7 +72,8 @@ async function seedDatabase() {
         description: 'Blends feminine authority with compassion. Helps leaders grow, teams align, and cultures evolve with purpose.',
         tagline: "Culture isn't what you say—it's what you build.",
         avatar: 'Chelsea-Fox.jpg',
-        voiceId: 'alloy'
+        voiceId: 'alloy',
+        active: true
       },
       {
         name: 'Hudson Jaxon',
@@ -77,7 +83,8 @@ async function seedDatabase() {
         description: 'Boardroom presence—sharp, intentional, and investor-minded. Sees numbers like a strategist sees a chessboard.',
         tagline: 'Profit is power.',
         avatar: 'Hudson-Jaxson.jpg',
-        voiceId: 'alloy'
+        voiceId: 'alloy',
+        active: true
       },
       {
         name: 'Tanner Chase',
@@ -87,7 +94,8 @@ async function seedDatabase() {
         description: 'Calm, authoritative, and future-focused. Speaks like a seasoned M&A advisor building legacy-level companies.',
         tagline: "We don't just grow companies—we build buyable ones.",
         avatar: 'Tanner-Chase.jpg',
-        voiceId: 'alloy'
+        voiceId: 'alloy',
+        active: true
       }
     ];
 

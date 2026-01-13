@@ -16,20 +16,52 @@ const { createCheckoutSession, getOrCreateCustomer, stripe, STRIPE_PUBLISHABLE_K
 // =============================================
 router.get('/billing/status', authenticate, async (req, res) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        trialStartDate: true,
-        trialEndDate: true,
-        accessStatus: true,
-        currentPlanName: true,
-        planStartDate: true,
-        planEndDate: true,
-        creditBalance: true,
-        stripeCustomerId: true
+    // Try to get user with billing fields, but handle case where fields don't exist yet
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: {
+          id: true,
+          trialStartDate: true,
+          trialEndDate: true,
+          accessStatus: true,
+          currentPlanName: true,
+          planStartDate: true,
+          planEndDate: true,
+          creditBalance: true,
+          stripeCustomerId: true
+        }
+      });
+    } catch (dbError) {
+      // If database fields don't exist, get basic user and initialize defaults
+      console.warn('Billing fields may not exist in database yet:', dbError.message);
+      user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { id: true }
+      });
+      
+      if (user) {
+        // Initialize default values for users without billing fields
+        const now = new Date();
+        const trialEnd = new Date(now);
+        trialEnd.setDate(trialEnd.getDate() + 14);
+        
+        return res.json({
+          trialStartDate: now.toISOString(),
+          trialEndDate: trialEnd.toISOString(),
+          trialDaysRemaining: 14,
+          accessStatus: 'TRIAL_ACTIVE',
+          hasAccess: true,
+          currentPlanName: null,
+          planStartDate: null,
+          planEndDate: null,
+          creditBalance: 0,
+          stripeCustomerId: null,
+          _migrationNeeded: true
+        });
       }
-    });
+    }
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -48,7 +80,7 @@ router.get('/billing/status', authenticate, async (req, res) => {
       trialStartDate: user.trialStartDate,
       trialEndDate: user.trialEndDate,
       trialDaysRemaining,
-      accessStatus: user.accessStatus,
+      accessStatus: user.accessStatus || 'TRIAL_ACTIVE',
       hasAccess: access.hasAccess,
       currentPlanName: user.currentPlanName,
       planStartDate: user.planStartDate,
@@ -58,7 +90,11 @@ router.get('/billing/status', authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error('Get billing status error:', error);
-    res.status(500).json({ error: 'Failed to get billing status' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to get billing status',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Check, CreditCard, Clock, AlertCircle, ArrowRight } from 'lucide-react'
 import { api, isAuthenticated } from '../utils/api'
 import './PageStyles.css'
+import './Dashboard.css'
 
 interface BillingStatus {
   trialStartDate: string | null
@@ -63,6 +64,19 @@ const Plans = () => {
       setBillingStatus(status)
     } catch (error: any) {
       console.error('Failed to fetch billing status:', error)
+      // Set default values if error occurs
+      setBillingStatus({
+        trialStartDate: null,
+        trialEndDate: null,
+        trialDaysRemaining: null,
+        accessStatus: 'TRIAL_ACTIVE',
+        hasAccess: true,
+        currentPlanName: null,
+        planStartDate: null,
+        planEndDate: null,
+        creditBalance: 0,
+        stripeCustomerId: null
+      })
     } finally {
       setLoading(false)
     }
@@ -128,9 +142,9 @@ const Plans = () => {
     return (
       <div className="page-container">
         <div className="content-card">
-          <div className="text-center p-8">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
-            <p className="text-gray-600">Loading plans...</p>
+          <div style={{ textAlign: 'center', padding: '48px' }}>
+            <div className="loading"></div>
+            <p style={{ marginTop: '16px', color: 'var(--gray-600)' }}>Loading plans...</p>
           </div>
         </div>
       </div>
@@ -141,22 +155,35 @@ const Plans = () => {
 
   return (
     <div className="page-container">
-      <div className="content-card" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Choose Your Plan</h1>
-          <p className="text-gray-600">Upgrade to unlock all features</p>
+      <div className="page-header">
+        <div>
+          <h1>My Plans</h1>
+          <p className="page-subtitle">Upgrade to unlock all features</p>
         </div>
+      </div>
 
+      <div className="content-card" style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Trial Status Banner */}
         {billingStatus && (
-          <div className={`mb-6 p-4 rounded-lg ${billingStatus.hasAccess ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'}`}>
-            <div className="flex items-center gap-3">
+          <div 
+            className="content-card" 
+            style={{ 
+              marginBottom: '24px',
+              padding: '20px',
+              background: billingStatus.hasAccess 
+                ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%)'
+                : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)',
+              border: billingStatus.hasAccess 
+                ? '1px solid rgba(59, 130, 246, 0.3)'
+                : '1px solid rgba(239, 68, 68, 0.3)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {billingStatus.hasAccess ? (
                 <>
-                  <Clock className="text-blue-600" size={20} />
+                  <Clock style={{ color: '#3b82f6', flexShrink: 0 }} size={20} />
                   <div>
-                    <p className="font-semibold text-blue-900">
+                    <p style={{ fontWeight: 700, color: 'var(--gray-900)', marginBottom: '4px' }}>
                       {billingStatus.trialDaysRemaining !== null
                         ? `${billingStatus.trialDaysRemaining} days remaining in your free trial`
                         : billingStatus.currentPlanName
@@ -164,7 +191,7 @@ const Plans = () => {
                         : 'Active Access'}
                     </p>
                     {billingStatus.trialDaysRemaining !== null && (
-                      <p className="text-sm text-blue-700">
+                      <p style={{ fontSize: '14px', color: 'var(--gray-600)' }}>
                         Trial ends: {new Date(billingStatus.trialEndDate!).toLocaleDateString()}
                       </p>
                     )}
@@ -172,10 +199,10 @@ const Plans = () => {
                 </>
               ) : (
                 <>
-                  <AlertCircle className="text-red-600" size={20} />
+                  <AlertCircle style={{ color: '#ef4444', flexShrink: 0 }} size={20} />
                   <div>
-                    <p className="font-semibold text-red-900">Your free trial has ended</p>
-                    <p className="text-sm text-red-700">
+                    <p style={{ fontWeight: 700, color: 'var(--gray-900)', marginBottom: '4px' }}>Your free trial has ended</p>
+                    <p style={{ fontSize: '14px', color: 'var(--gray-600)' }}>
                       {fromAction && `You were trying to ${fromAction}. `}
                       Upgrade now to continue using all features.
                     </p>
@@ -188,32 +215,53 @@ const Plans = () => {
 
         {/* Credit Balance */}
         {billingStatus && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-            <div className="flex items-center justify-between">
+          <div 
+            className="content-card" 
+            style={{ 
+              marginBottom: '24px',
+              padding: '20px',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.3)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
               <div>
-                <p className="text-sm text-gray-600 mb-1">Account Credit</p>
-                <p className="text-2xl font-bold text-purple-900">
+                <p style={{ fontSize: '14px', color: 'var(--gray-600)', marginBottom: '8px' }}>Account Credit</p>
+                <p style={{ fontSize: '32px', fontWeight: 800, color: 'var(--gray-900)' }}>
                   ${billingStatus.creditBalance.toFixed(2)}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <input
                   type="number"
                   min="10"
                   step="10"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 10)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  style={{ width: '100px' }}
+                  style={{ 
+                    width: '100px',
+                    padding: '10px 12px',
+                    border: '1px solid rgba(229, 231, 235, 0.8)',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 600
+                  }}
                 />
                 <button
                   onClick={handleCreateCheckout}
                   disabled={checkoutLoading || depositAmount < 10}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold text-sm hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="primary-button"
+                  style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    opacity: (checkoutLoading || depositAmount < 10) ? 0.5 : 1,
+                    cursor: (checkoutLoading || depositAmount < 10) ? 'not-allowed' : 'pointer'
+                  }}
                 >
                   {checkoutLoading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      <div className="loading" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>
                       Processing...
                     </>
                   ) : (
@@ -229,7 +277,12 @@ const Plans = () => {
         )}
 
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '24px',
+          marginBottom: '32px'
+        }}>
           {plans.map((plan) => {
             const features = plan.featuresJson && typeof plan.featuresJson === 'object' 
               ? plan.featuresJson 
@@ -243,40 +296,45 @@ const Plans = () => {
             return (
               <div
                 key={plan.id}
-                className={`border-2 rounded-xl p-6 ${
-                  isActive
-                    ? 'border-green-500 bg-green-50'
+                className="content-card"
+                style={{
+                  border: isActive
+                    ? '2px solid #22c55e'
                     : canActivate
-                    ? 'border-blue-500 bg-white hover:shadow-lg transition-shadow'
-                    : 'border-gray-300 bg-gray-50'
-                }`}
+                    ? '2px solid #3b82f6'
+                    : '2px solid rgba(229, 231, 235, 0.8)',
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(22, 163, 74, 0.05) 100%)'
+                    : 'transparent',
+                  padding: '24px'
+                }}
               >
-                <div className="mb-4">
-                  <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold">${plan.price}</span>
-                    <span className="text-gray-600">/month</span>
+                <div style={{ marginBottom: '20px' }}>
+                  <h3 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px', color: 'var(--gray-900)' }}>{plan.name}</h3>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span style={{ fontSize: '36px', fontWeight: 800, color: 'var(--gray-900)' }}>${plan.price}</span>
+                    <span style={{ fontSize: '16px', color: 'var(--gray-600)' }}>/month</span>
                   </div>
                   {plan.yearlyPrice && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      ${plan.yearlyPrice}/year (save ${((plan.price * 12 - plan.yearlyPrice) / (plan.price * 12) * 100).toFixed(0)}%)
+                    <p style={{ fontSize: '14px', color: 'var(--gray-600)', marginTop: '8px' }}>
+                      ${plan.yearlyPrice}/year (save {((plan.price * 12 - plan.yearlyPrice) / (plan.price * 12) * 100).toFixed(0)}%)
                     </p>
                   )}
                 </div>
 
-                <ul className="space-y-2 mb-6">
+                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0' }}>
                   {Array.isArray(features) ? (
                     features.map((feature: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm">
-                        <Check className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
-                        <span>{feature}</span>
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', fontSize: '14px' }}>
+                        <Check style={{ color: '#22c55e', flexShrink: 0, marginTop: '2px' }} size={16} />
+                        <span style={{ color: 'var(--gray-700)' }}>{feature}</span>
                       </li>
                     ))
                   ) : (
                     Object.entries(features).map(([key, value]: [string, any]) => (
-                      <li key={key} className="flex items-start gap-2 text-sm">
-                        <Check className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
-                        <span>
+                      <li key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', fontSize: '14px' }}>
+                        <Check style={{ color: '#22c55e', flexShrink: 0, marginTop: '2px' }} size={16} />
+                        <span style={{ color: 'var(--gray-700)' }}>
                           <strong>{key}:</strong> {String(value)}
                         </span>
                       </li>
@@ -287,7 +345,13 @@ const Plans = () => {
                 {isActive ? (
                   <button
                     disabled
-                    className="w-full py-3 bg-green-500 text-white rounded-lg font-semibold cursor-not-allowed"
+                    className="primary-button"
+                    style={{ 
+                      width: '100%',
+                      background: '#22c55e',
+                      cursor: 'not-allowed',
+                      opacity: 0.7
+                    }}
                   >
                     Active Plan
                   </button>
@@ -295,11 +359,20 @@ const Plans = () => {
                   <button
                     onClick={() => handleActivatePlan(plan)}
                     disabled={activatingPlan === plan.id}
-                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="primary-button"
+                    style={{ 
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      opacity: activatingPlan === plan.id ? 0.5 : 1,
+                      cursor: activatingPlan === plan.id ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     {activatingPlan === plan.id ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        <div className="loading" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>
                         Activating...
                       </>
                     ) : (
@@ -310,13 +383,14 @@ const Plans = () => {
                     )}
                   </button>
                 ) : (
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 mb-2">
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: '14px', color: 'var(--gray-600)', marginBottom: '12px' }}>
                       Need ${(plan.price - (billingStatus?.creditBalance || 0)).toFixed(2)} more credit
                     </p>
                     <button
                       onClick={handleCreateCheckout}
-                      className="w-full py-3 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700"
+                      className="primary-button"
+                      style={{ width: '100%', background: 'var(--gray-600)' }}
                     >
                       Add Credit First
                     </button>
@@ -328,24 +402,24 @@ const Plans = () => {
         </div>
 
         {/* FAQ Section */}
-        <div className="mt-8 pt-8 border-t border-gray-200">
-          <h2 className="text-xl font-bold mb-4">Frequently Asked Questions</h2>
-          <div className="space-y-4">
+        <div style={{ marginTop: '32px', paddingTop: '32px', borderTop: '1px solid rgba(229, 231, 235, 0.8)' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '20px', color: 'var(--gray-900)' }}>Frequently Asked Questions</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <h3 className="font-semibold mb-1">How does the credit system work?</h3>
-              <p className="text-sm text-gray-600">
+              <h3 style={{ fontWeight: 700, marginBottom: '8px', color: 'var(--gray-900)' }}>How does the credit system work?</h3>
+              <p style={{ fontSize: '14px', color: 'var(--gray-600)', lineHeight: 1.6 }}>
                 When you make a payment, the amount is added to your account credit. You can then use this credit to activate any plan. Plans are activated for 30 days.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-1">What happens when my trial ends?</h3>
-              <p className="text-sm text-gray-600">
+              <h3 style={{ fontWeight: 700, marginBottom: '8px', color: 'var(--gray-900)' }}>What happens when my trial ends?</h3>
+              <p style={{ fontSize: '14px', color: 'var(--gray-600)', lineHeight: 1.6 }}>
                 When your 14-day free trial ends, you'll need to upgrade to a paid plan to continue using features like talking to coaches, taking quizzes, creating huddles, notes, and todos.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-1">Can I cancel my plan?</h3>
-              <p className="text-sm text-gray-600">
+              <h3 style={{ fontWeight: 700, marginBottom: '8px', color: 'var(--gray-900)' }}>Can I cancel my plan?</h3>
+              <p style={{ fontSize: '14px', color: 'var(--gray-600)', lineHeight: 1.6 }}>
                 Yes, you can cancel at any time. Your plan will remain active until the end of the current billing period.
               </p>
             </div>
@@ -357,4 +431,3 @@ const Plans = () => {
 }
 
 export default Plans
-

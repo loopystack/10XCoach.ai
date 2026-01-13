@@ -86,7 +86,6 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     // Redirect to login
     navigate('/login')
   }
-
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/scorecard', icon: FileText, label: '10X Scorecard' },

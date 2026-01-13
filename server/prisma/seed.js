@@ -21,6 +21,9 @@ async function main() {
   // Note: Only delete test data, preserve real user data
 
   // Clear seed data tables (coaches, plans, quizzes, etc.) - these are reference data
+  // IMPORTANT: Clear in order to respect foreign key constraints
+  
+  // First, clear dependent data
   await prisma.actionStep.deleteMany();
   await prisma.session.deleteMany();
   await prisma.todo.deleteMany();
@@ -30,6 +33,18 @@ async function main() {
   await prisma.quizQuestion.deleteMany();
   await prisma.quizTemplate.deleteMany();
   await prisma.quiz.deleteMany();
+  
+  // Clear users' references to coaches before deleting coaches
+  await prisma.user.updateMany({
+    where: {
+      primaryCoachId: { not: null }
+    },
+    data: {
+      primaryCoachId: null
+    }
+  });
+  
+  // Now safe to delete coaches
   await prisma.coach.deleteMany();
   await prisma.plan.deleteMany();
   await prisma.adminSettings.deleteMany();

@@ -529,8 +529,24 @@ router.post('/manage-emails-test', async (req, res) => {
     
     const transporter = nodemailer.createTransport(transporterConfig);
 
-    // Verify connection
-    await transporter.verify();
+    // Verify connection with timeout
+    console.log('[TEST EMAIL] Verifying SMTP connection...');
+    try {
+      await Promise.race([
+        transporter.verify(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SMTP verification timeout after 10 seconds')), 10000)
+        )
+      ]);
+      console.log('[TEST EMAIL] ✅ SMTP connection verified');
+    } catch (verifyError) {
+      console.error('[TEST EMAIL] ❌ SMTP verification failed:', verifyError.message);
+      return res.status(500).json({ 
+        error: 'SMTP connection failed',
+        message: verifyError.message || 'Could not connect to SMTP server. Please check your SMTP settings.',
+        details: process.env.NODE_ENV === 'development' ? verifyError.message : undefined
+      });
+    }
 
     // Send test email
     const mailOptions = {
@@ -556,17 +572,43 @@ router.post('/manage-emails-test', async (req, res) => {
       text: message || 'This is a test email to verify your SMTP configuration is working correctly.'
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Test email sent successfully:', info.messageId);
+    console.log('[TEST EMAIL] Sending email...');
+    const info = await Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email sending timeout after 30 seconds')), 30000)
+      )
+    ]);
+    console.log('[TEST EMAIL] ✅ Email sent successfully:', info.messageId);
 
     res.json({ 
       message: 'Test email sent successfully',
       messageId: info.messageId
     });
   } catch (error) {
-    console.error('Send test email error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to send test email. Please check your SMTP configuration.' 
+    console.error('[TEST EMAIL] ❌ Error:', error.message);
+    console.error('[TEST EMAIL] Error stack:', error.stack);
+    
+    // Provide more specific error messages
+    let errorMessage = error.message || 'Failed to send test email. Please check your SMTP configuration.';
+    let statusCode = 500;
+    
+    if (error.message && error.message.includes('timeout')) {
+      errorMessage = 'Email operation timed out. Please check your SMTP server settings and network connection.';
+    } else if (error.code === 'EAUTH') {
+      errorMessage = 'SMTP authentication failed. Please check your username and password.';
+      statusCode = 401;
+    } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT') {
+      errorMessage = 'Could not connect to SMTP server. Please check your SMTP host and port settings.';
+      statusCode = 503;
+    } else if (error.code === 'EENVELOPE') {
+      errorMessage = 'Invalid email address. Please check the recipient email.';
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

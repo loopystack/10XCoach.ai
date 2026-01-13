@@ -87,9 +87,14 @@ const sendQuizResultsEmail = async (options) => {
 
     const transporter = await createTransporter();
     
-    // Verify transporter connection
+    // Verify transporter connection with timeout (10 seconds)
     try {
-      await transporter.verify();
+      await Promise.race([
+        transporter.verify(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SMTP verification timeout after 10 seconds')), 10000)
+        )
+      ]);
       console.log('SMTP server connection verified successfully');
     } catch (verifyError) {
       console.error('SMTP verification failed:', verifyError);
@@ -265,9 +270,14 @@ const sendVerificationEmail = async (options) => {
 
     const transporter = await createTransporter();
     
-    // Verify transporter connection
+    // Verify transporter connection with timeout (10 seconds)
     try {
-      await transporter.verify();
+      await Promise.race([
+        transporter.verify(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SMTP verification timeout after 10 seconds')), 10000)
+        )
+      ]);
       console.log('SMTP server connection verified successfully');
     } catch (verifyError) {
       console.error('SMTP verification failed:', verifyError);
@@ -384,9 +394,14 @@ const sendPasswordResetEmail = async (options) => {
 
     const transporter = await createTransporter();
     
-    // Verify transporter connection
+    // Verify transporter connection with timeout (10 seconds)
     try {
-      await transporter.verify();
+      await Promise.race([
+        transporter.verify(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SMTP verification timeout after 10 seconds')), 10000)
+        )
+      ]);
       console.log('SMTP server connection verified successfully');
     } catch (verifyError) {
       console.error('SMTP verification failed:', verifyError);

@@ -75,7 +75,7 @@ const Quizzes = () => {
   const fetchQuestions = async () => {
     try {
       setLoading(true)
-      const data = await api.get('/api/admin/manage-quiz-questions')
+      const data = await api.get('/api/manage-quiz-questions')
       if (data.questionsByPillar) {
         setQuestionsByPillar(data.questionsByPillar)
       }

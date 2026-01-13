@@ -5,18 +5,38 @@
 
 const Stripe = require('stripe');
 
-// Use test keys for now (as requested)
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_51Sn3qCBctBVL2BKmpz9R5zFmYzye03zoX0MLub0frolWSyDvTMbg2ZPsu4yS3zTIsnBJX7SglzrYccf4nktegpEH007WVZG1KE';
-const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_live_51Sn3qCBctBVL2BKmne3WdoRI1S7nBt9Wcs6K5ocoXuAGHTAYyUFylY9AodI8eeWi0i0x5Amud0EWhfLT2J558q6v00JgVLwpzU';
+// Get Stripe keys from environment variables (must be set in .env file)
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY;
 
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: '2024-12-18.acacia',
-});
+if (!STRIPE_SECRET_KEY) {
+  console.error('⚠️  WARNING: STRIPE_SECRET_KEY is not set in environment variables');
+  console.error('   Please add STRIPE_SECRET_KEY to your .env file');
+}
+
+if (!STRIPE_PUBLISHABLE_KEY) {
+  console.error('⚠️  WARNING: STRIPE_PUBLISHABLE_KEY is not set in environment variables');
+  console.error('   Please add STRIPE_PUBLISHABLE_KEY to your .env file');
+}
+
+// Initialize Stripe only if secret key is provided
+let stripe = null;
+if (STRIPE_SECRET_KEY) {
+  stripe = new Stripe(STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia',
+  });
+} else {
+  console.error('❌ Cannot initialize Stripe: STRIPE_SECRET_KEY is missing');
+}
 
 /**
  * Create or retrieve Stripe customer for user
  */
 const getOrCreateCustomer = async (user) => {
+  if (!stripe) {
+    throw new Error('Stripe is not initialized. Please set STRIPE_SECRET_KEY in .env file');
+  }
+  
   try {
     // If user already has Stripe customer ID, retrieve it
     if (user.stripeCustomerId) {
@@ -52,6 +72,14 @@ const getOrCreateCustomer = async (user) => {
  * Create checkout session for deposit/payment
  */
 const createCheckoutSession = async (user, amount, currency = 'usd', metadata = {}) => {
+  if (!stripe) {
+    throw new Error('Stripe is not initialized. Please set STRIPE_SECRET_KEY in .env file');
+  }
+  
+  if (!STRIPE_PUBLISHABLE_KEY) {
+    throw new Error('STRIPE_PUBLISHABLE_KEY is not set in .env file');
+  }
+  
   try {
     const customer = await getOrCreateCustomer(user);
 
@@ -94,6 +122,10 @@ const createCheckoutSession = async (user, amount, currency = 'usd', metadata = 
  * Verify webhook signature
  */
 const verifyWebhookSignature = (payload, signature, secret) => {
+  if (!stripe) {
+    throw new Error('Stripe is not initialized. Please set STRIPE_SECRET_KEY in .env file');
+  }
+  
   try {
     return stripe.webhooks.constructEvent(payload, signature, secret);
   } catch (error) {

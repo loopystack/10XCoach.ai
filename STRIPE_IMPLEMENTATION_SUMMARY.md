@@ -94,11 +94,14 @@
 ### 2. Environment Variables
 Add to `server/.env`:
 ```
-STRIPE_SECRET_KEY=sk_test_51Sn3qCBctBVL2BKmpz9R5zFmYzye03zoX0MLub0frolWSyDvTMbg2ZPsu4yS3zTIsnBJX7SglzrYccf4nktegpEH007WVZG1KE
-STRIPE_PUBLISHABLE_KEY=pk_live_51Sn3qCBctBVL2BKmne3WdoRI1S7nBt9Wcs6K5ocoXuAGHTAYyUFylY9AodI8eeWi0i0x5Amud0EWhfLT2J558q6v00JgVLwpzU
-STRIPE_WEBHOOK_SECRET=whsec_... (get from Stripe dashboard)
+# Stripe API Keys (get from Stripe Dashboard)
+STRIPE_SECRET_KEY=sk_test_... (your test secret key)
+STRIPE_PUBLISHABLE_KEY=pk_test_... (your test publishable key)
+STRIPE_WEBHOOK_SECRET=whsec_... (get from Stripe dashboard webhook settings)
 FRONTEND_URL=https://10xcoach.ai
 ```
+
+**Important:** Never commit `.env` file to git. It should be in `.gitignore`.
 
 ### 3. Database Migration
 Run Prisma migration to add new fields:

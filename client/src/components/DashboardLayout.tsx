@@ -18,7 +18,8 @@ import {
   User,
   Home,
   Shield,
-  LogOut
+  LogOut,
+  CreditCard
 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import './DashboardLayout.css'
@@ -98,6 +99,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/todos', icon: ListTodo, label: '10X TO DO Lists' },
     { path: '/knowledge-center', icon: BookOpen, label: '10X Knowledge Center' },
     { path: '/discovery-questions', icon: HelpCircle, label: '10X Discovery Questions' },
+    { path: '/plans', icon: CreditCard, label: 'My Plans' },
   ]
 
   return (

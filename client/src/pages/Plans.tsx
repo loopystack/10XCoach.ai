@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Check, CreditCard, Clock, AlertCircle, ArrowRight, Sparkles } from 'lucide-react'
+import { Check, CreditCard, Clock, AlertCircle, ArrowRight } from 'lucide-react'
 import { api, isAuthenticated } from '../utils/api'
 import './PageStyles.css'
 
@@ -138,7 +138,6 @@ const Plans = () => {
   }
 
   const fromAction = location.state?.from
-  const showUpgradeMessage = !billingStatus?.hasAccess
 
   return (
     <div className="page-container">

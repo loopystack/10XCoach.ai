@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Sparkles, Mic } from 'lucide-react'
-import { isAuthenticated } from '../utils/api'
+import { isAuthenticated, api } from '../utils/api'
 import './PageStyles.css'
 
 interface Coach {

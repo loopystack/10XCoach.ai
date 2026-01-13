@@ -83,6 +83,24 @@ const Coaches = () => {
       return
     }
     
+    // Check user access before allowing conversation
+    try {
+      const billingStatus = await api.get('/api/billing/status')
+      if (!billingStatus.hasAccess) {
+        alert('Your free trial has ended. Please upgrade to continue using this feature.')
+        navigate('/plans', { state: { from: 'talk-to-coach', coachId } })
+        return
+      }
+    } catch (error: any) {
+      // If access check fails, still allow but log the error
+      console.error('Failed to check billing status:', error)
+      if (error.requiresUpgrade) {
+        alert('Your free trial has ended. Please upgrade to continue.')
+        navigate('/plans', { state: { from: 'talk-to-coach', coachId } })
+        return
+      }
+    }
+    
     // Find the coach to get their name
     const coach = coaches.find(c => c.id === coachId)
     if (!coach) {

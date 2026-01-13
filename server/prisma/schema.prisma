@@ -30,6 +30,19 @@ model User {
   lastSession       DateTime? @map("last_session")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
+  
+  // Billing & Subscription Fields
+  trialStartDate    DateTime? @map("trial_start_date")
+  trialEndDate      DateTime? @map("trial_end_date")
+  accessStatus      AccessStatus @default(TRIAL_ACTIVE) @map("access_status")
+  currentPlanName   String?   @map("current_plan_name") @db.VarChar(100)
+  planStartDate     DateTime? @map("plan_start_date")
+  planEndDate       DateTime? @map("plan_end_date")
+  creditBalance     Decimal   @default(0) @map("credit_balance") @db.Decimal(10, 2)
+  stripeCustomerId  String?   @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId String? @map("stripe_subscription_id") @db.VarChar(255)
+  lastPaymentStatus String?   @map("last_payment_status") @db.VarChar(50)
+  lastPaymentDate   DateTime? @map("last_payment_date")
 
   // Relations
   primaryCoachId Int?      @map("primary_coach_id")
@@ -42,6 +55,7 @@ model User {
   todos          Todo[]
   actionSteps    ActionStep[]
   coachAssignments CoachAssignment[]
+  paymentTransactions PaymentTransaction[]
 
   @@map("users")
 }
@@ -59,6 +73,14 @@ enum UserStatus {
   TRIAL
   CANCELED
   PAST_DUE
+}
+
+enum AccessStatus {
+  TRIAL_ACTIVE
+  TRIAL_EXPIRED
+  PAID_ACTIVE
+  UNPAID
+  PAYMENT_PENDING
 }
 
 enum PlanTier {
@@ -433,5 +455,47 @@ model BlogPost {
   @@map("blog_posts")
   @@index([published])
   @@index([order])
+}
+
+// =============================================
+// PAYMENT TRANSACTION MODEL
+// =============================================
+model PaymentTransaction {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @map("user_id")
+  amount            Decimal   @db.Decimal(10, 2)
+  currency          String    @default("usd") @db.VarChar(10)
+  stripePaymentIntentId String? @map("stripe_payment_intent_id") @db.VarChar(255)
+  stripeCheckoutSessionId String? @map("stripe_checkout_session_id") @db.VarChar(255)
+  stripeInvoiceId  String?   @map("stripe_invoice_id") @db.VarChar(255)
+  status            PaymentStatus @default(PENDING)
+  transactionType   TransactionType @map("transaction_type")
+  description       String?   @db.Text
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payment_transactions")
+  @@index([userId])
+  @@index([stripePaymentIntentId])
+  @@index([stripeCheckoutSessionId])
+  @@index([status])
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum TransactionType {
+  DEPOSIT
+  PLAN_PURCHASE
+  REFUND
 }
 

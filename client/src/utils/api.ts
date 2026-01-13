@@ -38,6 +38,15 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Check if this is an upgrade required error
+      if (response.status === 403 && data.requiresUpgrade) {
+        const error = new Error(data.error || 'Upgrade required')
+        ;(error as any).requiresUpgrade = true
+        ;(error as any).redirectTo = data.redirectTo || '/plans'
+        ;(error as any).trialEndDate = data.trialEndDate
+        ;(error as any).creditBalance = data.creditBalance
+        throw error
+      }
       throw new Error(data.error || `HTTP error! status: ${response.status}`)
     }
     
@@ -65,6 +74,15 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Check if this is an upgrade required error
+      if (response.status === 403 && data.requiresUpgrade) {
+        const error = new Error(data.error || 'Upgrade required')
+        ;(error as any).requiresUpgrade = true
+        ;(error as any).redirectTo = data.redirectTo || '/plans'
+        ;(error as any).trialEndDate = data.trialEndDate
+        ;(error as any).creditBalance = data.creditBalance
+        throw error
+      }
       throw new Error(data.error || `HTTP error! status: ${response.status}`)
     }
     
@@ -92,6 +110,15 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Check if this is an upgrade required error
+      if (response.status === 403 && data.requiresUpgrade) {
+        const error = new Error(data.error || 'Upgrade required')
+        ;(error as any).requiresUpgrade = true
+        ;(error as any).redirectTo = data.redirectTo || '/plans'
+        ;(error as any).trialEndDate = data.trialEndDate
+        ;(error as any).creditBalance = data.creditBalance
+        throw error
+      }
       throw new Error(data.error || `HTTP error! status: ${response.status}`)
     }
     
@@ -118,6 +145,15 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Check if this is an upgrade required error
+      if (response.status === 403 && data.requiresUpgrade) {
+        const error = new Error(data.error || 'Upgrade required')
+        ;(error as any).requiresUpgrade = true
+        ;(error as any).redirectTo = data.redirectTo || '/plans'
+        ;(error as any).trialEndDate = data.trialEndDate
+        ;(error as any).creditBalance = data.creditBalance
+        throw error
+      }
       throw new Error(data.error || `HTTP error! status: ${response.status}`)
     }
     

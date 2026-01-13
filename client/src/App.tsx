@@ -45,7 +45,8 @@ import AdminCoaches from './pages/admin/Coaches'
 import AdminQuizzes from './pages/admin/Quizzes'
 import AdminSessions from './pages/admin/Sessions'
 import Analytics from './pages/admin/Analytics'
-import Plans from './pages/admin/Plans'
+import AdminPlans from './pages/admin/Plans'
+import Plans from './pages/Plans'
 import Emails from './pages/admin/Emails'
 import System from './pages/admin/System'
 
@@ -149,6 +150,11 @@ function App() {
             <DiscoveryQuestions />
           </DashboardLayout>
         } />
+        <Route path="/plans" element={
+          <DashboardLayout>
+            <Plans />
+          </DashboardLayout>
+        } />
         
         {/* Admin Panel Routes - Protected */}
         <Route path="/admin" element={
@@ -203,7 +209,7 @@ function App() {
         <Route path="/manage-plans" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
-              <Plans />
+              <AdminPlans />
             </AdminLayout>
           </ProtectedRoute>
         } />

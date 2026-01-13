@@ -156,7 +156,24 @@ const Huddles = () => {
     setIsAdding(false)
   }
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    // Check access before allowing add
+    try {
+      const billingStatus = await api.get('/api/billing/status')
+      if (!billingStatus.hasAccess) {
+        alert('Your free trial has ended. Please upgrade to continue using this feature.')
+        navigate('/plans', { state: { from: 'add-huddle' } })
+        return
+      }
+    } catch (error: any) {
+      console.error('Failed to check billing status:', error)
+      if (error.requiresUpgrade) {
+        alert('Your free trial has ended. Please upgrade to continue.')
+        navigate('/plans', { state: { from: 'add-huddle' } })
+        return
+      }
+    }
+    
     resetForm()
     setIsAdding(true)
   }

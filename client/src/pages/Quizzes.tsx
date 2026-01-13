@@ -101,10 +101,23 @@ const Quizzes = () => {
     const url = selectedCoach ? `/api/quizzes?coachId=${selectedCoach}` : '/api/quizzes'
     fetch(url)
       .then(res => res.json())
-      .then(data => setQuizzes(data))
+      .then(data => {
+        // Ensure data is always an array
+        if (Array.isArray(data)) {
+          setQuizzes(data)
+        } else {
+          console.warn('Quizzes data is not an array:', data)
+          setQuizzes([])
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch quizzes:', err)
+        setQuizzes([])
+      })
   }, [selectedCoach])
 
-  const chartData = quizzes.reduce((acc: any, quiz) => {
+  // Ensure quizzes is always an array before using reduce
+  const chartData = (Array.isArray(quizzes) ? quizzes : []).reduce((acc: any, quiz) => {
     const date = quiz.date
     if (!acc[date]) {
       acc[date] = { date, count: 0, avgScore: 0, scores: [] }
@@ -118,7 +131,9 @@ const Quizzes = () => {
   const chartDataArray = Object.values(chartData).sort((a: any, b: any) => a.date.localeCompare(b.date))
 
   // Calculate score distribution from QuizResult data (user's quiz scores)
-  const scoreDistribution = quizResults.length > 0 ? quizResults.reduce((acc: any, result) => {
+  // Ensure quizResults is always an array before using reduce
+  const safeQuizResults = Array.isArray(quizResults) ? quizResults : []
+  const scoreDistribution = safeQuizResults.length > 0 ? safeQuizResults.reduce((acc: any, result) => {
     const score = result.totalScore
     let category = ''
     if (score >= 80) category = 'High (80-100%)'
@@ -314,7 +329,7 @@ const Quizzes = () => {
                 <div className="quiz-distribution-summary">
                   <div className="quiz-distribution-total">
                     <span className="quiz-distribution-total-label">Total Quizzes</span>
-                    <span className="quiz-distribution-total-value">{quizResults.length}</span>
+                    <span className="quiz-distribution-total-value">{safeQuizResults.length}</span>
                   </div>
                 </div>
               </div>
@@ -422,36 +437,36 @@ const Quizzes = () => {
                 <div className="metric-item-vertical">
                   <div className="metric-header">
                     <span className="metric-label-vertical">High Scores (80%+)</span>
-                    <span className="metric-count">{quizResults.filter(r => r.totalScore >= 80).length}</span>
+                    <span className="metric-count">{safeQuizResults.filter(r => r.totalScore >= 80).length}</span>
                   </div>
                   <div className="progress-bar-container-vertical">
                     <div 
                       className="progress-bar success"
-                      style={{ width: `${(quizResults.filter(r => r.totalScore >= 80).length / (quizResults.length || 1)) * 100 || 0}%` }}
+                      style={{ width: `${(safeQuizResults.filter(r => r.totalScore >= 80).length / (safeQuizResults.length || 1)) * 100 || 0}%` }}
                     ></div>
                   </div>
                 </div>
                 <div className="metric-item-vertical">
                   <div className="metric-header">
                     <span className="metric-label-vertical">Average Scores (60-79%)</span>
-                    <span className="metric-count">{quizResults.filter(r => r.totalScore >= 60 && r.totalScore < 80).length}</span>
+                    <span className="metric-count">{safeQuizResults.filter(r => r.totalScore >= 60 && r.totalScore < 80).length}</span>
                   </div>
                   <div className="progress-bar-container-vertical">
                     <div 
                       className="progress-bar warning"
-                      style={{ width: `${(quizResults.filter(r => r.totalScore >= 60 && r.totalScore < 80).length / (quizResults.length || 1)) * 100 || 0}%` }}
+                      style={{ width: `${(safeQuizResults.filter(r => r.totalScore >= 60 && r.totalScore < 80).length / (safeQuizResults.length || 1)) * 100 || 0}%` }}
                     ></div>
                   </div>
                 </div>
                 <div className="metric-item-vertical">
                   <div className="metric-header">
                     <span className="metric-label-vertical">Low Scores (0-59%)</span>
-                    <span className="metric-count">{quizResults.filter(r => r.totalScore < 60).length}</span>
+                    <span className="metric-count">{safeQuizResults.filter(r => r.totalScore < 60).length}</span>
                   </div>
                   <div className="progress-bar-container-vertical">
                     <div 
                       className="progress-bar danger"
-                      style={{ width: `${(quizResults.filter(r => r.totalScore < 60).length / (quizResults.length || 1)) * 100 || 0}%` }}
+                      style={{ width: `${(safeQuizResults.filter(r => r.totalScore < 60).length / (safeQuizResults.length || 1)) * 100 || 0}%` }}
                     ></div>
                   </div>
                 </div>
@@ -621,7 +636,7 @@ const Quizzes = () => {
               </tr>
             </thead>
             <tbody>
-              {quizzes.map(quiz => (
+              {(Array.isArray(quizzes) ? quizzes : []).map(quiz => (
                 <tr key={quiz.id}>
                   <td>{new Date(quiz.date).toLocaleDateString()}</td>
                   <td>

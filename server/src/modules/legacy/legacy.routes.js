@@ -8,6 +8,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../../lib/prisma');
 const { authenticate, optionalAuth } = require('../../middleware/auth.middleware');
+const { requireAccess } = require('../../middleware/access.middleware');
 
 // =============================================
 // QUIZZES ENDPOINTS (Legacy)
@@ -198,7 +199,7 @@ router.get('/huddles/stats', async (req, res) => {
   }
 });
 
-router.post('/huddles', async (req, res) => {
+router.post('/huddles', authenticate, requireAccess, async (req, res) => {
   try {
     const { title, coach_id, user_id, has_short_agenda, has_notetaker, has_action_steps, status, huddle_date } = req.body;
     
@@ -342,7 +343,7 @@ router.get('/notes', authenticate, async (req, res) => {
   }
 });
 
-router.post('/notes', async (req, res) => {
+router.post('/notes', authenticate, requireAccess, async (req, res) => {
   try {
     const { coach_id, user_id, content, sent, session_date } = req.body;
     
@@ -491,7 +492,7 @@ router.get('/todos', authenticate, async (req, res) => {
   }
 });
 
-router.post('/todos', async (req, res) => {
+router.post('/todos', authenticate, requireAccess, async (req, res) => {
   try {
     const { title, description, user_id, assigned_to, due_date, status, priority } = req.body;
     

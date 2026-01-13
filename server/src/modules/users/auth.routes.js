@@ -34,7 +34,12 @@ router.post('/register', async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Calculate trial dates (14 days from now)
+    const trialStartDate = new Date();
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 14);
+
+    // Create user with 14-day free trial
     const user = await prisma.user.create({
       data: {
         name,
@@ -42,7 +47,12 @@ router.post('/register', async (req, res) => {
         passwordHash,
         role: 'USER',
         plan: 'FOUNDATION',
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        // Auto-start 14-day free trial
+        trialStartDate: trialStartDate,
+        trialEndDate: trialEndDate,
+        accessStatus: 'TRIAL_ACTIVE',
+        creditBalance: 0
       }
     });
 
@@ -127,6 +137,13 @@ router.post('/login', async (req, res) => {
     // Generate token
     const token = generateToken(user.id, user.name, user.email);
 
+    // Get billing status
+    const now = new Date();
+    let trialDaysRemaining = null;
+    if (user.trialStartDate && user.trialEndDate && now <= user.trialEndDate) {
+      trialDaysRemaining = Math.ceil((user.trialEndDate - now) / (1000 * 60 * 60 * 24));
+    }
+
     res.json({
       message: 'Login successful',
       user: {
@@ -137,7 +154,13 @@ router.post('/login', async (req, res) => {
         plan: user.plan,
         status: user.status,
         businessName: user.businessName,
-        industry: user.industry
+        industry: user.industry,
+        trialStartDate: user.trialStartDate,
+        trialEndDate: user.trialEndDate,
+        trialDaysRemaining,
+        accessStatus: user.accessStatus,
+        currentPlanName: user.currentPlanName,
+        creditBalance: parseFloat(user.creditBalance) || 0
       },
       token
     });

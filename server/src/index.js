@@ -289,6 +289,10 @@ app.use('/api', quizRoutes);
 const blogRoutes = require('./modules/blogs/blog.routes');
 app.use('/api', blogRoutes);
 
+// Billing Routes
+const billingRoutes = require('./modules/billing/billing.routes');
+app.use('/api', billingRoutes);
+
 // Admin Routes
 const adminRoutes = require('./modules/admin/admin.routes'); // Commented out - uses old PostgreSQL
 app.use('/api/admin', adminRoutes); // Commented out - uses old PostgreSQL
@@ -399,6 +403,21 @@ wss.on('connection', (ws, req) => {
 
       if (message.type === 'start') {
         console.log('🎯 Starting conversation session...');
+        
+        // Check user access before starting conversation
+        const { checkUserAccess } = require('./middleware/access.middleware');
+        if (currentUserId) {
+          const access = await checkUserAccess(currentUserId);
+          if (!access.hasAccess) {
+            safeSend({ 
+              type: 'error', 
+              message: 'Trial expired. Please upgrade to continue.',
+              requiresUpgrade: true,
+              redirectTo: '/plans'
+            });
+            return;
+          }
+        }
 
         // Extract parameters
         const apiType = (message.apiType || 'openai').toLowerCase();
@@ -822,131 +841,33 @@ wss.on('connection', (ws, req) => {
           openaiWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
         }
 
-        // Auto-save conversation on stop (only if not already saved)
-        // Note: If user clicks "Stop and Save", the save_conversation handler will save it
-        // So we skip auto-save here to prevent duplicates
-        if (currentUserId && conversationTranscript.length > 0 && !sessionSaved) {
-          console.log('💾 Auto-saving conversation on stop');
-          
-          // Calculate duration
-          const endTime = new Date();
-          let duration = null;
-          if (sessionStartTime) {
-            const diffMs = endTime - new Date(sessionStartTime);
-            duration = diffMs / 1000 / 60; // Convert to minutes
-            duration = Math.round(duration * 100) / 100; // Round to 2 decimal places
-          }
-
-          // Convert transcript to JSON string
-          const transcriptJson = JSON.stringify(conversationTranscript);
-
-          // Save session directly using Prisma (fire and forget)
-          const prisma = require('./lib/prisma');
-          
-          // Verify coach exists and get correct ID (same logic as manual save)
-          (async () => {
-            try {
-              let finalCoachId = currentCoachId ? parseInt(currentCoachId) : null;
-              
-              if (finalCoachId) {
-                const coachExists = await prisma.coach.findUnique({
-                  where: { id: finalCoachId }
-                });
-                if (!coachExists) {
-                  console.warn(`⚠️ Coach ID ${finalCoachId} not found, looking up by name: ${currentCoachName}`);
-                  finalCoachId = null;
-                }
-              }
-              
-              if (!finalCoachId && currentCoachName) {
-                const coachByName = await prisma.coach.findFirst({
-                  where: {
-                    name: {
-                      contains: currentCoachName,
-                      mode: 'insensitive'
-                    }
-                  }
-                });
-                if (coachByName) {
-                  finalCoachId = coachByName.id;
-                  console.log(`✅ Found coach by name: ${currentCoachName} -> ID: ${finalCoachId}`);
-                } else {
-                  console.error(`❌ Coach not found by name: ${currentCoachName} - skipping auto-save`);
-                  return;
-                }
-              }
-              
-              if (!finalCoachId) {
-                console.error('❌ Cannot auto-save: No valid coach ID found');
-                return;
-              }
-              
-              // Handle duration - convert to Decimal-compatible value
-              let durationMinutes = duration;
-              if (durationMinutes !== undefined && durationMinutes !== null) {
-                if (typeof durationMinutes === 'string') {
-                  durationMinutes = parseFloat(durationMinutes);
-                }
-                if (typeof durationMinutes === 'number') {
-                  durationMinutes = Math.round(durationMinutes * 100) / 100;
-                  if (durationMinutes < 0) durationMinutes = null;
-                }
-              }
-              
-              console.log('💾 Auto-saving session with Prisma:', {
-                userId: currentUserId,
-                coachId: finalCoachId,
-                duration: durationMinutes,
-                transcriptLength: transcriptJson.length
-              });
-              
-              const savedSession = await prisma.session.create({
-                data: {
-                  userId: parseInt(currentUserId),
-                  coachId: finalCoachId,
-                  startTime: sessionStartTime ? new Date(sessionStartTime) : new Date(),
-                  endTime: endTime,
-                  duration: durationMinutes,
-                  transcriptRef: transcriptJson && transcriptJson !== '[]' && transcriptJson !== 'null' && transcriptJson.trim().length > 0 ? transcriptJson : null,
-                  summary: null,
-                  status: 'COMPLETED'
-                }
-              });
-              
-              sessionId = savedSession.id;
-              sessionSaved = true; // Mark as saved to prevent duplicates
-              console.log('✅ Auto-saved conversation via Prisma:', { 
-                sessionId, 
-                duration: savedSession.duration,
-                userId: savedSession.userId,
-                coachId: savedSession.coachId,
-                hasTranscript: !!savedSession.transcriptRef
-              });
-            } catch (error) {
-              console.error('❌ Error auto-saving conversation with Prisma:', {
-                message: error.message,
-                stack: error.stack,
-                code: error.code,
-                meta: error.meta
-              });
-            }
-          })();
-        }
+        // NOTE: We do NOT auto-save here anymore to prevent duplicates
+        // The save will be handled by the explicit 'save_conversation' message
+        // that is sent when user clicks "Stop and Save Conversation"
+        // If user just clicks "Stop" without save, the session won't be saved
+        // (which is fine - they can save manually if needed)
 
         safeSend({ type: 'stopped' });
 
       } else if (message.type === 'save_conversation') {
-        // Handle manual save
-        console.log('💾 Manual save requested');
+        // Handle manual save (or auto-save from stop button)
+        console.log('💾 Save conversation requested');
         
-        // Prevent duplicate saves
+        // CRITICAL: Check and set flag IMMEDIATELY to prevent race conditions
+        // This prevents duplicate saves if multiple save requests arrive quickly
         if (sessionSaved) {
           console.log('⚠️ Session already saved, skipping duplicate save request');
           safeSend({ type: 'conversation_saved', sessionId: sessionId, message: 'Session already saved' });
           return;
         }
         
+        // Set flag IMMEDIATELY before any async operations to prevent race conditions
+        // If save fails, we'll reset it in the catch block
+        sessionSaved = true;
+        
         if (!currentUserId || !currentCoachId) {
+          // Reset flag on validation error so user can retry
+          sessionSaved = false;
           console.error('❌ Cannot save: Missing userId or coachId');
           safeSend({ type: 'error', message: 'Cannot save: Missing user or coach information' });
           return;
@@ -1076,7 +997,7 @@ wss.on('connection', (ws, req) => {
           });
           
           sessionId = savedSession.id;
-          sessionSaved = true; // Mark session as saved to prevent duplicates
+          // Note: sessionSaved was already set to true at the start to prevent race conditions
           console.log('✅ Conversation saved successfully via Prisma:', {
             sessionId: sessionId,
             duration: savedSession.duration,
@@ -1087,6 +1008,8 @@ wss.on('connection', (ws, req) => {
           });
           safeSend({ type: 'conversation_saved', sessionId: sessionId });
         } catch (error) {
+          // Reset flag on error so user can retry
+          sessionSaved = false;
           console.error('❌ Error saving conversation with Prisma:', {
             message: error.message,
             stack: error.stack,

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../../lib/prisma');
 const { authenticate, optionalAuth, requireAdmin } = require('../../middleware/auth.middleware');
+const { requireAccess } = require('../../middleware/access.middleware');
 const PDFDocument = require('pdfkit');
 const { sendQuizResultsEmail } = require('../../lib/email');
 
@@ -109,7 +110,7 @@ router.get('/quiz/10x', optionalAuth, async (req, res) => {
 // POST /api/quiz/10x/submit
 // Submit quiz answers and calculate scores
 // =============================================
-router.post('/quiz/10x/submit', authenticate, async (req, res) => {
+router.post('/quiz/10x/submit', authenticate, requireAccess, async (req, res) => {
   try {
     const { answers } = req.body; // Array of { questionId, answer }
 
@@ -579,7 +580,7 @@ router.get('/quiz/pillar/:pillarTag', optionalAuth, async (req, res) => {
 // POST /api/quiz/pillar/:pillarTag/submit
 // Submit individual pillar quiz
 // =============================================
-router.post('/quiz/pillar/:pillarTag/submit', authenticate, async (req, res) => {
+router.post('/quiz/pillar/:pillarTag/submit', authenticate, requireAccess, async (req, res) => {
   try {
     let { pillarTag } = req.params;
     pillarTag = pillarTag.toUpperCase();

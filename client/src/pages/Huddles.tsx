@@ -25,6 +25,7 @@ interface Huddle {
 }
 
 const Huddles = () => {
+  const navigate = useNavigate()
   const [huddles, setHuddles] = useState<Huddle[]>([])
   const [selectedCoach, setSelectedCoach] = useState<number | null>(null)
   const [coaches, setCoaches] = useState<any[]>([])

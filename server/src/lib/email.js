@@ -45,9 +45,22 @@ const createTransporter = async () => {
     }
   };
   
-  // For port 587 (TLS), require TLS
+  // For port 587 (TLS), configure TLS properly
   if (settings.smtpPort === 587) {
     transporterConfig.requireTLS = true;
+    // Zoho Mail and other providers require proper TLS configuration
+    transporterConfig.tls = {
+      rejectUnauthorized: false, // Allow self-signed certificates (some servers need this)
+      minVersion: 'TLSv1.2'
+    };
+  }
+  
+  // For port 465 (SSL), also configure TLS
+  if (settings.smtpPort === 465) {
+    transporterConfig.tls = {
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
+    };
   }
   
   return nodemailer.createTransport(transporterConfig);

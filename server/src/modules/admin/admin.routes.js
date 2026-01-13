@@ -522,10 +522,32 @@ router.post('/manage-emails-test', async (req, res) => {
       }
     };
     
-    // For port 587 (TLS), require TLS
+    // For port 587 (TLS), configure TLS properly
     if (smtpPort === 587) {
       transporterConfig.requireTLS = true;
+      // Zoho Mail requires proper TLS configuration
+      transporterConfig.tls = {
+        rejectUnauthorized: false, // Allow self-signed certificates (some servers need this)
+        minVersion: 'TLSv1.2'
+      };
     }
+    
+    // For port 465 (SSL), also configure TLS
+    if (smtpPort === 465) {
+      transporterConfig.tls = {
+        rejectUnauthorized: false,
+        minVersion: 'TLSv1.2'
+      };
+    }
+    
+    console.log('[TEST EMAIL] SMTP Config:', {
+      host: smtpHost,
+      port: smtpPort,
+      secure: transporterConfig.secure,
+      requireTLS: transporterConfig.requireTLS,
+      username: smtpUsername,
+      fromEmail: smtpFromEmail
+    });
     
     const transporter = nodemailer.createTransport(transporterConfig);
 
@@ -541,10 +563,41 @@ router.post('/manage-emails-test', async (req, res) => {
       console.log('[TEST EMAIL] ✅ SMTP connection verified');
     } catch (verifyError) {
       console.error('[TEST EMAIL] ❌ SMTP verification failed:', verifyError.message);
+      console.error('[TEST EMAIL] Error code:', verifyError.code);
+      console.error('[TEST EMAIL] Error command:', verifyError.command);
+      console.error('[TEST EMAIL] Full error:', JSON.stringify(verifyError, Object.getOwnPropertyNames(verifyError)));
+      
+      // Provide more helpful error messages
+      let errorMessage = 'Could not connect to SMTP server.';
+      let helpfulHint = '';
+      
+      if (verifyError.code === 'EAUTH') {
+        errorMessage = 'SMTP authentication failed.';
+        helpfulHint = 'Please check your username and password. If you have 2FA enabled, use an app-specific password.';
+      } else if (verifyError.code === 'ECONNECTION' || verifyError.code === 'ETIMEDOUT') {
+        errorMessage = 'Could not connect to SMTP server.';
+        helpfulHint = 'Please check your SMTP host and port. For Zoho, try port 465 (SSL) instead of 587, or ensure your server allows outbound connections on port 587.';
+      } else if (verifyError.code === 'ESOCKET' || verifyError.message?.includes('socket')) {
+        errorMessage = 'Network connection error.';
+        helpfulHint = 'Check your server\'s firewall and network settings. Ensure outbound connections to SMTP ports are allowed.';
+      } else if (verifyError.message?.includes('timeout')) {
+        errorMessage = 'Connection timeout.';
+        helpfulHint = 'The SMTP server did not respond in time. Try port 465 (SSL) or check your network connection.';
+      } else {
+        errorMessage = verifyError.message || 'SMTP connection failed.';
+        helpfulHint = 'Please verify your SMTP settings match your email provider\'s requirements.';
+      }
+      
       return res.status(500).json({ 
         error: 'SMTP connection failed',
-        message: verifyError.message || 'Could not connect to SMTP server. Please check your SMTP settings.',
-        details: process.env.NODE_ENV === 'development' ? verifyError.message : undefined
+        message: errorMessage,
+        hint: helpfulHint,
+        details: process.env.NODE_ENV === 'development' ? {
+          code: verifyError.code,
+          command: verifyError.command,
+          message: verifyError.message,
+          stack: verifyError.stack
+        } : undefined
       });
     }
 

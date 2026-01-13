@@ -27,10 +27,24 @@ router.get('/quiz/10x', optionalAuth, async (req, res) => {
         console.log('✅ Found quiz template:', template.name);
         
         const questions = await prisma.$queryRaw`
-          SELECT id, text, type, pillar_tag as "pillarTag", weight, "order", options
-          FROM quiz_questions
-          WHERE quiz_id = ${template.id}
-          ORDER BY pillar_tag ASC, "order" ASC
+          SELECT q.id, q.text, q.type, q.pillar_tag as "pillarTag", q.weight, q."order", q.options,
+                 COALESCE(p."order", 
+                   CASE q.pillar_tag
+                     WHEN 'STRATEGY' THEN 0
+                     WHEN 'FINANCE' THEN 1
+                     WHEN 'MARKETING' THEN 2
+                     WHEN 'SALES' THEN 3
+                     WHEN 'OPERATIONS' THEN 4
+                     WHEN 'CULTURE' THEN 5
+                     WHEN 'CUSTOMER_CENTRICITY' THEN 6
+                     WHEN 'EXIT_STRATEGY' THEN 7
+                     ELSE 99
+                   END
+                 ) as pillar_order
+          FROM quiz_questions q
+          LEFT JOIN pillars p ON q.pillar_tag = p.tag
+          WHERE q.quiz_id = ${template.id}
+          ORDER BY pillar_order ASC, q."order" ASC
         `;
         
         console.log('   Questions found:', questions.length);
@@ -1145,12 +1159,26 @@ router.get('/manage-quiz-questions', authenticate, requireAdmin, async (req, res
       if (Array.isArray(templates) && templates.length > 0) {
         quizTemplate = templates[0];
         
-        // Get questions for this quiz
+        // Get questions for this quiz - ordered by pillar order (STRATEGY first)
         const questionResults = await prisma.$queryRaw`
-          SELECT id, text, type, pillar_tag as "pillarTag", weight, "order", options
-          FROM quiz_questions
-          WHERE quiz_id = ${quizTemplate.id}
-          ORDER BY pillar_tag ASC, "order" ASC
+          SELECT q.id, q.text, q.type, q.pillar_tag as "pillarTag", q.weight, q."order", q.options,
+                 COALESCE(p."order", 
+                   CASE q.pillar_tag
+                     WHEN 'STRATEGY' THEN 0
+                     WHEN 'FINANCE' THEN 1
+                     WHEN 'MARKETING' THEN 2
+                     WHEN 'SALES' THEN 3
+                     WHEN 'OPERATIONS' THEN 4
+                     WHEN 'CULTURE' THEN 5
+                     WHEN 'CUSTOMER_CENTRICITY' THEN 6
+                     WHEN 'EXIT_STRATEGY' THEN 7
+                     ELSE 99
+                   END
+                 ) as pillar_order
+          FROM quiz_questions q
+          LEFT JOIN pillars p ON q.pillar_tag = p.tag
+          WHERE q.quiz_id = ${quizTemplate.id}
+          ORDER BY pillar_order ASC, q."order" ASC
         `;
         
         if (Array.isArray(questionResults)) {

@@ -75,7 +75,7 @@ const Quizzes = () => {
   const fetchQuestions = async () => {
     try {
       setLoading(true)
-      const data = await api.get('/api/manage-quiz-questions')
+      const data = await api.get('/api/admin/manage-quiz-questions')
       if (data.questionsByPillar) {
         setQuestionsByPillar(data.questionsByPillar)
       }
@@ -97,7 +97,7 @@ const Quizzes = () => {
 
   const fetchPillars = async () => {
     try {
-      const data = await api.get('/api/manage-pillars')
+      const data = await api.get('/api/admin/manage-pillars')
       if (Array.isArray(data)) {
         setPillars(data)
         if (!selectedPillar && data.length > 0) {
@@ -163,11 +163,11 @@ const Quizzes = () => {
     try {
       if (editingId) {
         // Update existing question
-        await api.put(`/api/manage-quiz-questions/${editingId}`, formData)
+        await api.put(`/api/admin/manage-quiz-questions/${editingId}`, formData)
         alert('Question updated successfully!')
       } else {
         // Create new question
-        await api.post('/api/manage-quiz-questions', formData)
+        await api.post('/api/admin/manage-quiz-questions', formData)
         alert('Question added successfully!')
       }
       resetForm()
@@ -184,7 +184,7 @@ const Quizzes = () => {
     }
 
     try {
-      await api.delete(`/api/manage-quiz-questions/${id}`)
+      await api.delete(`/api/admin/manage-quiz-questions/${id}`)
       alert('Question deleted successfully!')
       fetchQuestions()
     } catch (error: any) {
@@ -248,7 +248,7 @@ const Quizzes = () => {
 
     try {
       if (editingPillarId) {
-        await api.put(`/api/manage-pillars/${editingPillarId}`, {
+        await api.put(`/api/admin/manage-pillars/${editingPillarId}`, {
           name: pillarFormData.name,
           icon: pillarFormData.icon,
           color: pillarFormData.color,
@@ -257,7 +257,7 @@ const Quizzes = () => {
         })
         alert('Pillar updated successfully!')
       } else {
-        await api.post('/api/manage-pillars', {
+        await api.post('/api/admin/manage-pillars', {
           ...pillarFormData,
           tag: pillarFormData.tag.toUpperCase()
         })
@@ -282,7 +282,7 @@ const Quizzes = () => {
     }
 
     try {
-      await api.delete(`/api/manage-pillars/${id}`)
+      await api.delete(`/api/admin/manage-pillars/${id}`)
       alert('Pillar deleted successfully!')
       await fetchPillars()
       await fetchQuestions()

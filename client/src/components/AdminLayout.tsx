@@ -115,14 +115,14 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const allMenuItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Overview', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
     { path: '/manage-users', icon: Users, label: 'Users & Subscriptions', roles: ['SUPER_ADMIN'] },
-    { path: '/admin/plans', icon: FileText, label: 'Plans', roles: ['SUPER_ADMIN'] },
+    { path: '/manage-plans', icon: FileText, label: 'Plans', roles: ['SUPER_ADMIN'] },
     { path: '/manage-coaches', icon: GraduationCap, label: 'Coaches & Knowledge', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
-    { path: '/admin/quizzes', icon: FileText, label: 'Quizzes & Diagnostics', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
-    { path: '/admin/sessions', icon: MessageSquare, label: 'Sessions & Notes', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
-    { path: '/admin/analytics', icon: BarChart3, label: 'Analytics & KPIs', roles: ['SUPER_ADMIN'] },
-    { path: '/admin/emails', icon: Mail, label: 'Email & Follow-ups', roles: ['SUPER_ADMIN'] },
-    { path: '/admin/system', icon: Settings, label: 'Settings', roles: ['SUPER_ADMIN'] },
-    { path: '/admin/huddles', icon: UsersRound, label: 'Ops - Huddles', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
+    { path: '/manage-quizzes', icon: FileText, label: 'Quizzes & Diagnostics', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
+    { path: '/manage-sessions', icon: MessageSquare, label: 'Sessions & Notes', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
+    { path: '/manage-analytics', icon: BarChart3, label: 'Analytics & KPIs', roles: ['SUPER_ADMIN'] },
+    { path: '/manage-emails', icon: Mail, label: 'Email & Follow-ups', roles: ['SUPER_ADMIN'] },
+    { path: '/manage-system', icon: Settings, label: 'Settings', roles: ['SUPER_ADMIN'] },
+    { path: '/manage-huddles', icon: UsersRound, label: 'Ops - Huddles', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
   ]
 
   // Filter menu items based on user role

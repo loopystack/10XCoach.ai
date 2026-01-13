@@ -39,7 +39,7 @@ const Emails = () => {
 
   const loadSettings = async () => {
     try {
-      const data = await api.get('/api/manage-settings')
+      const data = await api.get('/api/admin/manage-settings')
       // Settings are stored as key-value pairs, convert to object
       const settingsObj: Partial<EmailSettings> = {}
       if (Array.isArray(data)) {
@@ -81,7 +81,7 @@ const Emails = () => {
         value: value || ''
       }))
 
-      await api.post('/api/manage-settings', { settings: settingsArray })
+      await api.post('/api/admin/manage-settings', { settings: settingsArray })
       
       setMessage({ type: 'success', text: 'Email settings saved successfully! Changes will take effect immediately.' })
       setHasChanges(false)
@@ -100,7 +100,7 @@ const Emails = () => {
     setMessage(null)
 
     try {
-      await api.post('/api/manage-emails-test', {
+      await api.post('/api/admin/manage-emails-test', {
         to: settings.clientEmail,
         subject: 'Test Email from 10XCoach.ai',
         message: 'This is a test email to verify your SMTP configuration is working correctly.'

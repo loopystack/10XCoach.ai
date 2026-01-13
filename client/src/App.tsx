@@ -172,49 +172,49 @@ function App() {
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/quizzes" element={
+        <Route path="/manage-quizzes" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <AdminQuizzes />
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/sessions" element={
+        <Route path="/manage-sessions" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <AdminSessions />
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/analytics" element={
+        <Route path="/manage-analytics" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <Analytics />
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/emails" element={
+        <Route path="/manage-emails" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <Emails />
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/plans" element={
+        <Route path="/manage-plans" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <Plans />
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/system" element={
+        <Route path="/manage-system" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <System />
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/huddles" element={
+        <Route path="/manage-huddles" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <Huddles />

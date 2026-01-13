@@ -100,14 +100,31 @@ app.use('/coaches', express.static(path.join(__dirname, '../../coaches')));
 
 // Serve OpenAI conversation static files
 // IMPORTANT: This must come BEFORE the general static middleware and SPA fallback
-app.use('/conversation', express.static(path.join(__dirname, '../../openAI_conver/public'), {
+// Serve OpenAI conversation static files
+// IMPORTANT: This must come BEFORE the general static middleware and SPA fallback
+app.use('/conversation', (req, res, next) => {
+  console.log('[CONVERSATION] Request to:', req.path);
+  console.log('[CONVERSATION] Full URL:', req.url);
+  console.log('[CONVERSATION] Query params:', req.query);
+  
+  // If requesting root of /conversation (with or without trailing slash), serve index.html
+  if (req.path === '/' || req.path === '') {
+    console.log('[CONVERSATION] Serving index.html for root path');
+    const indexPath = path.join(__dirname, '../../openAI_conver/public/index.html');
+    console.log('[CONVERSATION] Index file path:', indexPath);
+    return res.sendFile(indexPath);
+  }
+  next();
+}, express.static(path.join(__dirname, '../../openAI_conver/public'), {
   index: 'index.html',
-  setHeaders: (res, path) => {
+  setHeaders: (res, filePath) => {
     // Ensure HTML files are served with correct content type
-    if (path.endsWith('.html')) {
+    if (filePath.endsWith('.html')) {
       res.setHeader('Content-Type', 'text/html');
     }
-  }
+    console.log('[CONVERSATION] Serving static file:', filePath);
+  },
+  fallthrough: false // Don't fall through to next middleware if file not found
 }));
 
 // Serve built frontend (production) - MUST be last to avoid catching /avatars requests

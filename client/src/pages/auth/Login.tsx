@@ -82,10 +82,12 @@ const Login = () => {
       // Store user data - ensure we have the latest user data
       if (data.user) {
         // Ensure role is set, default to USER if not present
+        // IMPORTANT: Preserve the exact role from backend (case-sensitive)
         const userData = {
           ...data.user,
-          role: (data.user.role || 'USER').toUpperCase()
+          role: data.user.role ? data.user.role.toUpperCase() : 'USER'
         }
+        console.log('[LOGIN] Storing user data:', userData);
         localStorage.setItem('user', JSON.stringify(userData))
         // Set login time for welcome notification
         sessionStorage.setItem('loginTime', Date.now().toString())
@@ -99,14 +101,29 @@ const Login = () => {
       const userRole = (data.user?.role || 'USER').toUpperCase()
       const userEmail = (data.user?.email || '').toLowerCase()
       
+      // Debug logging
+      console.log('[LOGIN] User role:', userRole)
+      console.log('[LOGIN] User email:', userEmail)
+      console.log('[LOGIN] Raw role from backend:', data.user?.role)
+      
       // Check if user is any type of admin
       const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'COACH_ADMIN'
+      
+      console.log('[LOGIN] Is admin?', isAdmin)
+      console.log('[LOGIN] Admin check breakdown:', {
+        isADMIN: userRole === 'ADMIN',
+        isSUPER_ADMIN: userRole === 'SUPER_ADMIN',
+        isCOACH_ADMIN: userRole === 'COACH_ADMIN',
+        isDaniel: userEmail === 'danrosario0604@gmail.com'
+      })
       
       // Only admins and Daniel Rosario can access /app
       // All other users (including USER role, null, or undefined) go to dashboard
       if (userEmail === 'danrosario0604@gmail.com' || isAdmin) {
+        console.log('[LOGIN] Redirecting to /app')
         navigate('/app')
       } else {
+        console.log('[LOGIN] Redirecting to /dashboard (not admin)')
         // Regular users go directly to dashboard
         navigate('/dashboard')
       }

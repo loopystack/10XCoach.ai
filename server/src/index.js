@@ -264,8 +264,8 @@ const blogRoutes = require('./modules/blogs/blog.routes');
 app.use('/api', blogRoutes);
 
 // Admin Routes
-// const adminRoutes = require('./modules/admin/admin.routes'); // Commented out - uses old PostgreSQL
-// app.use('/api/admin', adminRoutes); // Commented out - uses old PostgreSQL
+const adminRoutes = require('./modules/admin/admin.routes'); // Commented out - uses old PostgreSQL
+app.use('/api/admin', adminRoutes); // Commented out - uses old PostgreSQL
 
 // Legacy API routes (for backwards compatibility)
 const legacyRoutes = require('./modules/legacy/legacy.routes');

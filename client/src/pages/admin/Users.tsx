@@ -53,7 +53,7 @@ const Users = () => {
     }
 
     // Fetch users
-    api.get('/api/manage-users')
+    api.get('/api/admin/manage-users')
       .then(data => {
         // Ensure data is an array
         if (Array.isArray(data)) {

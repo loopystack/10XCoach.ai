@@ -519,7 +519,16 @@ router.post('/manage-emails-test', async (req, res) => {
       auth: {
         user: smtpUsername,
         pass: smtpPassword
-      }
+      },
+      // Connection timeout settings
+      connectionTimeout: 20000, // 20 seconds to establish connection
+      greetingTimeout: 20000,  // 20 seconds for server greeting
+      socketTimeout: 20000,     // 20 seconds for socket operations
+      // Pool connections for better reliability
+      pool: false,
+      // Debug mode (set to true for verbose logging)
+      debug: false,
+      logger: false
     };
     
     // For port 587 (TLS), configure TLS properly
@@ -528,16 +537,20 @@ router.post('/manage-emails-test', async (req, res) => {
       // Zoho Mail requires proper TLS configuration
       transporterConfig.tls = {
         rejectUnauthorized: false, // Allow self-signed certificates (some servers need this)
-        minVersion: 'TLSv1.2'
+        minVersion: 'TLSv1.2',
+        ciphers: 'SSLv3'
       };
     }
     
-    // For port 465 (SSL), also configure TLS
+    // For port 465 (SSL), configure SSL/TLS properly
     if (smtpPort === 465) {
       transporterConfig.tls = {
         rejectUnauthorized: false,
-        minVersion: 'TLSv1.2'
+        minVersion: 'TLSv1.2',
+        ciphers: 'SSLv3'
       };
+      // For SSL connections, ensure we're using the right approach
+      transporterConfig.secure = true;
     }
     
     console.log('[TEST EMAIL] SMTP Config:', {
@@ -546,18 +559,22 @@ router.post('/manage-emails-test', async (req, res) => {
       secure: transporterConfig.secure,
       requireTLS: transporterConfig.requireTLS,
       username: smtpUsername,
-      fromEmail: smtpFromEmail
+      fromEmail: smtpFromEmail,
+      connectionTimeout: transporterConfig.connectionTimeout
     });
     
     const transporter = nodemailer.createTransport(transporterConfig);
 
-    // Verify connection with timeout
-    console.log('[TEST EMAIL] Verifying SMTP connection...');
+    // Verify connection with extended timeout (30 seconds for network issues)
+    console.log('[TEST EMAIL] Verifying SMTP connection to', smtpHost + ':' + smtpPort);
+    console.log('[TEST EMAIL] This may take up to 30 seconds if there are network issues...');
+    
     try {
+      // Use a longer timeout for verification (30 seconds) since network can be slow
       await Promise.race([
         transporter.verify(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SMTP verification timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('SMTP verification timeout after 30 seconds. The server cannot reach the SMTP server. Check firewall and network settings.')), 30000)
         )
       ]);
       console.log('[TEST EMAIL] ✅ SMTP connection verified');

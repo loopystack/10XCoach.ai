@@ -42,7 +42,14 @@ const createTransporter = async () => {
     auth: {
       user: settings.smtpUsername,
       pass: settings.smtpPassword
-    }
+    },
+    // Connection timeout settings
+    connectionTimeout: 20000, // 20 seconds to establish connection
+    greetingTimeout: 20000,  // 20 seconds for server greeting
+    socketTimeout: 20000,     // 20 seconds for socket operations
+    pool: false,
+    debug: false,
+    logger: false
   };
   
   // For port 587 (TLS), configure TLS properly
@@ -51,16 +58,19 @@ const createTransporter = async () => {
     // Zoho Mail and other providers require proper TLS configuration
     transporterConfig.tls = {
       rejectUnauthorized: false, // Allow self-signed certificates (some servers need this)
-      minVersion: 'TLSv1.2'
+      minVersion: 'TLSv1.2',
+      ciphers: 'SSLv3'
     };
   }
   
-  // For port 465 (SSL), also configure TLS
+  // For port 465 (SSL), configure SSL/TLS properly
   if (settings.smtpPort === 465) {
     transporterConfig.tls = {
       rejectUnauthorized: false,
-      minVersion: 'TLSv1.2'
+      minVersion: 'TLSv1.2',
+      ciphers: 'SSLv3'
     };
+    transporterConfig.secure = true;
   }
   
   return nodemailer.createTransport(transporterConfig);

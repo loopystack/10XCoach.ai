@@ -63,7 +63,7 @@ const Coaches = () => {
   const fetchCoaches = async () => {
     try {
       setLoading(true)
-      const data = await api.get('/api/manage-coaches')
+      const data = await api.get('/api/admin/manage-coaches')
       if (Array.isArray(data)) {
         setCoaches(data.map((coach: any) => ({
           id: coach.id,

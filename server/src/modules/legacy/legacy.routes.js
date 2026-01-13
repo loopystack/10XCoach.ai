@@ -7,15 +7,22 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../../lib/prisma');
+const { authenticate, optionalAuth } = require('../../middleware/auth.middleware');
 
 // =============================================
 // QUIZZES ENDPOINTS (Legacy)
 // =============================================
-router.get('/quizzes', async (req, res) => {
+router.get('/quizzes', authenticate, async (req, res) => {
   try {
     const { coachId } = req.query;
     
     const where = {};
+    
+    // CRITICAL: Filter by userId for non-admin users to prevent data leakage
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'COACH_ADMIN') {
+      where.userId = req.user.id;
+    }
+    
     if (coachId) where.coachId = parseInt(coachId);
 
     // Fetch from QuizResult (new system) instead of Quiz (old system)
@@ -60,18 +67,26 @@ router.get('/quizzes', async (req, res) => {
   }
 });
 
-router.get('/quizzes/stats', async (req, res) => {
+router.get('/quizzes/stats', authenticate, async (req, res) => {
   try {
+    // Build where clause - filter by userId for non-admin users
+    const where = {};
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'COACH_ADMIN') {
+      where.userId = req.user.id;
+    }
+    
     // Get stats from QuizResult table (new quiz system)
-    const total = await prisma.quizResult.count();
+    const total = await prisma.quizResult.count({ where });
     
     const avgScore = await prisma.quizResult.aggregate({
+      where,
       _avg: { totalScore: true }
     });
     
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const thisMonth = await prisma.quizResult.count({
       where: {
+        ...where,
         createdAt: {
           gte: startOfMonth
         }
@@ -112,11 +127,17 @@ router.post('/quizzes', async (req, res) => {
 // =============================================
 // HUDDLES ENDPOINTS (Legacy)
 // =============================================
-router.get('/huddles', async (req, res) => {
+router.get('/huddles', authenticate, async (req, res) => {
   try {
     const { coachId } = req.query;
     
     const where = {};
+    
+    // CRITICAL: Filter by userId for non-admin users to prevent data leakage
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'COACH_ADMIN') {
+      where.userId = req.user.id;
+    }
+    
     if (coachId) where.coachId = parseInt(coachId);
 
     let huddles = [];
@@ -286,11 +307,17 @@ router.delete('/huddles/:id', async (req, res) => {
 // =============================================
 // NOTES ENDPOINTS (Legacy)
 // =============================================
-router.get('/notes', async (req, res) => {
+router.get('/notes', authenticate, async (req, res) => {
   try {
     const { coachId } = req.query;
     
     const where = {};
+    
+    // CRITICAL: Filter by userId for non-admin users to prevent data leakage
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'COACH_ADMIN') {
+      where.userId = req.user.id;
+    }
+    
     if (coachId) where.coachId = parseInt(coachId);
 
     const notes = await prisma.note.findMany({
@@ -425,11 +452,18 @@ router.delete('/notes/:id', async (req, res) => {
 // =============================================
 // TODOS ENDPOINTS (Legacy)
 // =============================================
-router.get('/todos', async (req, res) => {
+router.get('/todos', authenticate, async (req, res) => {
   try {
+    // Build where clause - filter by userId for non-admin users
+    const where = {};
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'COACH_ADMIN') {
+      where.userId = req.user.id;
+    }
+    
     let todos = [];
     try {
       todos = await prisma.todo.findMany({
+        where,
         orderBy: { dueDate: 'asc' }
       });
     } catch (error) {
@@ -525,15 +559,23 @@ router.delete('/todos/:id', async (req, res) => {
 // =============================================
 // DASHBOARD STATS ENDPOINT (Legacy)
 // =============================================
-router.get('/dashboard/stats', async (req, res) => {
+router.get('/dashboard/stats', authenticate, async (req, res) => {
   try {
     const { coachId } = req.query;
     
-    // Build where clauses for filtering by coach
+    // Build where clauses for filtering by coach AND user
     const quizWhere = {};
     const huddleWhere = {};
     const noteWhere = {};
     const todoWhere = {};
+    
+    // CRITICAL: Filter by userId for non-admin users to prevent data leakage
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'COACH_ADMIN') {
+      quizWhere.userId = req.user.id;
+      huddleWhere.userId = req.user.id;
+      noteWhere.userId = req.user.id;
+      todoWhere.userId = req.user.id;
+    }
     
     if (coachId) {
       const coachIdNum = parseInt(coachId);

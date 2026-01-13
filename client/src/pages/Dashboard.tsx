@@ -9,7 +9,10 @@ import {
   X,
   Sparkles,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  CreditCard,
+  ArrowRight
 } from 'lucide-react'
 import { 
   AreaChart, 
@@ -74,6 +77,19 @@ interface Activity {
   data: any
 }
 
+interface BillingStatus {
+  trialStartDate: string | null
+  trialEndDate: string | null
+  trialDaysRemaining: number | null
+  accessStatus: string
+  hasAccess: boolean
+  currentPlanName: string | null
+  planStartDate: string | null
+  planEndDate: string | null
+  creditBalance: number
+  stripeCustomerId: string | null
+}
+
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [quizData, setQuizData] = useState<any[]>([])
@@ -91,6 +107,7 @@ const Dashboard = () => {
   const [selectedDateActivities, setSelectedDateActivities] = useState<Activity[]>([])
   const [showActivityModal, setShowActivityModal] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
 
   // Check for login and show welcome notification (ONLY for regular users, NOT admins)
   useEffect(() => {
@@ -160,6 +177,14 @@ const Dashboard = () => {
       setError(null)
       
       try {
+        // Fetch billing status
+        try {
+          const billingData = await api.get('/api/billing/status')
+          setBillingStatus(billingData)
+        } catch (err) {
+          console.warn('Failed to fetch billing status:', err)
+        }
+
         // Fetch coaches
         try {
           const coachesData = await api.get('/api/coaches')
@@ -644,6 +669,95 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Trial Status Banner */}
+      {billingStatus && (
+        <div 
+          className="content-card" 
+          style={{ 
+            marginBottom: '24px',
+            padding: '20px',
+            background: billingStatus.hasAccess 
+              ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%)'
+              : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)',
+            border: billingStatus.hasAccess 
+              ? '1px solid rgba(59, 130, 246, 0.3)'
+              : '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+              {billingStatus.hasAccess ? (
+                <>
+                  <Clock style={{ color: '#3b82f6', flexShrink: 0 }} size={20} />
+                  <div>
+                    <p style={{ fontWeight: 700, color: 'var(--gray-900)', marginBottom: '4px', fontSize: '16px' }}>
+                      {billingStatus.trialDaysRemaining !== null
+                        ? `${billingStatus.trialDaysRemaining} days remaining in your free trial`
+                        : billingStatus.currentPlanName
+                        ? `Active Plan: ${billingStatus.currentPlanName}`
+                        : 'Active Access'}
+                    </p>
+                    {billingStatus.trialDaysRemaining !== null && billingStatus.trialEndDate && (
+                      <p style={{ fontSize: '14px', color: 'var(--gray-600)' }}>
+                        Trial ends: {new Date(billingStatus.trialEndDate).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <AlertCircle style={{ color: '#ef4444', flexShrink: 0 }} size={20} />
+                  <div>
+                    <p style={{ fontWeight: 700, color: 'var(--gray-900)', marginBottom: '4px', fontSize: '16px' }}>Your free trial has ended</p>
+                    <p style={{ fontSize: '14px', color: 'var(--gray-600)' }}>
+                      Upgrade now to continue using all features.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {billingStatus.creditBalance > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px' }}>
+                  <CreditCard size={16} style={{ color: '#8b5cf6' }} />
+                  <span style={{ fontWeight: 700, color: 'var(--gray-900)', fontSize: '16px' }}>
+                    ${billingStatus.creditBalance.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <Link 
+                to="/plans" 
+                style={{
+                  padding: '10px 20px',
+                  background: billingStatus.hasAccess ? 'var(--card-blue-dark)' : '#ef4444',
+                  color: 'white',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  textDecoration: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
+                {billingStatus.hasAccess ? 'View Plans' : 'Upgrade Now'}
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards Row */}
       <div className="dashboard-kpi-row">

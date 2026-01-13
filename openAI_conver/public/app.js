@@ -456,8 +456,11 @@ class VoiceConversation {
             const voice = coachVoiceMap[this.selectedCoach.name] || 'echo';
             
             // Initialize WebSocket connection
+            // Use the same protocol and host, but ensure WebSocket upgrade works through nginx
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}`;
+            // Connect to root path - nginx will proxy WebSocket upgrade to Node.js server
+            const wsUrl = `${protocol}//${window.location.host}/`;
+            console.log('🔌 Connecting WebSocket to:', wsUrl);
             this.ws = new WebSocket(wsUrl);
 
             this.ws.onopen = async () => {

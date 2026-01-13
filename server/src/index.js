@@ -379,6 +379,7 @@ wss.on('connection', (ws, req) => {
   let greetingSent = false;
   let pendingGreetingResponse = false;
   let currentToken = null;
+  let sessionSaved = false; // Track if session has been saved to prevent duplicates
 
   // Helper function to safely send messages to client
   const safeSend = (message) => {
@@ -429,6 +430,8 @@ wss.on('connection', (ws, req) => {
         conversationTranscript = [];
         processedResponses = new Set(); // Reset processed responses for new session
         sessionStartTime = new Date();
+        sessionSaved = false; // Reset saved flag for new session
+        sessionId = null; // Reset session ID
 
         // Get user conversation history for memory
         let conversationHistory = [];
@@ -819,8 +822,10 @@ wss.on('connection', (ws, req) => {
           openaiWs.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
         }
 
-        // Auto-save conversation on stop
-        if (currentUserId && conversationTranscript.length > 0) {
+        // Auto-save conversation on stop (only if not already saved)
+        // Note: If user clicks "Stop and Save", the save_conversation handler will save it
+        // So we skip auto-save here to prevent duplicates
+        if (currentUserId && conversationTranscript.length > 0 && !sessionSaved) {
           console.log('💾 Auto-saving conversation on stop');
           
           // Calculate duration
@@ -909,6 +914,7 @@ wss.on('connection', (ws, req) => {
               });
               
               sessionId = savedSession.id;
+              sessionSaved = true; // Mark as saved to prevent duplicates
               console.log('✅ Auto-saved conversation via Prisma:', { 
                 sessionId, 
                 duration: savedSession.duration,
@@ -932,6 +938,13 @@ wss.on('connection', (ws, req) => {
       } else if (message.type === 'save_conversation') {
         // Handle manual save
         console.log('💾 Manual save requested');
+        
+        // Prevent duplicate saves
+        if (sessionSaved) {
+          console.log('⚠️ Session already saved, skipping duplicate save request');
+          safeSend({ type: 'conversation_saved', sessionId: sessionId, message: 'Session already saved' });
+          return;
+        }
         
         if (!currentUserId || !currentCoachId) {
           console.error('❌ Cannot save: Missing userId or coachId');
@@ -1063,6 +1076,7 @@ wss.on('connection', (ws, req) => {
           });
           
           sessionId = savedSession.id;
+          sessionSaved = true; // Mark session as saved to prevent duplicates
           console.log('✅ Conversation saved successfully via Prisma:', {
             sessionId: sessionId,
             duration: savedSession.duration,

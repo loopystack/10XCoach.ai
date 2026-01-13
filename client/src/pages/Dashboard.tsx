@@ -108,6 +108,7 @@ const Dashboard = () => {
   const [showActivityModal, setShowActivityModal] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
+  const [trialCountdown, setTrialCountdown] = useState<string>('')
 
   // Check for login and show welcome notification (ONLY for regular users, NOT admins)
   useEffect(() => {
@@ -170,6 +171,40 @@ const Dashboard = () => {
       }
     }
   }, [])
+
+  // Countdown timer for trial
+  useEffect(() => {
+    if (!billingStatus || !billingStatus.trialEndDate || billingStatus.trialDaysRemaining === null) {
+      setTrialCountdown('')
+      return
+    }
+
+    const updateCountdown = () => {
+      const now = new Date()
+      const endDate = new Date(billingStatus.trialEndDate!)
+      const diff = endDate.getTime() - now.getTime()
+
+      if (diff <= 0) {
+        setTrialCountdown('Trial Expired')
+        return
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+      setTrialCountdown(`${days} Days, ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`)
+    }
+
+    // Update immediately
+    updateCountdown()
+
+    // Update every second
+    const interval = setInterval(updateCountdown, 1000)
+
+    return () => clearInterval(interval)
+  }, [billingStatus])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -694,7 +729,7 @@ const Dashboard = () => {
                   <div>
                     <p style={{ fontWeight: 700, color: 'var(--gray-900)', marginBottom: '4px', fontSize: '16px' }}>
                       {billingStatus.trialDaysRemaining !== null
-                        ? `${billingStatus.trialDaysRemaining} days remaining in your free trial`
+                        ? `Free Trial: ${trialCountdown || 'Calculating...'}`
                         : billingStatus.currentPlanName
                         ? `Active Plan: ${billingStatus.currentPlanName}`
                         : 'Active Access'}

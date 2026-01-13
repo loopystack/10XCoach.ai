@@ -46,16 +46,14 @@ const Quizzes = () => {
   const [coaches, setCoaches] = useState<any[]>([])
   const [stats, setStats] = useState<any>(null)
 
-  const fetchStats = () => {
-    fetch('/api/quizzes/stats')
-      .then(res => res.json())
-      .then(data => {
-        setStats(data)
-      })
-      .catch(err => {
-        console.error('Failed to fetch quiz stats:', err)
-        setStats({ total: 0, averageScore: 0, thisMonth: 0 })
-      })
+  const fetchStats = async () => {
+    try {
+      const data = await api.get('/api/quizzes/stats')
+      setStats(data)
+    } catch (err) {
+      console.error('Failed to fetch quiz stats:', err)
+      setStats({ total: 0, averageScore: 0, thisMonth: 0 })
+    }
   }
 
   const fetchQuizResults = async () => {
@@ -77,15 +75,18 @@ const Quizzes = () => {
   }
 
   useEffect(() => {
-    fetch('/api/coaches')
-      .then(res => res.json())
-      .then(data => {
+    const fetchCoaches = async () => {
+      try {
+        const data = await api.get('/api/coaches')
         if (Array.isArray(data)) {
           setCoaches(data)
         }
-      })
-      .catch(err => console.error('Failed to fetch coaches:', err))
+      } catch (err) {
+        console.error('Failed to fetch coaches:', err)
+      }
+    }
     
+    fetchCoaches()
     fetchStats()
     fetchQuizResults()
     
@@ -98,10 +99,10 @@ const Quizzes = () => {
   }, [])
 
   useEffect(() => {
-    const url = selectedCoach ? `/api/quizzes?coachId=${selectedCoach}` : '/api/quizzes'
-    fetch(url)
-      .then(res => res.json())
-      .then(data => {
+    const fetchQuizzes = async () => {
+      try {
+        const url = selectedCoach ? `/api/quizzes?coachId=${selectedCoach}` : '/api/quizzes'
+        const data = await api.get(url)
         // Ensure data is always an array
         if (Array.isArray(data)) {
           setQuizzes(data)
@@ -109,11 +110,12 @@ const Quizzes = () => {
           console.warn('Quizzes data is not an array:', data)
           setQuizzes([])
         }
-      })
-      .catch(err => {
+      } catch (err) {
         console.error('Failed to fetch quizzes:', err)
         setQuizzes([])
-      })
+      }
+    }
+    fetchQuizzes()
   }, [selectedCoach])
 
   // Ensure quizzes is always an array before using reduce

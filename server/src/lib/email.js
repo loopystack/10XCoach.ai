@@ -35,42 +35,51 @@ const getEmailSettings = async () => {
 const createTransporter = async () => {
   const settings = await getEmailSettings();
   
+  // Determine secure mode based on port
+  const isSecurePort = settings.smtpPort === 465 || settings.smtpPort === 443;
+  const isTLSPort = settings.smtpPort === 587 || settings.smtpPort === 2525;
+  
   const transporterConfig = {
     host: settings.smtpHost,
     port: settings.smtpPort,
-    secure: settings.smtpPort === 465, // true for 465 (SSL), false for 587 (TLS)
+    secure: isSecurePort, // true for 465/443 (SSL), false for others
     auth: {
       user: settings.smtpUsername,
       pass: settings.smtpPassword
     },
     // Connection timeout settings
-    connectionTimeout: 20000, // 20 seconds to establish connection
-    greetingTimeout: 20000,  // 20 seconds for server greeting
-    socketTimeout: 20000,     // 20 seconds for socket operations
+    connectionTimeout: 30000, // 30 seconds to establish connection
+    greetingTimeout: 30000,  // 30 seconds for server greeting
+    socketTimeout: 30000,     // 30 seconds for socket operations
     pool: false,
     debug: false,
     logger: false
   };
   
-  // For port 587 (TLS), configure TLS properly
-  if (settings.smtpPort === 587) {
+  // For TLS ports (587, 2525), configure TLS properly
+  if (isTLSPort) {
     transporterConfig.requireTLS = true;
-    // Zoho Mail and other providers require proper TLS configuration
     transporterConfig.tls = {
-      rejectUnauthorized: false, // Allow self-signed certificates (some servers need this)
+      rejectUnauthorized: false,
       minVersion: 'TLSv1.2',
       ciphers: 'SSLv3'
     };
   }
   
-  // For port 465 (SSL), configure SSL/TLS properly
-  if (settings.smtpPort === 465) {
+  // For SSL ports (465, 443), configure SSL/TLS properly
+  if (isSecurePort) {
     transporterConfig.tls = {
       rejectUnauthorized: false,
       minVersion: 'TLSv1.2',
       ciphers: 'SSLv3'
     };
     transporterConfig.secure = true;
+  }
+  
+  // For port 80 (HTTP), try plain connection
+  if (settings.smtpPort === 80) {
+    transporterConfig.secure = false;
+    transporterConfig.requireTLS = false;
   }
   
   return nodemailer.createTransport(transporterConfig);

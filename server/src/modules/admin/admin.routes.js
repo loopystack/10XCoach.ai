@@ -512,18 +512,25 @@ router.post('/manage-emails-test', async (req, res) => {
     }
 
     const nodemailer = require('nodemailer');
+    
+    // Determine secure mode based on port
+    // Ports 465, 443 = SSL (secure: true)
+    // Ports 587, 2525, 80 = TLS or plain (secure: false, requireTLS: true for 587)
+    const isSecurePort = smtpPort === 465 || smtpPort === 443;
+    const isTLSPort = smtpPort === 587 || smtpPort === 2525;
+    
     const transporterConfig = {
       host: smtpHost,
       port: smtpPort,
-      secure: smtpPort === 465, // true for 465 (SSL), false for 587 (TLS)
+      secure: isSecurePort, // true for 465/443 (SSL), false for others
       auth: {
         user: smtpUsername,
         pass: smtpPassword
       },
       // Connection timeout settings
-      connectionTimeout: 20000, // 20 seconds to establish connection
-      greetingTimeout: 20000,  // 20 seconds for server greeting
-      socketTimeout: 20000,     // 20 seconds for socket operations
+      connectionTimeout: 30000, // 30 seconds to establish connection
+      greetingTimeout: 30000,  // 30 seconds for server greeting
+      socketTimeout: 30000,     // 30 seconds for socket operations
       // Pool connections for better reliability
       pool: false,
       // Debug mode (set to true for verbose logging)
@@ -531,26 +538,30 @@ router.post('/manage-emails-test', async (req, res) => {
       logger: false
     };
     
-    // For port 587 (TLS), configure TLS properly
-    if (smtpPort === 587) {
+    // For TLS ports (587, 2525), configure TLS properly
+    if (isTLSPort) {
       transporterConfig.requireTLS = true;
-      // Zoho Mail requires proper TLS configuration
       transporterConfig.tls = {
-        rejectUnauthorized: false, // Allow self-signed certificates (some servers need this)
+        rejectUnauthorized: false, // Allow self-signed certificates
         minVersion: 'TLSv1.2',
         ciphers: 'SSLv3'
       };
     }
     
-    // For port 465 (SSL), configure SSL/TLS properly
-    if (smtpPort === 465) {
+    // For SSL ports (465, 443), configure SSL/TLS properly
+    if (isSecurePort) {
       transporterConfig.tls = {
         rejectUnauthorized: false,
         minVersion: 'TLSv1.2',
         ciphers: 'SSLv3'
       };
-      // For SSL connections, ensure we're using the right approach
       transporterConfig.secure = true;
+    }
+    
+    // For port 80 (HTTP), try plain connection (unlikely to work but worth trying)
+    if (smtpPort === 80) {
+      transporterConfig.secure = false;
+      transporterConfig.requireTLS = false;
     }
     
     console.log('[TEST EMAIL] SMTP Config:', {
@@ -591,6 +602,9 @@ router.post('/manage-emails-test', async (req, res) => {
       if (verifyError.code === 'EAUTH') {
         errorMessage = 'SMTP authentication failed.';
         helpfulHint = 'Please check your username and password. If you have 2FA enabled, use an app-specific password.';
+      } else if (verifyError.code === 'ETIMEDOUT' && verifyError.command === 'CONN') {
+        errorMessage = '❌ NETWORK BLOCKED: Cannot reach SMTP server';
+        helpfulHint = 'Your VPS server CANNOT connect to ' + smtpHost + ':' + smtpPort + '. This is a FIREWALL/NETWORK restriction by your hosting provider. Your server is blocked from reaching Zoho SMTP. Solutions: 1) Contact your hosting provider to unblock ports 465/587, 2) Use a different SMTP service (Gmail, SendGrid, Mailgun, AWS SES) that might not be blocked, 3) Test connectivity: Run "timeout 5 bash -c \"</dev/tcp/' + smtpHost + '/' + smtpPort + '\"" on your VPS - if it fails, the port is blocked.';
       } else if (verifyError.code === 'ECONNECTION' || verifyError.code === 'ETIMEDOUT') {
         errorMessage = 'Could not connect to SMTP server.';
         helpfulHint = 'Please check your SMTP host and port. For Zoho, try port 465 (SSL) instead of 587, or ensure your server allows outbound connections on port 587.';
@@ -598,8 +612,8 @@ router.post('/manage-emails-test', async (req, res) => {
         errorMessage = 'Network connection error.';
         helpfulHint = 'Check your server\'s firewall and network settings. Ensure outbound connections to SMTP ports are allowed.';
       } else if (verifyError.message?.includes('timeout')) {
-        errorMessage = 'Connection timeout.';
-        helpfulHint = 'The SMTP server did not respond in time. Try port 465 (SSL) or check your network connection.';
+        errorMessage = 'Connection timeout - Network blocked.';
+        helpfulHint = 'Your server cannot reach the SMTP server. This is likely a firewall restriction. Contact your hosting provider or use a different SMTP service.';
       } else {
         errorMessage = verifyError.message || 'SMTP connection failed.';
         helpfulHint = 'Please verify your SMTP settings match your email provider\'s requirements.';

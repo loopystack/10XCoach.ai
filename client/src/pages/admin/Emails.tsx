@@ -185,10 +185,12 @@ const Emails = () => {
                 value={settings.smtpPort}
                 onChange={(e) => handleChange('smtpPort', e.target.value)}
               >
-                <option value="465">465 (SSL)</option>
-                <option value="587">587 (TLS)</option>
-                <option value="25">25 (Standard)</option>
-                <option value="2525">2525 (Alternative)</option>
+                <option value="465">465 (SSL) - Blocked on DigitalOcean</option>
+                <option value="587">587 (TLS) - Blocked on DigitalOcean</option>
+                <option value="25">25 (Standard) - Blocked on DigitalOcean</option>
+                <option value="2525">2525 (Alternative) - May work</option>
+                <option value="80">80 (HTTP) - May work</option>
+                <option value="443">443 (HTTPS) - May work</option>
               </select>
               <small>Port 465 for SSL, 587 for TLS</small>
             </div>

@@ -35,15 +35,22 @@ const getEmailSettings = async () => {
 const createTransporter = async () => {
   const settings = await getEmailSettings();
   
-  return nodemailer.createTransport({
+  const transporterConfig = {
     host: settings.smtpHost,
     port: settings.smtpPort,
-    secure: settings.smtpPort === 465, // true for 465, false for other ports
+    secure: settings.smtpPort === 465, // true for 465 (SSL), false for 587 (TLS)
     auth: {
       user: settings.smtpUsername,
       pass: settings.smtpPassword
     }
-  });
+  };
+  
+  // For port 587 (TLS), require TLS
+  if (settings.smtpPort === 587) {
+    transporterConfig.requireTLS = true;
+  }
+  
+  return nodemailer.createTransport(transporterConfig);
 };
 
 /**

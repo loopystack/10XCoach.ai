@@ -176,7 +176,7 @@ const Emails = () => {
                 onChange={(e) => handleChange('smtpHost', e.target.value)}
                 placeholder={settings.smtpHost || "smtpout.secureserver.net (GoDaddy)"}
               />
-              <small>GoDaddy: smtpout.secureserver.net | Zoho: smtp.zoho.com | Gmail: smtp.gmail.com | Outlook: smtp-mail.outlook.com</small>
+              <small>Zoho: smtp.zoho.com (or smtppro.zoho.com for paid org) | Gmail: smtp.gmail.com | GoDaddy: smtpout.secureserver.net | Outlook: smtp-mail.outlook.com</small>
             </div>
             
             <div className="settings-form-field">

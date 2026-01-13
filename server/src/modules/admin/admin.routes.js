@@ -512,15 +512,22 @@ router.post('/manage-emails-test', async (req, res) => {
     }
 
     const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
+    const transporterConfig = {
       host: smtpHost,
       port: smtpPort,
-      secure: smtpPort === 465,
+      secure: smtpPort === 465, // true for 465 (SSL), false for 587 (TLS)
       auth: {
         user: smtpUsername,
         pass: smtpPassword
       }
-    });
+    };
+    
+    // For port 587 (TLS), require TLS
+    if (smtpPort === 587) {
+      transporterConfig.requireTLS = true;
+    }
+    
+    const transporter = nodemailer.createTransport(transporterConfig);
 
     // Verify connection
     await transporter.verify();

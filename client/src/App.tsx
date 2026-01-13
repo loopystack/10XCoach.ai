@@ -158,7 +158,7 @@ function App() {
             </AdminLayout>
           </ProtectedRoute>
         } />
-        <Route path="/admin/users" element={
+        <Route path="/manage-users" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <Users />

@@ -114,7 +114,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   // Define all menu items with their required roles
   const allMenuItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Overview', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
-    { path: '/admin/users', icon: Users, label: 'Users & Subscriptions', roles: ['SUPER_ADMIN'] },
+    { path: '/manage-users', icon: Users, label: 'Users & Subscriptions', roles: ['SUPER_ADMIN'] },
     { path: '/admin/plans', icon: FileText, label: 'Plans', roles: ['SUPER_ADMIN'] },
     { path: '/admin/coaches', icon: GraduationCap, label: 'Coaches & Knowledge', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
     { path: '/admin/quizzes', icon: FileText, label: 'Quizzes & Diagnostics', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },

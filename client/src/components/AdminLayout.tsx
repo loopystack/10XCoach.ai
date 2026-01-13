@@ -116,7 +116,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin', icon: LayoutDashboard, label: 'Overview', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
     { path: '/manage-users', icon: Users, label: 'Users & Subscriptions', roles: ['SUPER_ADMIN'] },
     { path: '/admin/plans', icon: FileText, label: 'Plans', roles: ['SUPER_ADMIN'] },
-    { path: '/admin/coaches', icon: GraduationCap, label: 'Coaches & Knowledge', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
+    { path: '/manage-coaches', icon: GraduationCap, label: 'Coaches & Knowledge', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
     { path: '/admin/quizzes', icon: FileText, label: 'Quizzes & Diagnostics', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
     { path: '/admin/sessions', icon: MessageSquare, label: 'Sessions & Notes', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
     { path: '/admin/analytics', icon: BarChart3, label: 'Analytics & KPIs', roles: ['SUPER_ADMIN'] },

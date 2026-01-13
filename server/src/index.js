@@ -99,7 +99,16 @@ app.use('/avatars', (req, res, next) => {
 app.use('/coaches', express.static(path.join(__dirname, '../../coaches')));
 
 // Serve OpenAI conversation static files
-app.use('/conversation', express.static(path.join(__dirname, '../../openAI_conver/public')));
+// IMPORTANT: This must come BEFORE the general static middleware and SPA fallback
+app.use('/conversation', express.static(path.join(__dirname, '../../openAI_conver/public'), {
+  index: 'index.html',
+  setHeaders: (res, path) => {
+    // Ensure HTML files are served with correct content type
+    if (path.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
 
 // Serve built frontend (production) - MUST be last to avoid catching /avatars requests
 app.use(express.static(path.join(__dirname, '../../client/dist')));
@@ -1100,7 +1109,11 @@ app.use((err, req, res, next) => {
 // =============================================
 // SPA FALLBACK
 // =============================================
-app.get('*', (req, res) => {
+app.get('*', (req, res, next) => {
+  // Don't serve SPA for conversation routes - let static middleware handle it
+  if (req.path.startsWith('/conversation')) {
+    return next(); // Let Express static middleware handle it (404 if file not found)
+  }
   res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
 });
 

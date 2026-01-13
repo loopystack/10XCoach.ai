@@ -35,10 +35,6 @@ const getEmailSettings = async () => {
 const createTransporter = async () => {
   const settings = await getEmailSettings();
   
-  // Determine secure mode based on port
-  const isSecurePort = settings.smtpPort === 465 || settings.smtpPort === 443;
-  const isTLSPort = settings.smtpPort === 587 || settings.smtpPort === 2525;
-  
   const transporterConfig = {
     host: settings.smtpHost,
     port: settings.smtpPort,

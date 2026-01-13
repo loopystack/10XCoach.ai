@@ -94,14 +94,17 @@ const Login = () => {
       }
 
       // Redirect based on role
-      // Daniel Rosario (danrosario0604@gmail.com) or any ADMIN -> /app (can choose dashboard or admin)
+      // Daniel Rosario (danrosario0604@gmail.com) or any ADMIN role (ADMIN, SUPER_ADMIN, COACH_ADMIN) -> /app (can choose dashboard or admin)
       // All other users (USER role or undefined/null) -> /dashboard (direct access, no admin access)
       const userRole = (data.user?.role || 'USER').toUpperCase()
       const userEmail = (data.user?.email || '').toLowerCase()
       
+      // Check if user is any type of admin
+      const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'COACH_ADMIN'
+      
       // Only admins and Daniel Rosario can access /app
       // All other users (including USER role, null, or undefined) go to dashboard
-      if (userEmail === 'danrosario0604@gmail.com' || userRole === 'ADMIN') {
+      if (userEmail === 'danrosario0604@gmail.com' || isAdmin) {
         navigate('/app')
       } else {
         // Regular users go directly to dashboard

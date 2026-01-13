@@ -23,7 +23,8 @@ const Homepage = () => {
           const userEmail = (user.email || '').toLowerCase()
           
           // Only show notification for admins on this page
-          const isAdmin = userRole === 'ADMIN' || userEmail === 'danrosario0604@gmail.com'
+          // Check if user is any type of admin (ADMIN, SUPER_ADMIN, COACH_ADMIN)
+          const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'COACH_ADMIN' || userEmail === 'danrosario0604@gmail.com'
           
           if (isAdmin) {
             const name = user.name || user.email?.split('@')[0] || 'Admin'

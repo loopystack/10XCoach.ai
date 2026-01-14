@@ -15,7 +15,6 @@ import {
   ArrowRight,
   Mic
 } from 'lucide-react'
-import { isAuthenticated } from '../utils/api'
 import { 
   AreaChart, 
   Area,
@@ -96,8 +95,6 @@ const Dashboard = () => {
   const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [quizData, setQuizData] = useState<any[]>([])
-  const [coaches, setCoaches] = useState<Coach[]>([])
-  const [selectedCoach, setSelectedCoach] = useState<number | null>(null)
   const [huddles, setHuddles] = useState<Huddle[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
   const [monthlyActivity, setMonthlyActivity] = useState<any[]>([])
@@ -223,19 +220,9 @@ const Dashboard = () => {
           console.warn('Failed to fetch billing status:', err)
         }
 
-        // Fetch coaches
-        try {
-          const coachesData = await api.get('/api/coaches')
-          if (Array.isArray(coachesData)) {
-            setCoaches(coachesData)
-          }
-        } catch (err) {
-          console.warn('Failed to fetch coaches:', err)
-        }
-
         // Fetch stats
         try {
-          const statsUrl = selectedCoach ? `/api/dashboard/stats?coachId=${selectedCoach}` : '/api/dashboard/stats'
+          const statsUrl = '/api/dashboard/stats'
           const statsData = await api.get(statsUrl)
           if (statsData && !statsData.error) {
             setStats(statsData)
@@ -245,7 +232,7 @@ const Dashboard = () => {
           console.warn('Failed to fetch dashboard stats:', err)
           // Try without auth as fallback
           try {
-            const statsUrl = selectedCoach ? `/api/dashboard/stats?coachId=${selectedCoach}` : '/api/dashboard/stats'
+            const statsUrl = '/api/dashboard/stats'
             const statsRes = await fetch(statsUrl)
             const statsData = await statsRes.json()
             if (statsData && !statsData.error) {
@@ -258,7 +245,7 @@ const Dashboard = () => {
 
         // Fetch quizzes
         try {
-          const quizzesUrl = selectedCoach ? `/api/quizzes?coachId=${selectedCoach}` : '/api/quizzes'
+          const quizzesUrl = '/api/quizzes'
           const quizzesData = await api.get(quizzesUrl)
           if (Array.isArray(quizzesData)) {
             console.log('Fetched quizzes:', quizzesData.length, 'items')
@@ -303,7 +290,7 @@ const Dashboard = () => {
           console.warn('Failed to fetch quizzes with auth, trying without:', err)
           // Try without auth as fallback
           try {
-            const quizzesUrl = selectedCoach ? `/api/quizzes?coachId=${selectedCoach}` : '/api/quizzes'
+            const quizzesUrl = '/api/quizzes'
             const quizzesRes = await fetch(quizzesUrl)
             const quizzesData = await quizzesRes.json()
             if (Array.isArray(quizzesData)) {
@@ -331,7 +318,7 @@ const Dashboard = () => {
 
         // Fetch huddles
         try {
-          const huddlesUrl = selectedCoach ? `/api/huddles?coachId=${selectedCoach}` : '/api/huddles'
+          const huddlesUrl = '/api/huddles'
           const huddlesData = await api.get(huddlesUrl)
           if (Array.isArray(huddlesData)) {
             setHuddles(huddlesData)
@@ -341,7 +328,7 @@ const Dashboard = () => {
           console.warn('Failed to fetch huddles with auth, trying without:', err)
           // Try without auth as fallback
           try {
-            const huddlesUrl = selectedCoach ? `/api/huddles?coachId=${selectedCoach}` : '/api/huddles'
+            const huddlesUrl = '/api/huddles'
             const huddlesRes = await fetch(huddlesUrl)
             const huddlesData = await huddlesRes.json()
             if (Array.isArray(huddlesData)) {
@@ -370,7 +357,7 @@ const Dashboard = () => {
     }
 
     fetchData()
-  }, [selectedCoach])
+  }, [])
 
   useEffect(() => {
     // Always calculate monthly activity, even if data is empty

@@ -4,7 +4,6 @@ import {
   FileText, 
   UsersRound, 
   Target,
-  CheckCircle2,
   AlertCircle,
   X,
   Sparkles,
@@ -564,11 +563,6 @@ const Dashboard = () => {
     pending_todos: toSafeNumber(stats?.pending_todos)
   }
 
-  // Calculate completion percentage for todos
-  const todoCompletionRate = safeStats.total_todos > 0 
-    ? Math.round((safeStats.completed_todos / safeStats.total_todos) * 100) 
-    : 0
-
   // Calculate activity distribution - use actual counts for pie chart
   const activityDistribution = [
     { name: 'Sessions', value: sessions.length, color: '#8b5cf6' },
@@ -577,16 +571,6 @@ const Dashboard = () => {
     { name: 'Notes', value: safeStats.total_notes, color: '#10b981' },
     { name: 'Quizzes', value: safeStats.total_quizzes, color: '#60a5fa' },
   ].filter(item => item.value > 0) // Only show items with values
-
-  // Calculate compliance rate - handle both snake_case and camelCase
-  const complianceRate = huddles.length > 0
-    ? Math.round((huddles.filter(h => {
-        const hasAgenda = h.has_short_agenda ?? (h as any).hasShortAgenda
-        const hasNotetaker = h.has_notetaker ?? (h as any).hasNotetaker
-        const hasActions = h.has_action_steps ?? (h as any).hasActionSteps
-        return hasAgenda && hasNotetaker && hasActions
-      }).length / huddles.length) * 100)
-    : 0
 
   // Calculate score distribution
   const allScores = quizData.flatMap((item: any) => item.scores || [])
@@ -606,7 +590,6 @@ const Dashboard = () => {
     }
     scoreDistribution[category].value++
   })
-  const scoreDistributionArray = Object.values(scoreDistribution)
 
   // Prepare compliance pie data - handle both snake_case and camelCase
   // Compliance metrics (unused for now but kept for future use)

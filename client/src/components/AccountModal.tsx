@@ -92,7 +92,7 @@ const AccountModal = ({ onClose }: AccountModalProps) => {
       return billingData.currentPlanName
     }
     
-    if (billingData.trialDaysRemaining !== null && billingData.trialDaysRemaining > 0) {
+    if (billingData.trialDaysRemaining !== null && billingData.trialDaysRemaining !== undefined && billingData.trialDaysRemaining > 0) {
       return `Free Trial (${billingData.trialDaysRemaining} days remaining)`
     }
     
@@ -110,7 +110,7 @@ const AccountModal = ({ onClose }: AccountModalProps) => {
       return '#10b981' // Green for active plan
     }
     
-    if (billingData.trialDaysRemaining !== null && billingData.trialDaysRemaining > 0) {
+    if (billingData.trialDaysRemaining !== null && billingData.trialDaysRemaining !== undefined && billingData.trialDaysRemaining > 0) {
       return '#3b82f6' // Blue for active trial
     }
     

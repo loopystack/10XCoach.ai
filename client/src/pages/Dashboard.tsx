@@ -13,7 +13,6 @@ import {
   Clock,
   CreditCard,
   ArrowRight,
-  MessageCircle,
   Mic
 } from 'lucide-react'
 import ConversationModal from '../components/ConversationModal'
@@ -95,6 +94,7 @@ interface BillingStatus {
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [quizData, setQuizData] = useState<any[]>([])
   const [coaches, setCoaches] = useState<Coach[]>([])
@@ -113,6 +113,9 @@ const Dashboard = () => {
   const [hoverTimeout, setHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
   const [trialCountdown, setTrialCountdown] = useState<string>('')
+  const [conversationModalOpen, setConversationModalOpen] = useState(false)
+  const [selectedCoachForConversation, setSelectedCoachForConversation] = useState<Coach | null>(null)
+  const [conversationApiType, setConversationApiType] = useState<'openai' | 'elevenlabs'>('openai')
 
   // Check for login and show welcome notification (ONLY for regular users, NOT admins)
   useEffect(() => {

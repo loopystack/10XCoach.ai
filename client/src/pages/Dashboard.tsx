@@ -97,6 +97,7 @@ interface QuizResult {
   user_id: number
   coach_id: number
   score: number
+  totalScore?: number
   createdAt: string
   created_at?: string
 }
@@ -1366,6 +1367,152 @@ const Dashboard = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* 10X Scorecard Section - Embedded in Dashboard */}
+      <div className="dashboard-scorecard-section" style={{ marginTop: '40px' }}>
+        <div className="scorecard-header">
+          <div>
+            <h2>10X Business Operating System (BOS) Scorecard</h2>
+            <p className="scorecard-subtitle">
+              Track your core BOS activities: Assessment (Quizzes), Team Alignment (Huddles), 
+              Coaching Engagement (Sessions), Execution (Todos), and Documentation (Notes).
+            </p>
+          </div>
+          <Link 
+            to="/scorecard"
+            style={{
+              padding: '10px 20px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3)'
+            }}
+          >
+            View Full Scorecard
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        {/* Compact Scorecard Display */}
+        {(() => {
+          // Calculate scorecard metrics for current month
+          const now = new Date()
+          const currentMonth = now.getMonth()
+          const currentYear = now.getFullYear()
+          const monthStart = new Date(currentYear, currentMonth, 1)
+          const monthEnd = new Date(currentYear, currentMonth + 1, 0)
+
+          // Quiz Scores
+          const monthQuizzes = quizResults.filter(qr => {
+            const quizDate = new Date(qr.createdAt || qr.created_at)
+            return quizDate >= monthStart && quizDate <= monthEnd
+          })
+          const avgQuizScore = monthQuizzes.length > 0
+            ? Math.round(monthQuizzes.reduce((sum, q) => sum + (q.totalScore || q.score || 0), 0) / monthQuizzes.length)
+            : 0
+
+          // Huddles
+          const monthHuddles = huddles.filter(h => {
+            const huddleDate = new Date(h.huddle_date)
+            return huddleDate >= monthStart && huddleDate <= monthEnd
+          })
+          const compliantHuddles = monthHuddles.filter(h => 
+            h.has_short_agenda && h.has_notetaker && h.has_action_steps
+          ).length
+          const huddleCompliance = monthHuddles.length > 0 ? Math.round((compliantHuddles / monthHuddles.length) * 100) : 0
+
+          // Sessions
+          const monthSessions = sessions.filter(s => {
+            const sessionDate = new Date(s.startTime || s.start_time || s.createdAt)
+            return sessionDate >= monthStart && sessionDate <= monthEnd
+          })
+          const sessionCount = monthSessions.length
+          const normalizedSessions = Math.min((sessionCount / 4) * 100, 100)
+
+          // Todos
+          const monthTodos = todos.filter(t => {
+            const todoDate = new Date(t.due_date || t.dueDate || '')
+            return todoDate >= monthStart && todoDate <= monthEnd
+          })
+          const completedTodos = monthTodos.filter(t => 
+            (t.status || '').toUpperCase() === 'COMPLETED'
+          ).length
+          const todoCompletion = monthTodos.length > 0 ? Math.round((completedTodos / monthTodos.length) * 100) : 0
+
+          // Notes
+          const monthNotes = notes.filter(n => {
+            const noteDate = new Date(n.session_date || n.createdAt)
+            return noteDate >= monthStart && noteDate <= monthEnd
+          })
+          const notesCount = monthNotes.length
+          const sessionTarget = Math.max(sessionCount, 1)
+          const normalizedNotes = Math.min((notesCount / sessionTarget) * 100, 100)
+
+          // Calculate overall grade
+          const overallGrade = Math.round(
+            (avgQuizScore * 0.25) +
+            (huddleCompliance * 0.25) +
+            (normalizedSessions * 0.20) +
+            (todoCompletion * 0.20) +
+            (normalizedNotes * 0.10)
+          )
+
+          return (
+            <div className="scorecard-grade-display">
+              <div className="scorecard-grade-circle">
+                <div className="scorecard-grade-number">{overallGrade}</div>
+                <div className="scorecard-grade-label">BOS Grade</div>
+                <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.8)', marginTop: '4px', textAlign: 'center' }}>
+                  This Month
+                </div>
+              </div>
+              <div className="scorecard-grade-metrics">
+                <div className="scorecard-grade-metric">
+                  <span className="metric-label">1. Assessment: Quiz Score</span>
+                  <span className="metric-value">{avgQuizScore}%</span>
+                  <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: ≥ 70%</span>
+                </div>
+                <div className="scorecard-grade-metric">
+                  <span className="metric-label">2. Team Alignment: Huddles</span>
+                  <span className="metric-value">{huddleCompliance}%</span>
+                  <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: ≥ 80% Compliance</span>
+                </div>
+                <div className="scorecard-grade-metric">
+                  <span className="metric-label">3. Coaching: Sessions</span>
+                  <span className="metric-value">{sessionCount}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: ≥ 4/month</span>
+                </div>
+                <div className="scorecard-grade-metric">
+                  <span className="metric-label">4. Execution: Todos</span>
+                  <span className="metric-value">{todoCompletion}%</span>
+                  <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: ≥ 85%</span>
+                </div>
+                <div className="scorecard-grade-metric">
+                  <span className="metric-label">5. Documentation: Notes</span>
+                  <span className="metric-value">{notesCount}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: ≥ 1 per session</span>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Conversation Modal */}

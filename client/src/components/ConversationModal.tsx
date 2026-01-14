@@ -397,10 +397,20 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     draw()
   }
 
-  const startConversation = async () => {
+  const startConversation = async (retryCount = 0) => {
+    const MAX_RETRIES = 3
+    const RETRY_DELAY = 2000 // 2 seconds between retries
+    
     try {
-      setStatus('Connecting...')
-      setStatusType('active')
+      if (retryCount === 0) {
+        setStatus('Connecting...')
+        setStatusType('active')
+      } else {
+        setStatus(`Reconnecting... (Attempt ${retryCount + 1}/${MAX_RETRIES + 1})`)
+        setStatusType('active')
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * retryCount))
+      }
 
       const token = localStorage.getItem('token') || sessionStorage.getItem('token')
       if (!token) {
@@ -426,23 +436,52 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       // Connect to root path - nginx will handle WebSocket upgrade
       const wsUrl = `${protocol}//${window.location.host}/`
-      console.log('🔌 Connecting WebSocket to:', wsUrl)
+      console.log(`🔌 Connecting WebSocket to: ${wsUrl} (Attempt ${retryCount + 1})`)
       console.log('📍 Current location:', window.location.href)
       console.log('🔌 Protocol:', protocol)
       console.log('🔌 Host:', window.location.host)
       
+      // Close any existing connection before creating a new one
+      if (wsRef.current) {
+        try {
+          if (wsRef.current.readyState === WebSocket.CONNECTING || wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.close(1000, 'Reconnecting')
+          }
+        } catch (e) {
+          console.warn('Error closing existing WebSocket:', e)
+        }
+        wsRef.current = null
+      }
+      
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
       
-      // Add connection timeout
+      // Add connection timeout - increased to 30 seconds for better reliability
       const connectionTimeout = setTimeout(() => {
         if (ws.readyState !== WebSocket.OPEN) {
-          console.error('⏱️ WebSocket connection timeout')
-          ws.close()
-          setStatus('Connection timeout - please try again')
-          setStatusType('error')
+          console.error('⏱️ WebSocket connection timeout - readyState:', ws.readyState)
+          try {
+            if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN) {
+              ws.close(1008, 'Connection timeout')
+            }
+          } catch (e) {
+            console.warn('Error closing timed-out WebSocket:', e)
+          }
+          
+          // Retry if we haven't exceeded max retries
+          if (retryCount < MAX_RETRIES) {
+            console.log(`🔄 Retrying connection (${retryCount + 1}/${MAX_RETRIES})...`)
+            setTimeout(() => {
+              startConversation(retryCount + 1)
+            }, RETRY_DELAY * (retryCount + 1))
+          } else {
+            setStatus('Connection failed after multiple attempts. Please check your connection and try again.')
+            setStatusType('error')
+            alert('Unable to connect to the coach. Please check your internet connection and try again.')
+            cleanup()
+          }
         }
-      }, 10000) // 10 second timeout
+      }, 30000) // 30 second timeout
       
       ws.onopen = () => {
         clearTimeout(connectionTimeout)
@@ -482,24 +521,55 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       ws.onerror = (error) => {
         clearTimeout(connectionTimeout)
         console.error('❌ WebSocket error:', error)
-        setStatus('Connection error - check console for details')
-        setStatusType('error')
+        console.error('❌ WebSocket readyState:', ws.readyState)
+        console.error('❌ WebSocket URL:', wsUrl)
+        
+        // Don't set error status immediately - let onclose handle retry logic
+        // This prevents showing error before retry logic kicks in
       }
       
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
-        console.log('❌ WebSocket closed:', event.code, event.reason)
+        console.log('❌ WebSocket closed:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          readyState: ws.readyState
+        })
+        
         // Stop timer when connection closes
         if (timerIntervalRef.current) {
           clearInterval(timerIntervalRef.current)
           timerIntervalRef.current = null
         }
         sessionStartTimeRef.current = null
-        if (event.code !== 1000 && !isConnectedRef.current) {
-          setStatus(`Connection failed: ${event.reason || 'Unknown error'} (code: ${event.code})`)
-          setStatusType('error')
+        
+        // Only show error and retry if:
+        // 1. Not a clean close (code 1000)
+        // 2. Not already connected
+        // 3. Not a normal closure initiated by us (code 1001)
+        if (event.code !== 1000 && !isConnectedRef.current && event.code !== 1001) {
+          // Retry if we haven't exceeded max retries and it's not a user-initiated close
+          if (retryCount < MAX_RETRIES && event.code !== 1000) {
+            console.log(`🔄 Connection closed unexpectedly. Retrying... (${retryCount + 1}/${MAX_RETRIES})`)
+            setTimeout(() => {
+              startConversation(retryCount + 1)
+            }, RETRY_DELAY * (retryCount + 1))
+            return // Don't cleanup yet, we're retrying
+          } else {
+            setStatus(`Connection failed: ${event.reason || `Error code ${event.code}`}. Please try again.`)
+            setStatusType('error')
+          }
+        } else if (event.code === 1000) {
+          // Clean close - user or system initiated
+          setStatus('Connection closed')
+          setStatusType('idle')
         }
-        cleanup()
+        
+        // Only cleanup if we're not retrying
+        if (retryCount >= MAX_RETRIES || event.code === 1000) {
+          cleanup()
+        }
       }
 
       ws.onmessage = async (event) => {

@@ -435,6 +435,26 @@ model AdminSettings {
 }
 
 // =============================================
+// KNOWLEDGE BASE MODEL (Books, Manuscripts, etc.)
+// =============================================
+model KnowledgeBase {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(255)
+  author      String?   @db.VarChar(255)
+  type        String    @default("book") @db.VarChar(50) // book, manuscript, article, etc.
+  content     String    @db.Text // Full content of the book/manuscript
+  summary     String?   @db.Text // Brief summary
+  isActive    Boolean   @default(true) @map("is_active")
+  order       Int       @default(0) // Display order
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("knowledge_base")
+  @@index([isActive])
+  @@index([type])
+}
+
+// =============================================
 // BLOG POST MODEL
 // =============================================
 model BlogPost {

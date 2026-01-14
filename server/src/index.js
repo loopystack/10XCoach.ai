@@ -73,6 +73,18 @@ server.on('upgrade', (request, socket, head) => {
     'sec-websocket-key': request.headers['sec-websocket-key'] ? 'present' : 'missing',
     'sec-websocket-version': request.headers['sec-websocket-version']
   });
+  
+  // Set socket timeout to prevent hanging connections
+  socket.setTimeout(30000); // 30 second timeout
+  
+  socket.on('timeout', () => {
+    console.error('⏱️ Socket timeout during upgrade - closing connection');
+    socket.destroy();
+  });
+  
+  socket.on('error', (error) => {
+    console.error('❌ Socket error during upgrade:', error);
+  });
 });
 
 // Store active connections
@@ -497,6 +509,36 @@ function parseRelativeDate(dateString) {
 wss.on('connection', (ws, req) => {
   const connectionId = Date.now().toString();
   console.log(`🤝 Client connected: ${connectionId}`);
+  console.log(`   Request URL: ${req.url}`);
+  console.log(`   Remote Address: ${req.socket.remoteAddress}`);
+  console.log(`   Headers: ${JSON.stringify(req.headers)}`);
+  
+  // Set connection timeout to prevent hanging connections
+  const connectionTimeout = setTimeout(() => {
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      console.warn(`⏱️ Connection ${connectionId} timeout - closing`);
+      try {
+        ws.close(1008, 'Connection timeout');
+      } catch (e) {
+        console.error('Error closing timed-out connection:', e);
+      }
+    }
+  }, 30000); // 30 second timeout
+  
+  // Send immediate acknowledgment to client to confirm connection
+  // Use setTimeout to ensure WebSocket is fully ready
+  setTimeout(() => {
+    try {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'connected', connectionId }));
+        console.log(`✅ Sent connection acknowledgment to client: ${connectionId}`);
+      } else {
+        console.warn(`⚠️ WebSocket not ready for acknowledgment. State: ${ws.readyState}`);
+      }
+    } catch (error) {
+      console.error('❌ Error sending connection acknowledgment:', error);
+    }
+  }, 100); // Small delay to ensure connection is fully established
 
   // Initialize connection variables
   let openaiWs = null;
@@ -602,9 +644,52 @@ wss.on('connection', (ws, req) => {
           }
         }
 
-        // Setup voice configuration
-        const voice = coachVoiceMap[currentCoachName] || 'echo';
-        const coachInstructions = getCoachInstructions(currentCoachName, currentUserName, conversationHistory);
+        // Get coach from database to use custom prompt and voice
+        let coachData = null;
+        let voice = coachVoiceMap[currentCoachName] || 'echo';
+        let coachInstructions = null;
+        
+        try {
+          const prisma = require('./lib/prisma');
+          coachData = await prisma.coach.findFirst({
+            where: { name: currentCoachName, active: true }
+          });
+          
+          // Use database voice if available, otherwise fall back to hardcoded map
+          if (coachData?.voiceId) {
+            voice = coachData.voiceId;
+          }
+          
+          // Use database prompt if available
+          if (coachData?.personaJson?.systemPrompt) {
+            coachInstructions = coachData.personaJson.systemPrompt;
+            
+            // Append knowledge base content if available
+            try {
+              const knowledgeBase = await prisma.knowledgeBase.findMany({
+                where: { isActive: true },
+                orderBy: { order: 'asc' }
+              });
+              
+              if (knowledgeBase && knowledgeBase.length > 0) {
+                const knowledgeContent = knowledgeBase.map(kb => {
+                  return `\n\n## ${kb.title}${kb.author ? ` by ${kb.author}` : ''}\n${kb.summary || kb.content.substring(0, 2000)}...`;
+                }).join('\n\n');
+                
+                coachInstructions += `\n\nKNOWLEDGE BASE - Reference these materials when relevant:\n${knowledgeContent}\n\nWhen referencing these materials, do so naturally and conversationally.`;
+              }
+            } catch (kbError) {
+              console.warn('⚠️ Could not load knowledge base:', kbError.message);
+            }
+          }
+        } catch (dbError) {
+          console.warn('⚠️ Could not load coach from database:', dbError.message);
+        }
+        
+        // Fallback to hardcoded instructions if no database prompt
+        if (!coachInstructions) {
+          coachInstructions = getCoachInstructions(currentCoachName, currentUserName, conversationHistory);
+        }
 
         // Configure OpenAI Realtime API with function calling tools
         const config = {
@@ -1639,6 +1724,7 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', (code, reason) => {
+    clearTimeout(connectionTimeout);
     console.log(`🔌 Client WebSocket closed: ${connectionId}, Code: ${code}, Reason: ${reason?.toString() || 'none'}`);
     // Clean up OpenAI connection if it exists
     if (openaiWs) {

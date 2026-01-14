@@ -3095,17 +3095,7 @@
   color: #e2e8f0;
 }
 
-.scorecard-checkbox-col {
-  width: 40px;
-  text-align: center;
-}
-
-.scorecard-checkbox-col input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--card-blue-medium);
-}
+/* Checkbox column removed - no longer used */
 
 .scorecard-trend-col {
   width: 50px;

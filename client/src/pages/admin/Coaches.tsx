@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, Edit2, Save, X, Settings, ToggleLeft, ToggleRight, User, Mail, Briefcase, MessageSquare, Upload, Image as ImageIcon } from 'lucide-react'
+import { Plus, Trash2, Edit2, Save, X, Settings, ToggleLeft, ToggleRight, User, Mail, Briefcase, MessageSquare, Upload, Image as ImageIcon, Mic } from 'lucide-react'
 import { api } from '../../utils/api'
 import '../PageStyles.css'
 import './AdminPages.css'
@@ -53,8 +53,23 @@ const Coaches = () => {
     model: 'gpt-4',
     temperature: 0.7,
     maxTokens: 2000,
+    voiceId: 'echo', // Default voice
     active: true
   })
+  
+  // Available OpenAI voices
+  const OPENAI_VOICES = [
+    { value: 'alloy', label: 'Alloy (Neutral)' },
+    { value: 'ash', label: 'Ash (Male)' },
+    { value: 'ballad', label: 'Ballad (Neutral)' },
+    { value: 'coral', label: 'Coral (Female)' },
+    { value: 'echo', label: 'Echo (Male)' },
+    { value: 'sage', label: 'Sage (Female)' },
+    { value: 'shimmer', label: 'Shimmer (Female)' },
+    { value: 'verse', label: 'Verse (Male)' },
+    { value: 'marin', label: 'Marin (Male)' },
+    { value: 'cedar', label: 'Cedar (Male)' }
+  ]
 
   useEffect(() => {
     fetchCoaches()
@@ -77,7 +92,8 @@ const Coaches = () => {
           active: coach.active !== false,
           model: coach.model || 'gpt-4',
           temperature: coach.temperature || 0.7,
-          maxTokens: coach.maxTokens || 2000
+          maxTokens: coach.maxTokens || 2000,
+          voiceId: coach.voiceId || 'echo'
         })))
       }
     } catch (error) {
@@ -214,6 +230,7 @@ const Coaches = () => {
       model: coach.model,
       temperature: coach.temperature,
       maxTokens: coach.maxTokens,
+      voiceId: (coach as any).voiceId || 'echo',
       active: coach.active
     })
     setPhotoPreview(coach.avatar || null)
@@ -485,6 +502,21 @@ const Coaches = () => {
                   value={formData.maxTokens}
                   onChange={(e) => setFormData({ ...formData, maxTokens: parseInt(e.target.value) })}
                 />
+              </div>
+
+              <div className="admin-form-group">
+                <label>
+                  <Mic size={16} />
+                  Voice (OpenAI Realtime API)
+                </label>
+                <select
+                  value={formData.voiceId || 'echo'}
+                  onChange={(e) => setFormData({ ...formData, voiceId: e.target.value })}
+                >
+                  {OPENAI_VOICES.map(voice => (
+                    <option key={voice.value} value={voice.value}>{voice.label}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="admin-form-group">

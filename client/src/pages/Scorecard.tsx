@@ -351,7 +351,7 @@ const Scorecard = () => {
 
   const scorecardData = getScorecardMetrics()
 
-  // Calculate overall grade from 6 metrics
+  // Calculate overall grade with transparent, explainable scoring
   const calculateOverallGrade = () => {
     const latestPeriodIndex = scorecardData.periods.length - 1
 
@@ -367,33 +367,65 @@ const Scorecard = () => {
       ? scorecardData.revenueTargets[latestPeriodIndex]?.achievementRate || 0
       : null
     
-    // Normalize each metric to 0-100 scale
-    // Quiz scores are already 0-100
-    // Huddle compliance is already 0-100
-    // Sessions: normalize based on target (assume 10 sessions/month is 100%)
-    const normalizedSessions = Math.min((sessionCount / 10) * 100, 100)
-    // Todo completion is already 0-100
-    // Notes: normalize based on target (assume 5 notes/month is 100%)
-    const normalizedNotes = Math.min((notesCount / 5) * 100, 100)
+    // Transparent scoring system with clear targets:
+    // 1. Quiz Score (0-100): Already normalized, target ≥70%
+    // 2. Huddle Compliance (0-100): Already normalized, target ≥80%
+    // 3. Coach Sessions: Target is 4/month (or 1/week), normalize: (count / 4) * 100, capped at 100%
+    const normalizedSessions = Math.min((sessionCount / 4) * 100, 100)
+    // 4. Todo Completion (0-100): Already normalized, target ≥85%
+    // 5. Notes: Target is 1 per session, normalize: (notes / sessions) * 100, capped at 100%
+    const sessionTarget = Math.max(sessionCount, 1) // Avoid division by zero
+    const normalizedNotes = Math.min((notesCount / sessionTarget) * 100, 100)
     
-    // Calculate weighted average
-    // If revenue target is set, include it (7 metrics), otherwise use 6 metrics
-    const metricCount = revenueAchievement !== null ? 7 : 6
-    const weight = 1 / metricCount
+    // Calculate weighted average with equal weights
+    // Core BOS metrics (always included):
+    const coreMetrics = [
+      { name: 'Quiz Score', value: quizScore, weight: 0.25 },
+      { name: 'Huddle Compliance', value: huddleCompliance, weight: 0.25 },
+      { name: 'Coach Sessions', value: normalizedSessions, weight: 0.20 },
+      { name: 'Todo Completion', value: todoCompletion, weight: 0.20 },
+      { name: 'Notetaking', value: normalizedNotes, weight: 0.10 }
+    ]
     
-    let overallGrade = (quizScore * weight) +
-      (huddleCompliance * weight) +
-      (normalizedSessions * weight) +
-      (todoCompletion * weight) +
-      (normalizedNotes * weight)
-    
+    // Add revenue if target is set (reduces weight of other metrics proportionally)
+    let overallGrade = 0
     if (revenueAchievement !== null) {
-      overallGrade += (revenueAchievement * weight)
+      // Adjust weights when revenue is included
+      const adjustedWeights = coreMetrics.map(m => ({ ...m, weight: m.weight * 0.85 }))
+      overallGrade = adjustedWeights.reduce((sum, m) => sum + (m.value * m.weight), 0) + (revenueAchievement * 0.15)
+    } else {
+      overallGrade = coreMetrics.reduce((sum, m) => sum + (m.value * m.weight), 0)
     }
     
     overallGrade = Math.round(overallGrade)
     
     return Math.min(Math.max(overallGrade, 0), 100) // Clamp between 0-100
+  }
+  
+  // Get grade breakdown for transparency
+  const getGradeBreakdown = () => {
+    const latestPeriodIndex = scorecardData.periods.length - 1
+    const quizScore = scorecardData.quizScores[latestPeriodIndex]?.average || 0
+    const huddleCompliance = scorecardData.huddles[latestPeriodIndex]?.complianceRate || 0
+    const sessionCount = scorecardData.sessions[latestPeriodIndex]?.count || 0
+    const todoCompletion = scorecardData.todos[latestPeriodIndex]?.completionRate || 0
+    const notesCount = scorecardData.notes[latestPeriodIndex]?.count || 0
+    const revenueAchievement = annualRevenueTarget > 0 && scorecardData.revenueTargets.length > 0
+      ? scorecardData.revenueTargets[latestPeriodIndex]?.achievementRate || 0
+      : null
+    
+    const normalizedSessions = Math.min((sessionCount / 4) * 100, 100)
+    const sessionTarget = Math.max(sessionCount, 1)
+    const normalizedNotes = Math.min((notesCount / sessionTarget) * 100, 100)
+    
+    return {
+      quizScore: { value: quizScore, target: 70, weight: revenueAchievement !== null ? 21.25 : 25 },
+      huddleCompliance: { value: huddleCompliance, target: 80, weight: revenueAchievement !== null ? 21.25 : 25 },
+      sessions: { value: normalizedSessions, target: 100, weight: revenueAchievement !== null ? 17 : 20 },
+      todoCompletion: { value: todoCompletion, target: 85, weight: revenueAchievement !== null ? 17 : 20 },
+      notes: { value: normalizedNotes, target: 100, weight: revenueAchievement !== null ? 8.5 : 10 },
+      revenue: revenueAchievement !== null ? { value: revenueAchievement, target: 100, weight: 15 } : null
+    }
   }
 
   const overallGrade = calculateOverallGrade()
@@ -429,40 +461,75 @@ const Scorecard = () => {
 
       {/* 10X Scorecard */}
       <div className="dashboard-scorecard-section">
-        {/* Overall Grade Display */}
+        {/* Overall Grade Display with Transparent Breakdown */}
         <div className="scorecard-grade-display">
           <div className="scorecard-grade-circle">
             <div className="scorecard-grade-number">{overallGrade}</div>
-            <div className="scorecard-grade-label">Overall Grade</div>
+            <div className="scorecard-grade-label">Overall BOS Grade</div>
+            <div style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.8)', marginTop: '4px', textAlign: 'center' }}>
+              Business Operating System
+            </div>
           </div>
           <div className="scorecard-grade-metrics">
-            <div className="scorecard-grade-metric">
-              <span className="metric-label">Quiz Scores</span>
-              <span className="metric-value">{scorecardData.quizScores[scorecardData.quizScores.length - 1]?.average || 0}%</span>
+            <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--gray-700)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                Grade Calculation
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--gray-600)', lineHeight: '1.6' }}>
+                Based on 5 core BOS activities{annualRevenueTarget > 0 ? ' + Revenue Target' : ''}. 
+                Each metric contributes proportionally to your overall grade.
+              </div>
             </div>
-            <div className="scorecard-grade-metric">
-              <span className="metric-label">Huddle Compliance</span>
-              <span className="metric-value">{scorecardData.huddles[scorecardData.huddles.length - 1]?.complianceRate || 0}%</span>
-            </div>
-            <div className="scorecard-grade-metric">
-              <span className="metric-label">Sessions</span>
-              <span className="metric-value">{scorecardData.sessions[scorecardData.sessions.length - 1]?.count || 0}</span>
-            </div>
-            <div className="scorecard-grade-metric">
-              <span className="metric-label">Todo Completion</span>
-              <span className="metric-value">{scorecardData.todos[scorecardData.todos.length - 1]?.completionRate || 0}%</span>
-            </div>
-            <div className="scorecard-grade-metric">
-              <span className="metric-label">Notes</span>
-              <span className="metric-value">{scorecardData.notes[scorecardData.notes.length - 1]?.count || 0}</span>
-            </div>
+            {(() => {
+              const breakdown = getGradeBreakdown()
+              return (
+                <>
+                  <div className="scorecard-grade-metric">
+                    <span className="metric-label">Quiz Score</span>
+                    <span className="metric-value">{breakdown.quizScore.value.toFixed(0)}%</span>
+                    <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: {breakdown.quizScore.target}%</span>
+                  </div>
+                  <div className="scorecard-grade-metric">
+                    <span className="metric-label">Huddle Compliance</span>
+                    <span className="metric-value">{breakdown.huddleCompliance.value.toFixed(0)}%</span>
+                    <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: {breakdown.huddleCompliance.target}%</span>
+                  </div>
+                  <div className="scorecard-grade-metric">
+                    <span className="metric-label">Coach Sessions</span>
+                    <span className="metric-value">{scorecardData.sessions[scorecardData.sessions.length - 1]?.count || 0}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: 4/{scorecardView === 'monthly' ? 'month' : scorecardView === 'quarterly' ? 'quarter' : 'year'}</span>
+                  </div>
+                  <div className="scorecard-grade-metric">
+                    <span className="metric-label">Todo Completion</span>
+                    <span className="metric-value">{breakdown.todoCompletion.value.toFixed(0)}%</span>
+                    <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: {breakdown.todoCompletion.target}%</span>
+                  </div>
+                  <div className="scorecard-grade-metric">
+                    <span className="metric-label">Notetaking</span>
+                    <span className="metric-value">{scorecardData.notes[scorecardData.notes.length - 1]?.count || 0}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: 1 per session</span>
+                  </div>
+                  {breakdown.revenue && (
+                    <div className="scorecard-grade-metric">
+                      <span className="metric-label">Revenue Target</span>
+                      <span className="metric-value">{breakdown.revenue.value.toFixed(0)}%</span>
+                      <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: {breakdown.revenue.target}%</span>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
         </div>
 
         <div className="scorecard-header">
           <div>
-            <h2>10X Scorecard</h2>
-            <p className="scorecard-subtitle">Record and evaluate key metrics, streamlined for strategic success.</p>
+            <h2>10X Business Operating System (BOS) Scorecard</h2>
+            <p className="scorecard-subtitle">
+              Track your core BOS activities across 5 key areas: Assessment (Quizzes), Team Alignment (Huddles), 
+              Coaching Engagement (Sessions), Execution (Todos), and Documentation (Notes). 
+              {annualRevenueTarget > 0 && ' Revenue performance is also included.'}
+            </p>
           </div>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             {/* Revenue Target Button */}
@@ -630,14 +697,42 @@ const Scorecard = () => {
           </div>
         )}
 
+        {/* Metric Categories Section */}
+        <div style={{ marginBottom: '24px', padding: '20px', background: 'var(--gray-100)', borderRadius: '12px', border: '1px solid var(--gray-200)' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: 'var(--gray-900)' }}>
+            📊 Scorecard Organization
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '13px', color: 'var(--gray-700)' }}>
+            <div>
+              <strong style={{ color: 'var(--gray-900)' }}>1. Assessment:</strong> Business Success Quiz
+            </div>
+            <div>
+              <strong style={{ color: 'var(--gray-900)' }}>2. Team Alignment:</strong> 10-Minute Huddles
+            </div>
+            <div>
+              <strong style={{ color: 'var(--gray-900)' }}>3. Coaching:</strong> Coach Sessions
+            </div>
+            <div>
+              <strong style={{ color: 'var(--gray-900)' }}>4. Execution:</strong> To-Do Completion
+            </div>
+            <div>
+              <strong style={{ color: 'var(--gray-900)' }}>5. Documentation:</strong> 10X Notetaking
+            </div>
+            {annualRevenueTarget > 0 && (
+              <div>
+                <strong style={{ color: 'var(--gray-900)' }}>6. Financial:</strong> Revenue Target
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="scorecard-table-container">
           <table className="scorecard-table">
             <thead>
               <tr>
-                <th className="scorecard-checkbox-col"></th>
                 <th className="scorecard-trend-col">Trend</th>
-                <th className="scorecard-title-col">Metric</th>
-                <th className="scorecard-okr-col">OKR/Measurable</th>
+                <th className="scorecard-title-col">BOS Activity</th>
+                <th className="scorecard-okr-col">Target</th>
                 <th className="scorecard-avg-col">Average</th>
                 <th className="scorecard-total-col">Total</th>
                 {scorecardData.periods.map((period, idx) => (
@@ -648,11 +743,8 @@ const Scorecard = () => {
               </tr>
             </thead>
             <tbody>
-              {/* Business Success Quiz Score */}
+              {/* 1. Assessment: Business Success Quiz Score */}
               <tr>
-                <td className="scorecard-checkbox-col">
-                  <input type="checkbox" />
-                </td>
                 <td className="scorecard-trend-col">
                   {scorecardData.quizScores.length >= 2 && (() => {
                     const trend = getTrend(
@@ -665,10 +757,18 @@ const Scorecard = () => {
                   })()}
                 </td>
                 <td className="scorecard-title-col">
-                  <strong>Business Success Quiz Score</strong>
+                  <div>
+                    <strong>1. Assessment: Business Success Quiz</strong>
+                    <div style={{ fontSize: '12px', color: 'var(--gray-600)', marginTop: '4px', fontWeight: 'normal' }}>
+                      Measures your business health across 8 pillars (Strategy, Finance, Marketing, Sales, Operations, Culture, Customer Experience, Exit Strategy)
+                    </div>
+                  </div>
                 </td>
                 <td className="scorecard-okr-col">
                   <span className="okr-badge">≥ 70%</span>
+                  <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                    Weight: {getGradeBreakdown().quizScore.weight}%
+                  </div>
                 </td>
                 <td className="scorecard-avg-col">
                   {scorecardData.quizScores.length > 0 
@@ -685,11 +785,8 @@ const Scorecard = () => {
                 ))}
               </tr>
 
-              {/* 10-Minute Huddles */}
+              {/* 2. Team Alignment: 10-Minute Huddles */}
               <tr>
-                <td className="scorecard-checkbox-col">
-                  <input type="checkbox" />
-                </td>
                 <td className="scorecard-trend-col">
                   {scorecardData.huddles.length >= 2 && (() => {
                     const trend = getTrend(
@@ -702,10 +799,18 @@ const Scorecard = () => {
                   })()}
                 </td>
                 <td className="scorecard-title-col">
-                  <strong>10-Minute Huddles</strong>
+                  <div>
+                    <strong>2. Team Alignment: 10-Minute Huddles</strong>
+                    <div style={{ fontSize: '12px', color: 'var(--gray-600)', marginTop: '4px', fontWeight: 'normal' }}>
+                      Weekly team meetings with agenda, notetaker, and action steps
+                    </div>
+                  </div>
                 </td>
                 <td className="scorecard-okr-col">
                   <span className="okr-badge">≥ 80% Compliance</span>
+                  <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                    Weight: {getGradeBreakdown().huddleCompliance.weight}%
+                  </div>
                 </td>
                 <td className="scorecard-avg-col">
                   {scorecardData.huddles.length > 0
@@ -722,11 +827,8 @@ const Scorecard = () => {
                 ))}
               </tr>
 
-              {/* Coach Sessions */}
+              {/* 3. Coaching: Coach Sessions */}
               <tr>
-                <td className="scorecard-checkbox-col">
-                  <input type="checkbox" />
-                </td>
                 <td className="scorecard-trend-col">
                   {scorecardData.sessions.length >= 2 && (() => {
                     const trend = getTrend(
@@ -739,10 +841,18 @@ const Scorecard = () => {
                   })()}
                 </td>
                 <td className="scorecard-title-col">
-                  <strong>Coach Sessions</strong>
+                  <div>
+                    <strong>3. Coaching: Coach Sessions</strong>
+                    <div style={{ fontSize: '12px', color: 'var(--gray-600)', marginTop: '4px', fontWeight: 'normal' }}>
+                      Voice conversations with AI coaches for strategic guidance and problem-solving
+                    </div>
+                  </div>
                 </td>
                 <td className="scorecard-okr-col">
-                  <span className="okr-badge">≥ 4/Month</span>
+                  <span className="okr-badge">≥ 4/{scorecardView === 'monthly' ? 'Month' : scorecardView === 'quarterly' ? 'Quarter' : 'Year'}</span>
+                  <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                    Weight: {getGradeBreakdown().sessions.weight}%
+                  </div>
                 </td>
                 <td className="scorecard-avg-col">
                   {scorecardData.sessions.length > 0
@@ -759,11 +869,8 @@ const Scorecard = () => {
                 ))}
               </tr>
 
-              {/* To-Do Tasks Completion */}
+              {/* 4. Execution: To-Do Tasks Completion */}
               <tr>
-                <td className="scorecard-checkbox-col">
-                  <input type="checkbox" />
-                </td>
                 <td className="scorecard-trend-col">
                   {scorecardData.todos.length >= 2 && (() => {
                     const trend = getTrend(
@@ -776,10 +883,18 @@ const Scorecard = () => {
                   })()}
                 </td>
                 <td className="scorecard-title-col">
-                  <strong>To-Do Tasks Completion</strong>
+                  <div>
+                    <strong>4. Execution: To-Do Tasks Completion</strong>
+                    <div style={{ fontSize: '12px', color: 'var(--gray-600)', marginTop: '4px', fontWeight: 'normal' }}>
+                      Action items and tasks from huddles, sessions, and coaching conversations
+                    </div>
+                  </div>
                 </td>
                 <td className="scorecard-okr-col">
                   <span className="okr-badge">≥ 85%</span>
+                  <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                    Weight: {getGradeBreakdown().todoCompletion.weight}%
+                  </div>
                 </td>
                 <td className="scorecard-avg-col">
                   {scorecardData.todos.length > 0
@@ -796,11 +911,8 @@ const Scorecard = () => {
                 ))}
               </tr>
 
-              {/* 10X Notetaking */}
+              {/* 5. Documentation: 10X Notetaking */}
               <tr>
-                <td className="scorecard-checkbox-col">
-                  <input type="checkbox" />
-                </td>
                 <td className="scorecard-trend-col">
                   {scorecardData.notes.length >= 2 && (() => {
                     const trend = getTrend(
@@ -813,10 +925,18 @@ const Scorecard = () => {
                   })()}
                 </td>
                 <td className="scorecard-title-col">
-                  <strong>10X Notetaking</strong>
+                  <div>
+                    <strong>5. Documentation: 10X Notetaking</strong>
+                    <div style={{ fontSize: '12px', color: 'var(--gray-600)', marginTop: '4px', fontWeight: 'normal' }}>
+                      Notes automatically created from coach sessions, capturing key insights and action items
+                    </div>
+                  </div>
                 </td>
                 <td className="scorecard-okr-col">
-                  <span className="okr-badge">≥ 1/Session</span>
+                  <span className="okr-badge">≥ 1 per Session</span>
+                  <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                    Weight: {getGradeBreakdown().notes.weight}%
+                  </div>
                 </td>
                 <td className="scorecard-avg-col">
                   {scorecardData.notes.length > 0
@@ -833,12 +953,9 @@ const Scorecard = () => {
                 ))}
               </tr>
 
-              {/* Revenue Target */}
+              {/* 6. Financial: Revenue Target (Optional) */}
               {annualRevenueTarget > 0 && (
                 <tr>
-                  <td className="scorecard-checkbox-col">
-                    <input type="checkbox" />
-                  </td>
                   <td className="scorecard-trend-col">
                     {scorecardData.revenueTargets.length >= 2 && (() => {
                       const trend = getTrend(
@@ -851,15 +968,20 @@ const Scorecard = () => {
                     })()}
                   </td>
                   <td className="scorecard-title-col">
-                    <strong>Revenue Target</strong>
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                      {scorecardView === 'monthly' && `Target: ${formatCurrency(revenueTargets.monthly)}/month`}
-                      {scorecardView === 'quarterly' && `Target: ${formatCurrency(revenueTargets.quarterly)}/quarter`}
-                      {scorecardView === 'annual' && `Target: ${formatCurrency(revenueTargets.annual)}/year`}
+                    <div>
+                      <strong>6. Financial: Revenue Target</strong>
+                      <div style={{ fontSize: '12px', color: 'var(--gray-600)', marginTop: '4px', fontWeight: 'normal' }}>
+                        {scorecardView === 'monthly' && `Target: ${formatCurrency(revenueTargets.monthly)}/month`}
+                        {scorecardView === 'quarterly' && `Target: ${formatCurrency(revenueTargets.quarterly)}/quarter`}
+                        {scorecardView === 'annual' && `Target: ${formatCurrency(revenueTargets.annual)}/year`}
+                      </div>
                     </div>
                   </td>
                   <td className="scorecard-okr-col">
                     <span className="okr-badge">≥ 100%</span>
+                    <div style={{ fontSize: '11px', color: 'var(--gray-500)', marginTop: '4px' }}>
+                      Weight: {getGradeBreakdown().revenue?.weight || 0}%
+                    </div>
                   </td>
                   <td className="scorecard-avg-col">
                     {scorecardData.revenueTargets.length > 0

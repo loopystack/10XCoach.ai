@@ -929,6 +929,102 @@ router.delete('/manage-users/:id', requireSuperAdmin, async (req, res) => {
   }
 });
 
+// =============================================
+// KNOWLEDGE BASE ROUTES
+// =============================================
+
+// GET /api/manage-knowledge-base
+// Get all knowledge base items (books, manuscripts, etc.)
+router.get('/manage-knowledge-base', async (req, res) => {
+  try {
+    const knowledgeBase = await prisma.knowledgeBase.findMany({
+      orderBy: [
+        { order: 'asc' },
+        { createdAt: 'desc' }
+      ]
+    });
+    res.json(knowledgeBase);
+  } catch (error) {
+    console.error('Get knowledge base error:', error);
+    res.status(500).json({ error: 'Failed to get knowledge base' });
+  }
+});
+
+// POST /api/manage-knowledge-base
+// Create new knowledge base item
+router.post('/manage-knowledge-base', async (req, res) => {
+  try {
+    const { title, author, type, content, summary, isActive, order } = req.body;
+    
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required' });
+    }
+    
+    const knowledgeItem = await prisma.knowledgeBase.create({
+      data: {
+        title,
+        author: author || null,
+        type: type || 'book',
+        content,
+        summary: summary || null,
+        isActive: isActive !== false,
+        order: order || 0
+      }
+    });
+    
+    res.status(201).json(knowledgeItem);
+  } catch (error) {
+    console.error('Create knowledge base error:', error);
+    res.status(500).json({ error: 'Failed to create knowledge base item' });
+  }
+});
+
+// PUT /api/manage-knowledge-base/:id
+// Update knowledge base item
+router.put('/manage-knowledge-base/:id', async (req, res) => {
+  try {
+    const { title, author, type, content, summary, isActive, order } = req.body;
+    
+    const knowledgeItem = await prisma.knowledgeBase.update({
+      where: { id: parseInt(req.params.id) },
+      data: {
+        ...(title && { title }),
+        ...(author !== undefined && { author }),
+        ...(type && { type }),
+        ...(content && { content }),
+        ...(summary !== undefined && { summary }),
+        ...(isActive !== undefined && { isActive }),
+        ...(order !== undefined && { order })
+      }
+    });
+    
+    res.json(knowledgeItem);
+  } catch (error) {
+    console.error('Update knowledge base error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Knowledge base item not found' });
+    }
+    res.status(500).json({ error: 'Failed to update knowledge base item' });
+  }
+});
+
+// DELETE /api/manage-knowledge-base/:id
+// Delete knowledge base item
+router.delete('/manage-knowledge-base/:id', async (req, res) => {
+  try {
+    await prisma.knowledgeBase.delete({
+      where: { id: parseInt(req.params.id) }
+    });
+    res.json({ message: 'Knowledge base item deleted successfully' });
+  } catch (error) {
+    console.error('Delete knowledge base error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Knowledge base item not found' });
+    }
+    res.status(500).json({ error: 'Failed to delete knowledge base item' });
+  }
+});
+
 console.log('[ADMIN ROUTES] All routes registered, exporting router...');
 console.log('[ADMIN ROUTES] Router type:', typeof router);
 console.log('[ADMIN ROUTES] Router is function?', typeof router === 'function');

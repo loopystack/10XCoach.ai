@@ -44,12 +44,6 @@ interface DashboardStats {
   pending_todos: number
 }
 
-interface Coach {
-  id: number
-  name: string
-  email: string
-}
-
 interface Huddle {
   id: number
   title: string

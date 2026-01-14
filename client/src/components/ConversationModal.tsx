@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Mic, Square, Save } from 'lucide-react'
-import { api } from '../utils/api'
 import './ConversationModal.css'
 
 interface Coach {

@@ -1768,7 +1768,7 @@ const coachVoiceMap = {
   // Male coaches
   'Alan Wozniak': 'ash',
   'Rob Mercer': 'echo',
-  'Jeffrey Wells': 'onyx',
+  'Jeffrey Wells': 'marin',  // Changed from 'onyx' (not supported) to 'marin'
   'Hudson Jaxon': 'cedar',
   'Tanner Chase': 'verse',
   // Female coaches
@@ -1879,7 +1879,7 @@ wss.on('connection', (ws, req) => {
         const coachVoiceMapLocal = {
           'Alan Wozniak': 'ash',
           'Rob Mercer': 'echo',
-          'Jeffrey Wells': 'onyx',
+          'Jeffrey Wells': 'marin',  // Changed from 'onyx' (not supported) to 'marin'
           'Hudson Jaxon': 'cedar',
           'Tanner Chase': 'verse',
           'Teresa Lane': 'shimmer',

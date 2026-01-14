@@ -310,7 +310,7 @@ const coachVoiceMap = {
   // Male coaches
   'Alan Wozniak': 'ash',
   'Rob Mercer': 'echo',
-  'Jeffrey Wells': 'onyx',
+  'Jeffrey Wells': 'marin',  // Changed from 'onyx' (not supported) to 'marin'
   'Hudson Jaxon': 'cedar',
   'Tanner Chase': 'verse',
   // Female coaches
@@ -467,7 +467,7 @@ wss.on('connection', (ws, req) => {
         const voice = coachVoiceMap[currentCoachName] || 'echo';
         const coachInstructions = getCoachInstructions(currentCoachName, currentUserName, conversationHistory);
 
-        // Configure OpenAI Realtime API
+        // Configure OpenAI Realtime API with function calling tools
         const config = {
           type: 'session.update',
           session: {
@@ -486,7 +486,51 @@ wss.on('connection', (ws, req) => {
               silence_duration_ms: 800,
               create_response: true // Auto-create responses when user finishes speaking
             },
-            tools: [],
+            tools: [
+              {
+                type: 'function',
+                name: 'schedule_10x_meeting',
+                description: 'Schedule a 10X 10-minute huddle meeting with the user. Use this when the user asks to schedule a meeting, set up a huddle, or book a 10x meeting.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    title: {
+                      type: 'string',
+                      description: 'The title or topic of the meeting (e.g., "Strategy Review", "Sales Planning", "Operations Check-in")'
+                    },
+                    meeting_date: {
+                      type: 'string',
+                      description: 'The date and time for the meeting in ISO 8601 format (e.g., "2024-01-15T14:00:00" or "2024-01-15T14:00:00Z"). Must be a future date and time.'
+                    },
+                    notes: {
+                      type: 'string',
+                      description: 'Optional notes or agenda items for the meeting'
+                    }
+                  },
+                  required: ['title', 'meeting_date']
+                }
+              },
+              {
+                type: 'function',
+                name: 'send_text_message',
+                description: 'Send a text message (SMS) to the user. Use this when the user asks to send a text, text them, or send a message.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    message: {
+                      type: 'string',
+                      description: 'The text message content to send to the user'
+                    },
+                    message_type: {
+                      type: 'string',
+                      enum: ['summary', 'reminder', 'meeting_confirmation', 'action_items', 'general'],
+                      description: 'The type of message being sent'
+                    }
+                  },
+                  required: ['message']
+                }
+              }
+            ],
             tool_choice: 'auto',
             temperature: 0.8,
             max_response_output_tokens: 4096
@@ -519,7 +563,7 @@ wss.on('connection', (ws, req) => {
             }, 20000);
           });
 
-          openaiWs.on('message', (event) => {
+          openaiWs.on('message', async (event) => {
             try {
               const message = JSON.parse(event.toString());
 
@@ -607,8 +651,264 @@ wss.on('connection', (ws, req) => {
                   responseId: message.response_id
                 });
               } else if (message.type === 'response.output_item.added') {
-                // Output item was added to the response - just forward to client, don't add to transcript yet
+                // Output item was added to the response
                 console.log(`📦 Output item added to response: ${message.item?.id}, type: ${message.item?.type}`);
+                
+                // Handle function calls - OpenAI Realtime API uses different formats
+                // Check for function_call, tool_use, or function_call in content
+                const itemType = message.item?.type;
+                const isFunctionCall = itemType === 'function_call' || 
+                                      itemType === 'tool_use' ||
+                                      (message.item?.type === 'message' && 
+                                       message.item?.content?.some(c => c.type === 'function_call' || c.type === 'tool_use'));
+                
+                if (isFunctionCall) {
+                  console.log(`🔧 DETECTED FUNCTION CALL! Item type: ${itemType}`);
+                  console.log(`🔧 Full message:`, JSON.stringify(message, null, 2));
+                  
+                  let functionCall = message.item;
+                  
+                  // If function_call is in content array, extract it
+                  if (message.item?.type === 'message' && message.item?.content) {
+                    const funcCallContent = message.item.content.find(c => 
+                      c.type === 'function_call' || c.type === 'tool_use'
+                    );
+                    if (funcCallContent) {
+                      functionCall = funcCallContent;
+                      console.log(`🔧 Found function call in content array`);
+                    }
+                  }
+                  
+                  // Extract function name - handle multiple formats
+                  const functionName = functionCall.name || 
+                                      functionCall.function?.name ||
+                                      functionCall.tool_name ||
+                                      functionCall.toolName;
+                  
+                  let functionArgs = {};
+                  
+                  // Parse arguments - could be string or object, handle multiple formats
+                  if (functionCall.arguments) {
+                    if (typeof functionCall.arguments === 'string') {
+                      try {
+                        functionArgs = JSON.parse(functionCall.arguments);
+                      } catch (e) {
+                        console.error(`❌ Failed to parse arguments as JSON:`, functionCall.arguments);
+                        functionArgs = {};
+                      }
+                    } else {
+                      functionArgs = functionCall.arguments;
+                    }
+                  } else if (functionCall.function?.arguments) {
+                    if (typeof functionCall.function.arguments === 'string') {
+                      try {
+                        functionArgs = JSON.parse(functionCall.function.arguments);
+                      } catch (e) {
+                        console.error(`❌ Failed to parse function.arguments as JSON:`, functionCall.function.arguments);
+                        functionArgs = {};
+                      }
+                    } else {
+                      functionArgs = functionCall.function.arguments;
+                    }
+                  } else if (functionCall.input) {
+                    // Some APIs use 'input' instead of 'arguments'
+                    functionArgs = typeof functionCall.input === 'string' 
+                      ? JSON.parse(functionCall.input) 
+                      : functionCall.input;
+                  }
+                  
+                  console.log(`🔧 Function call received: ${functionName}`);
+                  console.log(`🔧 Function arguments:`, JSON.stringify(functionArgs, null, 2));
+                  console.log(`🔧 Full function call object:`, JSON.stringify(functionCall, null, 2));
+                  
+                  // Handle function calls
+                  let functionResult = null;
+                  let functionError = null;
+                  
+                  try {
+                    if (functionName === 'schedule_10x_meeting') {
+                      // Schedule a 10X meeting (create huddle)
+                      console.log(`📅 Attempting to schedule meeting with args:`, functionArgs);
+                      
+                      if (!currentUserId || !currentCoachId) {
+                        console.error('❌ Missing user or coach ID:', { currentUserId, currentCoachId });
+                        throw new Error('User ID or Coach ID not available');
+                      }
+                      
+                      // Parse meeting date - handle relative dates like "Friday"
+                      let meetingDate;
+                      const dateInput = functionArgs.meeting_date || functionArgs.date || functionArgs.meetingDate;
+                      
+                      if (!dateInput) {
+                        throw new Error('Meeting date is required');
+                      }
+                      
+                      console.log(`📅 Parsing date input: "${dateInput}"`);
+                      
+                      // Try to parse as ISO date first
+                      meetingDate = new Date(dateInput);
+                      
+                      // If that fails, try to parse relative dates
+                      if (isNaN(meetingDate.getTime())) {
+                        console.log(`📅 Date parsing failed, trying relative date parsing...`);
+                        meetingDate = parseRelativeDate(dateInput);
+                      }
+                      
+                      if (isNaN(meetingDate.getTime())) {
+                        console.error(`❌ Invalid date format: "${dateInput}"`);
+                        throw new Error(`Invalid meeting date format: "${dateInput}". Please provide a date in ISO format (e.g., "2024-01-15T14:00:00") or a relative date like "Friday", "next Monday", etc.`);
+                      }
+                      
+                      console.log(`📅 Parsed meeting date: ${meetingDate.toISOString()}`);
+                      
+                      if (meetingDate < new Date()) {
+                        throw new Error('Meeting date must be in the future');
+                      }
+                      
+                      // Create huddle via Prisma
+                      const prisma = require('./lib/prisma');
+                      console.log(`📅 Creating huddle in database...`);
+                      console.log(`📅 Data:`, {
+                        title: functionArgs.title || '10X Coaching Session',
+                        huddleDate: meetingDate,
+                        coachId: currentCoachId,
+                        userId: currentUserId
+                      });
+                      
+                      const huddle = await prisma.huddle.create({
+                        data: {
+                          title: functionArgs.title || '10X Coaching Session',
+                          huddleDate: meetingDate,
+                          coachId: currentCoachId,
+                          userId: currentUserId,
+                          hasShortAgenda: true,
+                          hasNotetaker: true,
+                          hasActionSteps: true,
+                          status: 'SCHEDULED'
+                        },
+                        include: {
+                          coach: { select: { name: true } },
+                          user: { select: { name: true, email: true } }
+                        }
+                      });
+                      
+                      console.log(`✅ Huddle created successfully:`, {
+                        id: huddle.id,
+                        title: huddle.title,
+                        date: huddle.huddleDate,
+                        coachId: huddle.coachId,
+                        userId: huddle.userId
+                      });
+                      
+                      functionResult = {
+                        success: true,
+                        message: `10X meeting scheduled successfully for ${meetingDate.toLocaleString()}`,
+                        meeting_id: huddle.id,
+                        title: huddle.title,
+                        date: meetingDate.toISOString(),
+                        coach: huddle.coach.name
+                      };
+                      
+                      console.log('✅ Meeting scheduled:', functionResult);
+                      
+                      // Send confirmation message to user
+                      safeSend({
+                        type: 'info',
+                        message: `Meeting scheduled: ${huddle.title} on ${meetingDate.toLocaleString()}`
+                      });
+                      
+                    } else if (functionName === 'send_text_message') {
+                      // Send text message (via email for now, can be extended to SMS)
+                      if (!currentUserId) {
+                        throw new Error('User ID not available');
+                      }
+                      
+                      // Get user info
+                      const prisma = require('./lib/prisma');
+                      const user = await prisma.user.findUnique({
+                        where: { id: currentUserId },
+                        select: { email: true, name: true }
+                      });
+                      
+                      if (!user || !user.email) {
+                        throw new Error('User email not found');
+                      }
+                      
+                      // Send email (as text message - can be extended to SMS gateway)
+                      const { createTransporter, getEmailSettings } = require('./lib/email');
+                      const emailSettings = await getEmailSettings();
+                      const transporter = await createTransporter();
+                      
+                      const mailOptions = {
+                        from: `"${currentCoachName || '10X Coach'}" <${emailSettings.smtpFromEmail}>`,
+                        to: user.email,
+                        subject: `Message from ${currentCoachName || 'your 10X Coach'}`,
+                        text: functionArgs.message,
+                        html: `<div style="font-family: Arial, sans-serif; padding: 20px;">
+                          <h2>Message from ${currentCoachName || 'your 10X Coach'}</h2>
+                          <p style="white-space: pre-wrap;">${functionArgs.message.replace(/\n/g, '<br>')}</p>
+                          <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">
+                            This message was sent from your 10XCoach.ai conversation.
+                          </p>
+                        </div>`
+                      };
+                      
+                      await transporter.sendMail(mailOptions);
+                      
+                      functionResult = {
+                        success: true,
+                        message: 'Text message sent successfully',
+                        recipient: user.email,
+                        message_type: functionArgs.message_type || 'general'
+                      };
+                      
+                      console.log('✅ Text message sent:', functionResult);
+                      
+                      // Send confirmation to user
+                      safeSend({
+                        type: 'info',
+                        message: 'Message sent successfully'
+                      });
+                      
+                    } else {
+                      throw new Error(`Unknown function: ${functionName}`);
+                    }
+                  } catch (error) {
+                    console.error(`❌ Error executing function ${functionName}:`, error);
+                    functionError = error.message;
+                    functionResult = {
+                      success: false,
+                      error: error.message
+                    };
+                  }
+                  
+                  // Submit tool output to OpenAI
+                  const toolCallId = functionCall.id || functionCall.tool_call_id || functionCall.function?.id;
+                  if (openaiWs && openaiWs.readyState === WebSocket.OPEN && toolCallId) {
+                    const toolOutput = {
+                      type: 'response.submit_tool_outputs',
+                      response_id: message.response_id,
+                      tool_outputs: [{
+                        tool_call_id: toolCallId,
+                        output: JSON.stringify(functionError ? { error: functionError } : functionResult)
+                      }]
+                    };
+                    console.log(`📤 Submitting tool output:`, JSON.stringify(toolOutput, null, 2));
+                    openaiWs.send(JSON.stringify(toolOutput));
+                    console.log(`✅ Tool output submitted for ${functionName}`);
+                  } else {
+                    console.error(`❌ Cannot submit tool output:`, {
+                      hasOpenaiWs: !!openaiWs,
+                      readyState: openaiWs?.readyState,
+                      hasToolCallId: !!toolCallId,
+                      responseId: message.response_id
+                    });
+                  }
+                  
+                  return; // Don't process function calls as regular messages
+                }
+                
+                // Handle regular message content
                 if (message.item?.type === 'message' && message.item?.content) {
                   for (const content of message.item.content) {
                     if (content.type === 'text' && content.text) {
@@ -789,9 +1089,15 @@ wss.on('connection', (ws, req) => {
                   message: message.error?.message || 'OpenAI error'
                 });
               } else {
-                // Log unhandled message types for debugging
+                // Log unhandled message types for debugging (especially function-related)
                 if (!['session.created', 'session.updated', 'ping', 'pong'].includes(message.type)) {
-                  console.log(`🔍 Unhandled message type: ${message.type}`, message);
+                  // Log function-related messages more prominently
+                  if (message.type.includes('function') || message.type.includes('tool') || 
+                      JSON.stringify(message).includes('function') || JSON.stringify(message).includes('tool')) {
+                    console.log(`🔧 FUNCTION-RELATED MESSAGE: ${message.type}`, JSON.stringify(message, null, 2));
+                  } else {
+                    console.log(`🔍 Unhandled message type: ${message.type}`);
+                  }
                 }
               }
             } catch (error) {

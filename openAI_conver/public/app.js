@@ -5,7 +5,7 @@ const coachVoiceMap = {
     // Male coaches
     'Alan Wozniak': 'echo',      // Male - Clear, professional
     'Rob Mercer': 'marin',       // Male - Smooth, confident
-    'Jeffrey Wells': 'onyx',     // Male - Deep, commanding
+    'Jeffrey Wells': 'marin',    // Male - Smooth, confident (changed from 'onyx' - not supported)
     'Hudson Jaxon': 'cedar',     // Male - Deep, authoritative
     'Tanner Chase': 'verse',     // Male - Poetic, melodic
     // Female coaches

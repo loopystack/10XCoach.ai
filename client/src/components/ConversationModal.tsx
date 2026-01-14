@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Mic, Square, Save, Users } from 'lucide-react'
+import { X, Mic, Square, Save } from 'lucide-react'
 import './ConversationModal.css'
 
 interface Coach {
@@ -102,21 +102,23 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     return btoa(binary)
   }
 
-  const resampleAudio = (input: Float32Array, inputSampleRate: number, outputSampleRate: number): Float32Array => {
+  const resampleAudio = (input: Float32Array | ArrayLike<number>, inputSampleRate: number, outputSampleRate: number): Float32Array => {
+    const inputArray = input instanceof Float32Array ? input : new Float32Array(input)
+    
     if (inputSampleRate === outputSampleRate) {
-      return input
+      return inputArray
     }
     
     const ratio = inputSampleRate / outputSampleRate
-    const outputLength = Math.round(input.length / ratio)
+    const outputLength = Math.round(inputArray.length / ratio)
     const output = new Float32Array(outputLength)
     
     for (let i = 0; i < outputLength; i++) {
       const index = i * ratio
       const indexFloor = Math.floor(index)
-      const indexCeil = Math.min(indexFloor + 1, input.length - 1)
+      const indexCeil = Math.min(indexFloor + 1, inputArray.length - 1)
       const fraction = index - indexFloor
-      output[i] = input[indexFloor] * (1 - fraction) + input[indexCeil] * fraction
+      output[i] = inputArray[indexFloor] * (1 - fraction) + inputArray[indexCeil] * fraction
     }
     
     return output
@@ -255,9 +257,9 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
                           wsRef.current.readyState === WebSocket.OPEN
         
         if (shouldSend) {
-          let processedData = inputData
+          let processedData: Float32Array = new Float32Array(inputData)
           if (actualSampleRate !== 24000) {
-            processedData = resampleAudio(inputData, actualSampleRate, 24000)
+            processedData = resampleAudio(new Float32Array(inputData), actualSampleRate, 24000)
           }
           
           const int16Data = new Int16Array(processedData.length)
@@ -327,12 +329,14 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       ctx.fillStyle = bgColor
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       
-      analyserRef.current.getByteFrequencyData(dataArrayRef.current)
-      
-      const step = Math.floor(dataArrayRef.current.length / 20)
-      for (let i = 0; i < 20; i++) {
-        const value = dataArrayRef.current[i * step] || 0
-        audioLevelsRef.current[i] = Math.max(audioLevelsRef.current[i] * 0.7, value / 255)
+      if (dataArrayRef.current && analyserRef.current) {
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current)
+        
+        const step = Math.floor(dataArrayRef.current.length / 20)
+        for (let i = 0; i < 20; i++) {
+          const value = dataArrayRef.current[i * step] || 0
+          audioLevelsRef.current[i] = Math.max(audioLevelsRef.current[i] * 0.7, value / 255)
+        }
       }
       
       const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0)

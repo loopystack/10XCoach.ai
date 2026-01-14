@@ -13,7 +13,8 @@ import {
   Clock,
   CreditCard,
   ArrowRight,
-  Mic
+  Mic,
+  MessageCircle
 } from 'lucide-react'
 import { 
   AreaChart, 
@@ -466,15 +467,45 @@ const Dashboard = () => {
           return false
         }
       }).length
+      const sessionCount = sessions.filter(s => {
+        try {
+          const dateStr = s.start_time
+          if (!dateStr) return false
+          return new Date(dateStr).toLocaleDateString('en-US', { month: 'short' }) === month
+        } catch {
+          return false
+        }
+      }).length
+      const todoCount = todos.filter(t => {
+        try {
+          const dateStr = t.due_date || t.dueDate
+          if (!dateStr) return false
+          return new Date(dateStr).toLocaleDateString('en-US', { month: 'short' }) === month
+        } catch {
+          return false
+        }
+      }).length
+      const noteCount = notes.filter(n => {
+        try {
+          const dateStr = n.created_at
+          if (!dateStr) return false
+          return new Date(dateStr).toLocaleDateString('en-US', { month: 'short' }) === month
+        } catch {
+          return false
+        }
+      }).length
       return {
         month,
-        quizzes: quizCount,
+        sessions: sessionCount,
         huddles: huddleCount,
-        total: quizCount + huddleCount
+        todos: todoCount,
+        notes: noteCount,
+        quizzes: quizCount,
+        total: sessionCount + huddleCount + todoCount + noteCount + quizCount
       }
     })
     setMonthlyActivity(activityData)
-  }, [quizData, huddles])
+  }, [quizData, huddles, sessions, todos, notes])
 
   if (loading) {
     return (
@@ -540,10 +571,11 @@ const Dashboard = () => {
 
   // Calculate activity distribution - use actual counts for pie chart
   const activityDistribution = [
-    { name: 'Quizzes', value: safeStats.total_quizzes, color: '#60a5fa' },
+    { name: 'Sessions', value: sessions.length, color: '#8b5cf6' },
     { name: 'Huddles', value: safeStats.total_huddles, color: '#3b82f6' },
-    { name: 'Notes', value: safeStats.total_notes, color: '#2563eb' },
-    { name: 'Todos', value: safeStats.total_todos, color: '#1e40af' },
+    { name: 'Todos', value: safeStats.total_todos, color: '#2563eb' },
+    { name: 'Notes', value: safeStats.total_notes, color: '#10b981' },
+    { name: 'Quizzes', value: safeStats.total_quizzes, color: '#60a5fa' },
   ].filter(item => item.value > 0) // Only show items with values
 
   // Calculate compliance rate - handle both snake_case and camelCase
@@ -630,13 +662,47 @@ const Dashboard = () => {
 
     // Huddles - match Todos page logic exactly
     huddles.forEach(huddle => {
-      const huddleDate = huddle.huddle_date || (huddle as any).huddleDate
-      if (huddleDate && huddleDate.split('T')[0] === dateStr) {
+      // Try multiple possible date field names and formats
+      const huddleDateRaw = huddle.huddle_date || (huddle as any).huddleDate || (huddle as any).date
+      if (!huddleDateRaw) {
+        // Debug: Log missing date
+        if (huddles.length > 0 && date.getDate() === new Date().getDate()) {
+          console.warn('⚠️ Huddle missing date field:', { id: huddle.id, title: huddle.title, keys: Object.keys(huddle) })
+        }
+        return
+      }
+      
+      // Convert to string if it's a Date object, then extract date part
+      let huddleDateStr: string
+      if (typeof huddleDateRaw === 'string') {
+        huddleDateStr = huddleDateRaw
+      } else if (huddleDateRaw instanceof Date) {
+        huddleDateStr = huddleDateRaw.toISOString()
+      } else {
+        // Try to parse as date
+        try {
+          huddleDateStr = new Date(huddleDateRaw).toISOString()
+        } catch (e) {
+          // Debug: Log parse error
+          if (huddles.length > 0 && date.getDate() === new Date().getDate()) {
+            console.warn('⚠️ Failed to parse huddle date:', { id: huddle.id, dateRaw: huddleDateRaw, error: e })
+          }
+          return // Skip if we can't parse the date
+        }
+      }
+      
+      // Extract just the date part (YYYY-MM-DD) for comparison
+      const huddleDateOnly = huddleDateStr.split('T')[0]
+      if (huddleDateOnly === dateStr) {
+        // Debug: Log successful match
+        if (date.getDate() === new Date().getDate()) {
+          console.log('✅ Huddle matched for date:', { id: huddle.id, title: huddle.title, huddleDateOnly, dateStr })
+        }
         activities.push({
           type: 'huddle',
           id: huddle.id,
           title: huddle.title,
-          time: null,
+          time: huddleDateStr.includes('T') ? huddleDateStr.split('T')[1]?.substring(0, 5) : null,
           color: '#3b82f6',
           data: huddle
         })
@@ -771,34 +837,38 @@ const Dashboard = () => {
     setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1))
   }
 
+  // Calculate sessions and notes counts
+  const totalSessions = sessions.length
+  const totalNotes = notes.length
+
   const kpiCards = [
     { 
-      title: 'Total Quizzes', 
-      value: formatNumber(safeStats.total_quizzes),
-      icon: FileText, 
-      bgColor: '#60a5fa',
-      link: '/quizzes'
+      title: 'Coach Sessions', 
+      value: formatNumber(totalSessions),
+      icon: MessageCircle, 
+      bgColor: '#8b5cf6',
+      link: '/sessions'
     },
     { 
-      title: 'Total Huddles', 
+      title: '10X Huddles', 
       value: formatNumber(safeStats.total_huddles),
       icon: UsersRound, 
       bgColor: '#3b82f6',
       link: '/huddles'
     },
     { 
-      title: 'Completion Rate', 
-      value: `${todoCompletionRate || 0}%`,
+      title: 'Action Items', 
+      value: formatNumber(safeStats.total_todos),
       icon: Target, 
       bgColor: '#2563eb',
       link: '/todos'
     },
     { 
-      title: 'Compliance Rate', 
-      value: `${complianceRate || 0}%`,
-      icon: CheckCircle2, 
-      bgColor: '#22c55e',
-      link: '/huddles'
+      title: 'Notes & Insights', 
+      value: formatNumber(totalNotes),
+      icon: FileText, 
+      bgColor: '#10b981',
+      link: '/notes'
     },
   ]
 
@@ -977,11 +1047,11 @@ const Dashboard = () => {
 
       {/* 6 Charts Grid Layout */}
       <div className="dashboard-charts-grid">
-        {/* Chart 1: Quiz History & Scores */}
+        {/* Chart 1: 10X Activity Overview */}
         <div className="dashboard-chart-card">
           <h3>
             <span className="chart-indicator-small"></span>
-            Quiz History & Scores
+            10X Activity Overview
           </h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={quizData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -1025,6 +1095,7 @@ const Dashboard = () => {
               <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" formatter={(value) => <span style={{ color: '#374151', fontWeight: 600 }}>{value}</span>} />
               <Area type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorQuizzes)" name="Quizzes Taken" />
               <Area type="monotone" dataKey="avgScore" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorScores)" name="Average Score" />
+              <Area type="monotone" dataKey="huddles" stroke="#8b5cf6" strokeWidth={2} fillOpacity={0.3} fill="#8b5cf6" name="Huddles" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -1102,37 +1173,35 @@ const Dashboard = () => {
                 }}
               />
               <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" formatter={(value) => <span style={{ color: '#374151', fontWeight: 600 }}>{value}</span>} />
-              <Line type="monotone" dataKey="quizzes" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 4 }} name="Quizzes" />
-              <Line type="monotone" dataKey="huddles" stroke="#22c55e" strokeWidth={3} dot={{ fill: '#22c55e', r: 4 }} name="Huddles" />
+              <Line type="monotone" dataKey="sessions" stroke="#8b5cf6" strokeWidth={3} dot={{ fill: '#8b5cf6', r: 4 }} name="Sessions" />
+              <Line type="monotone" dataKey="huddles" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 4 }} name="Huddles" />
+              <Line type="monotone" dataKey="todos" stroke="#2563eb" strokeWidth={3} dot={{ fill: '#2563eb', r: 4 }} name="Todos" />
+              <Line type="monotone" dataKey="notes" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} name="Notes" />
+              <Line type="monotone" dataKey="quizzes" stroke="#60a5fa" strokeWidth={2} dot={{ fill: '#60a5fa', r: 3 }} name="Quizzes" strokeDasharray="5 5" />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Chart 4: Quiz Activity by Date */}
+        {/* Chart 4: Coaching Sessions & Huddles */}
         <div className="dashboard-chart-card">
           <h3>
             <span className="chart-indicator-small"></span>
-            Quiz Activity by Date
+            Coaching Sessions & Huddles
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={quizData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <BarChart data={monthlyActivity} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="colorSessions" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={1}/>
+                  <stop offset="95%" stopColor="#a78bfa" stopOpacity={0.8}/>
+                </linearGradient>
+                <linearGradient id="colorHuddlesBar" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={1}/>
                   <stop offset="95%" stopColor="#60a5fa" stopOpacity={0.8}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(229, 231, 235, 0.5)" />
-              <XAxis
-                dataKey="date"
-                stroke="#6b7280"
-                style={{ fontSize: '12px', fontWeight: 600 }}
-                tick={{ fill: '#6b7280' }}
-                tickFormatter={(value) => {
-                  const date = new Date(value)
-                  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                }}
-              />
+              <XAxis dataKey="month" stroke="#6b7280" style={{ fontSize: '12px', fontWeight: 600 }} tick={{ fill: '#6b7280' }} />
               <YAxis stroke="#6b7280" style={{ fontSize: '12px', fontWeight: 600 }} tick={{ fill: '#6b7280' }} />
               <Tooltip 
                 contentStyle={{
@@ -1143,60 +1212,50 @@ const Dashboard = () => {
                   padding: '12px 16px',
                   fontWeight: 600
                 }}
-                labelStyle={{ color: '#1e3a8a', fontWeight: 700, marginBottom: '8px' }}
-                labelFormatter={(value) => {
-                  const date = new Date(value)
-                  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-                }}
               />
-              <Bar dataKey="count" fill="url(#colorBar)" name="Quizzes" radius={[12, 12, 0, 0]}>
-                {quizData.map((_, index) => (
-                  <Cell key={`cell-${index}`} />
-                ))}
-              </Bar>
+              <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="square" formatter={(value) => <span style={{ color: '#374151', fontWeight: 600 }}>{value}</span>} />
+              <Bar dataKey="sessions" fill="url(#colorSessions)" name="Sessions" radius={[12, 12, 0, 0]} />
+              <Bar dataKey="huddles" fill="url(#colorHuddlesBar)" name="Huddles" radius={[12, 12, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Chart 5: Score Distribution */}
+        {/* Chart 5: Todos & Notes Activity */}
         <div className="dashboard-chart-card">
           <h3>
             <span className="chart-indicator-small"></span>
-            Score Distribution
+            Todos & Notes Activity
           </h3>
-          {scoreDistributionArray.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={scoreDistributionArray} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
-                  {scoreDistributionArray.map((entry: any, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{
-                    background: '#ffffff',
-                    border: '1px solid rgba(229, 231, 235, 0.8)',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    padding: '12px 16px',
-                    fontWeight: 600
-                  }}
-                />
-                <Legend verticalAlign="bottom" align="center" iconType="square" formatter={(value) => <span style={{ color: '#374151', fontWeight: 600, marginLeft: '8px' }}>{value}</span>} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ 
-              height: 300, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              color: '#6b7280',
-              fontSize: '14px'
-            }}>
-              No score data available
-            </div>
-          )}
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={monthlyActivity} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorTodos" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#2563eb" stopOpacity={1}/>
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                </linearGradient>
+                <linearGradient id="colorNotes" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={1}/>
+                  <stop offset="95%" stopColor="#34d399" stopOpacity={0.8}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(229, 231, 235, 0.5)" />
+              <XAxis dataKey="month" stroke="#6b7280" style={{ fontSize: '12px', fontWeight: 600 }} tick={{ fill: '#6b7280' }} />
+              <YAxis stroke="#6b7280" style={{ fontSize: '12px', fontWeight: 600 }} tick={{ fill: '#6b7280' }} />
+              <Tooltip 
+                contentStyle={{
+                  background: '#ffffff',
+                  border: '1px solid rgba(229, 231, 235, 0.8)',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  padding: '12px 16px',
+                  fontWeight: 600
+                }}
+              />
+              <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="square" formatter={(value) => <span style={{ color: '#374151', fontWeight: 600 }}>{value}</span>} />
+              <Bar dataKey="todos" fill="url(#colorTodos)" name="Todos" radius={[12, 12, 0, 0]} />
+              <Bar dataKey="notes" fill="url(#colorNotes)" name="Notes" radius={[12, 12, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Chart 6: 10X Calendar - All Activities */}

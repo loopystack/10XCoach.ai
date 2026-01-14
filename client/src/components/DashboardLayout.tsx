@@ -19,9 +19,11 @@ import {
   Home,
   Shield,
   LogOut,
-  CreditCard
+  CreditCard,
+  UserCircle
 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
+import AccountModal from './AccountModal'
 import './DashboardLayout.css'
 
 interface DashboardLayoutProps {
@@ -32,6 +34,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
+  const [accountModalOpen, setAccountModalOpen] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -186,6 +189,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   className="profile-dropdown-item"
                   onClick={() => {
                     setProfileDropdownOpen(false)
+                    setAccountModalOpen(true)
+                  }}
+                >
+                  <UserCircle size={16} />
+                  <span>Account</span>
+                </button>
+                <button
+                  className="profile-dropdown-item"
+                  onClick={() => {
+                    setProfileDropdownOpen(false)
                     navigate('/')
                   }}
                 >
@@ -228,6 +241,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <main className="main-content">
         {children}
       </main>
+      
+      {/* Account Modal */}
+      {accountModalOpen && (
+        <AccountModal onClose={() => setAccountModalOpen(false)} />
+      )}
     </div>
   )
 }

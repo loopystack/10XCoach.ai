@@ -331,13 +331,13 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       
       if (dataArrayRef.current && analyserRef.current) {
-        // Type assertion to satisfy TypeScript's strict type checking
-        const dataArray: Uint8Array = dataArrayRef.current as Uint8Array
-        analyserRef.current.getByteFrequencyData(dataArray)
+        // TypeScript workaround: getByteFrequencyData requires Uint8Array<ArrayBuffer>
+        // Use type assertion to satisfy TypeScript's strict type checking
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current as Uint8Array & { buffer: ArrayBuffer })
         
-        const step = Math.floor(dataArray.length / 20)
+        const step = Math.floor(dataArrayRef.current.length / 20)
         for (let i = 0; i < 20; i++) {
-          const value = dataArray[i * step] || 0
+          const value = dataArrayRef.current[i * step] || 0
           audioLevelsRef.current[i] = Math.max(audioLevelsRef.current[i] * 0.7, value / 255)
         }
       }

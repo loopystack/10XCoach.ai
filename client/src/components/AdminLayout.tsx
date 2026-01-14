@@ -16,10 +16,12 @@ import {
   Sun,
   Moon,
   User,
-  Home
+  Home,
+  UserCircle
 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import { clearAuthToken } from '../utils/api'
+import AccountModal from './AccountModal'
 import './AdminLayout.css'
 
 interface AdminLayoutProps {
@@ -30,6 +32,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
+  const [accountModalOpen, setAccountModalOpen] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -215,6 +218,16 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   className="admin-profile-dropdown-item"
                   onClick={() => {
                     setProfileDropdownOpen(false)
+                    setAccountModalOpen(true)
+                  }}
+                >
+                  <UserCircle size={16} />
+                  <span>Account</span>
+                </button>
+                <button 
+                  className="admin-profile-dropdown-item"
+                  onClick={() => {
+                    setProfileDropdownOpen(false)
                     navigate('/')
                   }}
                 >
@@ -233,17 +246,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 </button>
                 <button 
                   className="admin-profile-dropdown-item"
-                  onClick={() => {
-                    setProfileDropdownOpen(false)
-                    // Navigate to settings page when implemented
-                    // navigate('/settings')
-                  }}
-                >
-                  <Settings size={16} />
-                  <span>Settings</span>
-                </button>
-                <button 
-                  className="admin-profile-dropdown-item"
                   onClick={handleSignOut}
                 >
                   <LogOut size={16} />
@@ -257,6 +259,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       <main className="admin-main-content">
         {children}
       </main>
+      
+      {/* Account Modal */}
+      {accountModalOpen && (
+        <AccountModal onClose={() => setAccountModalOpen(false)} />
+      )}
     </div>
   )
 }

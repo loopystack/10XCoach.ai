@@ -74,11 +74,15 @@ interface Activity {
 
 interface Session {
   id: number
-  start_time: string
+  startTime: string  // API returns camelCase
+  start_time?: string  // Legacy support
+  endTime?: string | null
   end_time?: string | null
   duration?: number | null
-  coach_id: number
-  user_id: number
+  coachId?: number
+  coach_id?: number
+  userId?: number
+  user_id?: number
   summary?: string | null
 }
 
@@ -468,7 +472,7 @@ const Dashboard = () => {
       }).length
       const sessionCount = sessions.filter(s => {
         try {
-          const dateStr = s.start_time
+          const dateStr = s.startTime || s.start_time
           if (!dateStr) return false
           return new Date(dateStr).toLocaleDateString('en-US', { month: 'short' }) === month
         } catch {
@@ -645,47 +649,13 @@ const Dashboard = () => {
 
     // Huddles - match Todos page logic exactly
     huddles.forEach(huddle => {
-      // Try multiple possible date field names and formats
-      const huddleDateRaw = huddle.huddle_date || (huddle as any).huddleDate || (huddle as any).date
-      if (!huddleDateRaw) {
-        // Debug: Log missing date
-        if (huddles.length > 0 && date.getDate() === new Date().getDate()) {
-          console.warn('⚠️ Huddle missing date field:', { id: huddle.id, title: huddle.title, keys: Object.keys(huddle) })
-        }
-        return
-      }
-      
-      // Convert to string if it's a Date object, then extract date part
-      let huddleDateStr: string
-      if (typeof huddleDateRaw === 'string') {
-        huddleDateStr = huddleDateRaw
-      } else if (huddleDateRaw instanceof Date) {
-        huddleDateStr = huddleDateRaw.toISOString()
-      } else {
-        // Try to parse as date
-        try {
-          huddleDateStr = new Date(huddleDateRaw).toISOString()
-        } catch (e) {
-          // Debug: Log parse error
-          if (huddles.length > 0 && date.getDate() === new Date().getDate()) {
-            console.warn('⚠️ Failed to parse huddle date:', { id: huddle.id, dateRaw: huddleDateRaw, error: e })
-          }
-          return // Skip if we can't parse the date
-        }
-      }
-      
-      // Extract just the date part (YYYY-MM-DD) for comparison
-      const huddleDateOnly = huddleDateStr.split('T')[0]
-      if (huddleDateOnly === dateStr) {
-        // Debug: Log successful match
-        if (date.getDate() === new Date().getDate()) {
-          console.log('✅ Huddle matched for date:', { id: huddle.id, title: huddle.title, huddleDateOnly, dateStr })
-        }
+      const huddleDate = huddle.huddle_date || huddle.huddleDate
+      if (huddleDate && huddleDate.split('T')[0] === dateStr) {
         activities.push({
           type: 'huddle',
           id: huddle.id,
           title: huddle.title,
-          time: huddleDateStr.includes('T') ? huddleDateStr.split('T')[1]?.substring(0, 5) : null,
+          time: null,
           color: '#3b82f6',
           data: huddle
         })
@@ -694,9 +664,11 @@ const Dashboard = () => {
 
     // Sessions
     sessions.forEach(session => {
-      const sessionDate = session.start_time?.split('T')[0]
+      const sessionDateRaw = session.startTime || session.start_time
+      if (!sessionDateRaw) return
+      const sessionDate = sessionDateRaw.split('T')[0]
       if (sessionDate === dateStr) {
-        const timeStr = session.start_time?.includes('T') ? session.start_time.split('T')[1]?.substring(0, 5) : null
+        const timeStr = sessionDateRaw.includes('T') ? sessionDateRaw.split('T')[1]?.substring(0, 5) : null
         activities.push({
           type: 'session',
           id: session.id,
@@ -1484,7 +1456,7 @@ const Dashboard = () => {
 
           // Sessions
           const monthSessions = sessions.filter(s => {
-            const sessionDateStr = s.start_time
+            const sessionDateStr = s.startTime || s.start_time
             if (!sessionDateStr) return false
             const sessionDate = new Date(sessionDateStr)
             return sessionDate >= monthStart && sessionDate <= monthEnd

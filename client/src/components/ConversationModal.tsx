@@ -237,7 +237,8 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       const analyser = inputAudioContext.createAnalyser()
       analyser.fftSize = 256
       analyserRef.current = analyser
-      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount)
+      const buffer = new ArrayBuffer(analyser.frequencyBinCount)
+      dataArrayRef.current = new Uint8Array(buffer)
       source.connect(analyser)
       
       const bufferSize = 4096
@@ -330,11 +331,13 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       
       if (dataArrayRef.current && analyserRef.current) {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current)
+        // Type assertion to satisfy TypeScript's strict type checking
+        const dataArray: Uint8Array = dataArrayRef.current as Uint8Array
+        analyserRef.current.getByteFrequencyData(dataArray)
         
-        const step = Math.floor(dataArrayRef.current.length / 20)
+        const step = Math.floor(dataArray.length / 20)
         for (let i = 0; i < 20; i++) {
-          const value = dataArrayRef.current[i * step] || 0
+          const value = dataArray[i * step] || 0
           audioLevelsRef.current[i] = Math.max(audioLevelsRef.current[i] * 0.7, value / 255)
         }
       }

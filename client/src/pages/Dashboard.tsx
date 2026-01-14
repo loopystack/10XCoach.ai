@@ -358,7 +358,18 @@ const Dashboard = () => {
           const huddlesData = await api.get(huddlesUrl)
           if (Array.isArray(huddlesData)) {
             setHuddles(huddlesData)
-            console.log('Fetched huddles:', huddlesData.length, 'items')
+            console.log('✅ Fetched huddles for Dashboard calendar:', huddlesData.length, 'items')
+            // Debug: Log first huddle to see date field format
+            if (huddlesData.length > 0) {
+              console.log('📅 Sample huddle date fields:', {
+                id: huddlesData[0].id,
+                title: huddlesData[0].title,
+                huddle_date: huddlesData[0].huddle_date,
+                huddleDate: (huddlesData[0] as any).huddleDate,
+                date: (huddlesData[0] as any).date,
+                allKeys: Object.keys(huddlesData[0])
+              })
+            }
           }
         } catch (err) {
           console.warn('Failed to fetch huddles with auth, trying without:', err)
@@ -590,6 +601,11 @@ const Dashboard = () => {
     const dateStr = date.toISOString().split('T')[0]
     const activities: Activity[] = []
 
+    // Debug: Log huddles count
+    if (huddles.length > 0 && date.getDate() === new Date().getDate()) {
+      console.log('📅 Calendar debug - Huddles available:', huddles.length, 'First huddle:', huddles[0])
+    }
+
     // Todos
     todos.forEach(todo => {
       const todoDate = todo.due_date || todo.dueDate
@@ -611,16 +627,15 @@ const Dashboard = () => {
       }
     })
 
-    // Huddles
+    // Huddles - match Todos page logic exactly
     huddles.forEach(huddle => {
-      const huddleDate = huddle.huddle_date || (huddle as any).date
+      const huddleDate = huddle.huddle_date || (huddle as any).huddleDate
       if (huddleDate && huddleDate.split('T')[0] === dateStr) {
-        const timeStr = huddleDate.includes('T') ? huddleDate.split('T')[1]?.substring(0, 5) : null
         activities.push({
           type: 'huddle',
           id: huddle.id,
           title: huddle.title,
-          time: timeStr || null,
+          time: null,
           color: '#3b82f6',
           data: huddle
         })

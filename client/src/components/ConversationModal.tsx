@@ -548,6 +548,14 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
             }
           } else if (data.type === 'conversation_saved') {
             console.log('✅ Conversation saved response received:', data)
+            
+            // Stop the timer when conversation is saved
+            if (timerIntervalRef.current) {
+              clearInterval(timerIntervalRef.current)
+              timerIntervalRef.current = null
+            }
+            sessionStartTimeRef.current = null
+            
             if (saveTimeoutRef.current) {
               clearTimeout(saveTimeoutRef.current)
               saveTimeoutRef.current = null
@@ -580,6 +588,12 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   }
 
   const stopConversation = () => {
+    // Stop the timer first
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+      timerIntervalRef.current = null
+    }
+    
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       if (currentResponseIdRef.current) {
         wsRef.current.send(JSON.stringify({ 
@@ -595,6 +609,12 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     setStatus('Stopped')
     setStatusType('idle')
     clearAudioQueue()
+    
+    // Automatically save the conversation after stopping
+    // Wait a moment for the stop message to be processed
+    setTimeout(() => {
+      saveConversation()
+    }, 500)
   }
 
   const saveConversation = () => {
@@ -608,6 +628,15 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       alert('Authentication token not found. Please log in again.')
       return
     }
+
+    // Stop the timer when saving
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+      timerIntervalRef.current = null
+    }
+
+    // Calculate duration from elapsed time (in minutes)
+    const durationMinutes = elapsedTime / 60
 
     setStatus('Saving conversation...')
     setStatusType('active')
@@ -623,9 +652,10 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       wsRef.current.send(JSON.stringify({
         type: 'save_conversation',
         token: token,
-        coachId: coach.id
+        coachId: coach.id,
+        duration: durationMinutes // Send the timer duration in minutes
       }))
-      console.log('✅ Save message sent successfully')
+      console.log('✅ Save message sent successfully with duration:', durationMinutes, 'minutes')
     } catch (error: any) {
       console.error('❌ Error sending save message:', error)
       if (saveTimeoutRef.current) {

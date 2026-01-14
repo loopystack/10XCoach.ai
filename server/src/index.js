@@ -1414,13 +1414,33 @@ wss.on('connection', (ws, req) => {
           return;
         }
 
-        // Calculate duration
+        // Calculate duration - use client-provided duration if available, otherwise calculate from sessionStartTime
         const endTime = new Date();
         let duration = null;
-        if (sessionStartTime) {
+        
+        // Prefer client-provided duration (from timer) if available
+        if (message.duration !== undefined && message.duration !== null) {
+          duration = parseFloat(message.duration);
+          if (isNaN(duration) || duration < 0) {
+            duration = null; // Invalid duration, fall back to calculation
+          } else {
+            duration = Math.round(duration * 100) / 100; // Round to 2 decimal places
+            console.log('⏱️ Using client-provided duration:', duration, 'minutes');
+          }
+        }
+        
+        // Fall back to calculating from sessionStartTime if client duration not available
+        if (duration === null && sessionStartTime) {
           const diffMs = endTime - new Date(sessionStartTime);
           duration = diffMs / 1000 / 60; // Convert to minutes
           duration = Math.round(duration * 100) / 100; // Round to 2 decimal places
+          console.log('⏱️ Calculated duration from sessionStartTime:', duration, 'minutes');
+        }
+        
+        // Final fallback: ensure minimum duration if there's a transcript
+        if (duration === null && conversationTranscript.length > 0) {
+          duration = Math.max(0.1, conversationTranscript.length * 0.05); // Rough estimate
+          console.log('⏱️ Using estimated duration:', duration, 'minutes');
         }
 
         // Convert transcript to JSON string
@@ -1538,6 +1558,59 @@ wss.on('connection', (ws, req) => {
           });
           
           sessionId = savedSession.id;
+          
+          // Automatically create a note from the session for the 10X Coach Notetaking page
+          try {
+            // Generate note content from transcript
+            let noteContent = '';
+            if (conversationTranscript && conversationTranscript.length > 0) {
+              // Format transcript as a readable note
+              const transcriptText = conversationTranscript
+                .map((entry) => {
+                  const role = entry.role || entry.type || 'user';
+                  const content = entry.content || entry.text || entry.message || '';
+                  const speaker = role === 'user' || role === 'assistant' 
+                    ? (role === 'user' ? (currentUserName || 'User') : (currentCoachName || 'Coach'))
+                    : role;
+                  return `${speaker}: ${content}`;
+                })
+                .join('\n\n');
+              
+              // Limit note content to reasonable length (first 5000 characters)
+              noteContent = transcriptText.length > 5000 
+                ? transcriptText.substring(0, 5000) + '\n\n[... transcript truncated ...]'
+                : transcriptText;
+            } else {
+              // Fallback if no transcript
+              noteContent = `Coaching session with ${currentCoachName || 'Coach'} on ${new Date(sessionStartTime || Date.now()).toLocaleDateString()}. Duration: ${durationMinutes ? Math.round(durationMinutes) : 'N/A'} minutes.`;
+            }
+            
+            // Create note in the notes table
+            const note = await prisma.note.create({
+              data: {
+                sessionDate: sessionStartTime ? new Date(sessionStartTime) : new Date(),
+                coachId: finalCoachId,
+                userId: parseInt(currentUserId),
+                content: noteContent,
+                sent: false
+              }
+            });
+            
+            console.log('📝 Note created automatically from session:', {
+              noteId: note.id,
+              sessionId: sessionId,
+              coachId: finalCoachId,
+              userId: currentUserId,
+              contentLength: noteContent.length
+            });
+          } catch (noteError) {
+            // Don't fail the session save if note creation fails
+            console.error('⚠️ Failed to create note from session (non-critical):', {
+              error: noteError.message,
+              sessionId: sessionId
+            });
+          }
+          
           // Note: sessionSaved was already set to true at the start to prevent race conditions
           console.log('✅ Conversation saved successfully via Prisma:', {
             sessionId: sessionId,

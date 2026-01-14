@@ -310,7 +310,7 @@ const coachVoiceMap = {
   // Male coaches
   'Alan Wozniak': 'ash',
   'Rob Mercer': 'echo',
-  'Jeffrey Wells': 'marin',  // Changed from 'onyx' (not supported) to 'marin'
+  'Jeffrey Wells': 'alloy',  // Changed to 'alloy' - clear male voice, different from other male coaches
   'Hudson Jaxon': 'cedar',
   'Tanner Chase': 'verse',
   // Female coaches
@@ -882,20 +882,31 @@ wss.on('connection', (ws, req) => {
                     };
                   }
                   
-                  // Submit tool output to OpenAI
+                  // Submit tool output to OpenAI using conversation.item.create
                   const toolCallId = functionCall.id || functionCall.tool_call_id || functionCall.function?.id;
                   if (openaiWs && openaiWs.readyState === WebSocket.OPEN && toolCallId) {
-                    const toolOutput = {
-                      type: 'response.submit_tool_outputs',
-                      response_id: message.response_id,
-                      tool_outputs: [{
+                    // Create a conversation item with tool output
+                    const toolOutputItem = {
+                      type: 'conversation.item.create',
+                      item: {
+                        type: 'tool_output',
                         tool_call_id: toolCallId,
                         output: JSON.stringify(functionError ? { error: functionError } : functionResult)
-                      }]
+                      }
                     };
-                    console.log(`📤 Submitting tool output:`, JSON.stringify(toolOutput, null, 2));
-                    openaiWs.send(JSON.stringify(toolOutput));
+                    console.log(`📤 Submitting tool output:`, JSON.stringify(toolOutputItem, null, 2));
+                    openaiWs.send(JSON.stringify(toolOutputItem));
                     console.log(`✅ Tool output submitted for ${functionName}`);
+                    
+                    // After submitting tool output, create a new response to continue the conversation
+                    setTimeout(() => {
+                      if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
+                        openaiWs.send(JSON.stringify({
+                          type: 'response.create'
+                        }));
+                        console.log(`✅ Response.create sent after tool output`);
+                      }
+                    }, 100);
                   } else {
                     console.error(`❌ Cannot submit tool output:`, {
                       hasOpenaiWs: !!openaiWs,

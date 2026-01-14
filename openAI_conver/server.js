@@ -702,7 +702,7 @@ function setupWebSocket(wss) {
           // Male coaches (verified male voices)
           'Alan Wozniak': 'ash',       // Male - Clear, professional (swapped from echo)
           'Rob Mercer': 'echo',         // Male - Clear, professional (swapped from ash)
-          'Jeffrey Wells': 'marin',     // Male - Smooth, confident (changed from 'onyx' - not supported)
+          'Jeffrey Wells': 'alloy',     // Male - Clear, distinct male voice (changed from 'marin')
           'Hudson Jaxon': 'cedar',     // Male - Deep, authoritative
           'Tanner Chase': 'verse',     // Male - Poetic, melodic
           // Female coaches (verified female voices)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Sparkles, Mic } from 'lucide-react'
 import { isAuthenticated, api } from '../utils/api'
+import ConversationModal from '../components/ConversationModal'
 import './PageStyles.css'
 
 interface Coach {
@@ -18,6 +19,9 @@ const Coaches = () => {
   const navigate = useNavigate()
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [selectedCoach, setSelectedCoach] = useState<number | null>(null)
+  const [conversationModalOpen, setConversationModalOpen] = useState(false)
+  const [selectedCoachForConversation, setSelectedCoachForConversation] = useState<Coach | null>(null)
+  const [conversationApiType, setConversationApiType] = useState<'openai' | 'elevenlabs'>('openai')
 
   useEffect(() => {
     fetch('/api/coaches')
@@ -109,91 +113,10 @@ const Coaches = () => {
       return
     }
     
-    // Redirect to unified conversation interface (same server)
-    // Since we unified the server, conversations happen on the same domain
-    const protocol = window.location.protocol
-    const host = window.location.host
-    const baseUrl = `${protocol}//${host}`
-
-    // Pass coach name, token, and API type as query parameters
-    const apiType = useElevenLabs ? 'elevenlabs' : 'openai'
-    const targetUrl = `${baseUrl}/conversation/?coach=${encodeURIComponent(coach.name)}&coachId=${coachId}&token=${encodeURIComponent(token)}&api=${apiType}`
-
-    console.log(`🎤 Redirecting to ${coach.name} at ${targetUrl}`)
-    console.log(`📍 Unified server URL: ${baseUrl}`)
-    
-    // Show loading state
-    const button = document.activeElement as HTMLButtonElement
-    const originalText = button?.innerHTML
-    if (button) {
-      button.disabled = true
-      button.innerHTML = '<span>Connecting...</span>'
-    }
-    
-    // Check if server is reachable before redirecting
-    try {
-      // Create a timeout promise (reduced to 3 seconds for faster feedback)
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection timeout')), 3000)
-      })
-      
-      // Try to fetch the health check endpoint
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3000)
-      
-      const healthCheckPromise = fetch(`${baseUrl}/health`, {
-        method: 'GET',
-        mode: 'no-cors', // Use no-cors to avoid CORS issues with self-signed certs
-        cache: 'no-cache',
-        signal: controller.signal
-      }).catch(() => {
-        // If fetch fails, it might be due to CORS or SSL, but server might still be running
-        // We'll proceed with redirect anyway
-        return null
-      }).finally(() => {
-        clearTimeout(timeoutId)
-      })
-      
-      // Race between timeout and health check
-      await Promise.race([healthCheckPromise, timeoutPromise]).catch(() => {
-        // Timeout or error - but we'll still try to redirect
-        // The browser will show its own error if server is truly down
-      })
-      
-      // Restore button state
-      if (button) {
-        button.disabled = false
-        if (originalText) button.innerHTML = originalText
-      }
-      
-      // Redirect to openAI_conver
-      // Use window.location.href to navigate to openAI_conver
-      // This preserves the coach selection and token
-      window.location.href = targetUrl
-    } catch (error) {
-      console.error('Error checking server availability:', error)
-      
-      // Restore button state
-      if (button) {
-        button.disabled = false
-        if (originalText) button.innerHTML = originalText
-      }
-      
-      // Show helpful error message
-      alert(
-        `⚠️ Voice Chat Server Not Available\n\n` +
-        `The voice chat server appears to be offline or unreachable.\n\n` +
-        `Please ensure:\n` +
-        `1. The openAI_conver server is running on port 5000\n` +
-        `2. Navigate to the openAI_conver folder and run: npm start\n` +
-        `3. Wait for the server to start, then try again\n\n` +
-        `Server URL: ${baseUrl}\n\n` +
-        `If the server is running but you still see this error, it may be due to:\n` +
-        `- Self-signed SSL certificate (click "Advanced" and "Proceed" in your browser)\n` +
-        `- Firewall blocking port 5000\n` +
-        `- Network connectivity issues`
-      )
-    }
+    // Open conversation modal instead of redirecting
+    setSelectedCoachForConversation(coach)
+    setConversationApiType(useElevenLabs ? 'elevenlabs' : 'openai')
+    setConversationModalOpen(true)
   }
 
   const filteredCoaches = selectedCoach 
@@ -304,6 +227,19 @@ const Coaches = () => {
           </div>
         )}
       </div>
+
+      {/* Conversation Modal */}
+      {selectedCoachForConversation && (
+        <ConversationModal
+          coach={selectedCoachForConversation}
+          isOpen={conversationModalOpen}
+          onClose={() => {
+            setConversationModalOpen(false)
+            setSelectedCoachForConversation(null)
+          }}
+          apiType={conversationApiType}
+        />
+      )}
     </div>
   )
 }

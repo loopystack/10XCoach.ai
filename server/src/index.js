@@ -10,7 +10,7 @@ const OpenAI = require('openai');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3080; // Changed default to 3080 to match nginx proxy
 const USE_HTTPS = process.env.HTTPS !== 'false'; // Default to HTTPS
 
 // OpenAI Configuration
@@ -55,7 +55,25 @@ if (USE_HTTPS) {
 }
 
 // WebSocket Server for OpenAI conversations
-const wss = new WebSocketServer({ server });
+// Attach to HTTP/HTTPS server to handle WebSocket upgrades
+const wss = new WebSocketServer({ 
+  server,
+  perMessageDeflate: false // Disable compression for better compatibility
+});
+
+// Log WebSocket server setup
+console.log('🔌 WebSocket Server configured - will handle all upgrade requests');
+
+// Add upgrade event logging for debugging
+server.on('upgrade', (request, socket, head) => {
+  console.log(`🔄 WebSocket upgrade request received: ${request.url}`);
+  console.log(`   Headers:`, {
+    upgrade: request.headers.upgrade,
+    connection: request.headers.connection,
+    'sec-websocket-key': request.headers['sec-websocket-key'] ? 'present' : 'missing',
+    'sec-websocket-version': request.headers['sec-websocket-version']
+  });
+});
 
 // Store active connections
 const activeConnections = new Map();

@@ -667,8 +667,37 @@ wss.on('connection', (ws, req) => {
             }
           });
 
+          // Connection timeout handler (will be cleared on 'open')
+          let connectionTimeoutHandler = null;
+          
+          // Add connection timeout (before 'open' handler)
+          connectionTimeoutHandler = setTimeout(() => {
+            if (openaiWs && openaiWs.readyState !== WebSocket.OPEN) {
+              console.error('⏱️ OpenAI connection timeout after 30 seconds');
+              if (openaiWs) {
+                try {
+                  openaiWs.close();
+                } catch (err) {
+                  console.error('Error closing timed-out connection:', err);
+                }
+                openaiWs = null;
+              }
+              isConnected = false;
+              safeSend({ 
+                type: 'error', 
+                message: 'Connection timeout. Please try again.',
+                errorCode: 'CONNECTION_TIMEOUT'
+              });
+            }
+          }, 30000); // 30 second timeout
+          
           openaiWs.on('open', () => {
             console.log('✅ Connected to OpenAI Realtime API');
+            // Clear connection timeout if it exists
+            if (connectionTimeoutHandler) {
+              clearTimeout(connectionTimeoutHandler);
+              connectionTimeoutHandler = null;
+            }
             isConnected = true;
             openaiWs.send(JSON.stringify(config));
 
@@ -679,6 +708,12 @@ wss.on('connection', (ws, req) => {
                   openaiWs.ping();
                 } catch (err) {
                   console.error('Keepalive ping error:', err);
+                }
+              } else {
+                // Connection is not open, clear interval
+                if (keepaliveInterval) {
+                  clearInterval(keepaliveInterval);
+                  keepaliveInterval = null;
                 }
               }
             }, 20000);
@@ -1260,21 +1295,48 @@ wss.on('connection', (ws, req) => {
           });
 
           openaiWs.on('error', (error) => {
-            console.error('OpenAI WebSocket error:', error);
-            safeSend({ type: 'error', message: 'OpenAI connection error' });
+            console.error('❌ OpenAI WebSocket error:', error);
+            console.error('Error details:', {
+              message: error.message,
+              code: error.code,
+              stack: error.stack
+            });
+            isConnected = false;
+            safeSend({ 
+              type: 'error', 
+              message: 'OpenAI connection error. Please try again.',
+              errorCode: error.code || 'UNKNOWN'
+            });
           });
 
-          openaiWs.on('close', () => {
-            console.log('❌ OpenAI connection closed');
+          openaiWs.on('close', (code, reason) => {
+            console.log(`❌ OpenAI connection closed: Code ${code}, Reason: ${reason?.toString() || 'none'}`);
             isConnected = false;
             if (keepaliveInterval) {
               clearInterval(keepaliveInterval);
+              keepaliveInterval = null;
             }
+            // Notify client of disconnection
+            safeSend({ 
+              type: 'disconnected', 
+              message: 'Connection to OpenAI closed',
+              code: code
+            });
           });
 
         } catch (error) {
-          console.error('Error connecting to OpenAI:', error);
-          safeSend({ type: 'error', message: 'Failed to connect to OpenAI' });
+          console.error('❌ Error connecting to OpenAI:', error);
+          console.error('Error details:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+          });
+          isConnected = false;
+          safeSend({ 
+            type: 'error', 
+            message: 'Failed to connect to OpenAI. Please try again.',
+            errorCode: error.code || 'CONNECTION_FAILED'
+          });
         }
 
         safeSend({ type: 'connected' });
@@ -1484,19 +1546,38 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  ws.on('close', () => {
-    console.log(`👋 Client disconnected: ${connectionId}`);
+  ws.on('close', (code, reason) => {
+    console.log(`🔌 Client WebSocket closed: ${connectionId}, Code: ${code}, Reason: ${reason?.toString() || 'none'}`);
+    // Clean up OpenAI connection if it exists
     if (openaiWs) {
-      openaiWs.close();
+      try {
+        if (openaiWs.readyState === WebSocket.OPEN || openaiWs.readyState === WebSocket.CONNECTING) {
+          openaiWs.close();
+        }
+      } catch (err) {
+        console.error('Error closing OpenAI WebSocket:', err);
+      }
+      openaiWs = null;
     }
     if (keepaliveInterval) {
       clearInterval(keepaliveInterval);
+      keepaliveInterval = null;
     }
     activeConnections.delete(connectionId);
   });
 
   ws.on('error', (error) => {
-    console.error(`WebSocket error for ${connectionId}:`, error);
+    console.error(`❌ WebSocket error for ${connectionId}:`, error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    safeSend({ 
+      type: 'error', 
+      message: 'Connection error. Please try again.',
+      errorCode: error.code || 'UNKNOWN'
+    });
   });
 
   activeConnections.set(connectionId, { ws, openaiWs, connectionId });

@@ -1879,7 +1879,7 @@ wss.on('connection', (ws, req) => {
         const coachVoiceMapLocal = {
           'Alan Wozniak': 'ash',
           'Rob Mercer': 'echo',
-          'Jeffrey Wells': 'verse',  // Changed to 'alloy' - clear male voice, different from other male coaches
+          'Jeffrey Wells': 'alloy',  // Changed to 'alloy' - clear male voice, different from other male coaches
           'Hudson Jaxon': 'cedar',
           'Tanner Chase': 'verse',
           'Teresa Lane': 'shimmer',

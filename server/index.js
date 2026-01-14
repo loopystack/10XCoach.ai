@@ -1768,7 +1768,7 @@ const coachVoiceMap = {
   // Male coaches
   'Alan Wozniak': 'ash',
   'Rob Mercer': 'echo',
-  'Jeffrey Wells': 'alloy',  // Changed to 'alloy' - clear male voice, different from other male coaches
+  'Jeffrey Wells': 'echo',  // Same voice as Rob Mercer
   'Hudson Jaxon': 'cedar',
   'Tanner Chase': 'verse',
   // Female coaches
@@ -1879,7 +1879,7 @@ wss.on('connection', (ws, req) => {
         const coachVoiceMapLocal = {
           'Alan Wozniak': 'ash',
           'Rob Mercer': 'echo',
-          'Jeffrey Wells': 'alloy',  // Changed to 'alloy' - clear male voice, different from other male coaches
+          'Jeffrey Wells': 'echo',  // Same voice as Rob Mercer
           'Hudson Jaxon': 'cedar',
           'Tanner Chase': 'verse',
           'Teresa Lane': 'shimmer',

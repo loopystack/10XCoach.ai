@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Mic, Square, Save } from 'lucide-react'
+import { X, Mic, Square, Save, Users } from 'lucide-react'
 import './ConversationModal.css'
 
 interface Coach {
@@ -21,20 +21,27 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   const [isConnected, setIsConnected] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Ready to start')
-  const [statusType, setStatusType] = useState<'idle' | 'active' | 'success' | 'error'>('idle')
+  const [statusType, setStatusType] = useState<'idle' | 'active' | 'success' | 'error' | 'recording'>('idle')
+  
+  // Refs for WebSocket and audio
   const wsRef = useRef<WebSocket | null>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
+  const inputAudioContextRef = useRef<AudioContext | null>(null)
+  const outputAudioContextRef = useRef<AudioContext | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
+  const dataArrayRef = useRef<Uint8Array | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
-  const audioQueueRef = useRef<ArrayBuffer[]>([])
+  const gainNodeRef = useRef<GainNode | null>(null)
+  const audioQueueRef = useRef<string[]>([])
   const isPlayingAudioRef = useRef(false)
+  const currentResponseIdRef = useRef<string | null>(null)
+  const audioLevelsRef = useRef<number[]>(new Array(20).fill(0))
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!isOpen) {
-      // Cleanup when modal closes
       cleanup()
       return
     }
@@ -43,33 +50,6 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       cleanup()
     }
   }, [isOpen])
-
-  const playAudioResponse = async (audioData: ArrayBuffer) => {
-    if (!audioContextRef.current) return
-    
-    try {
-      const audioBuffer = await audioContextRef.current.decodeAudioData(audioData)
-      const source = audioContextRef.current.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(audioContextRef.current.destination)
-      source.start(0)
-    } catch (err) {
-      console.error('Error playing audio:', err)
-    }
-  }
-
-  const processAudioQueue = async () => {
-    if (isPlayingAudioRef.current || audioQueueRef.current.length === 0) return
-    
-    isPlayingAudioRef.current = true
-    while (audioQueueRef.current.length > 0) {
-      const audioData = audioQueueRef.current.shift()
-      if (audioData) {
-        await playAudioResponse(audioData)
-      }
-    }
-    isPlayingAudioRef.current = false
-  }
 
   const cleanup = () => {
     if (wsRef.current) {
@@ -84,26 +64,291 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       processorRef.current.disconnect()
       processorRef.current = null
     }
-    if (audioContextRef.current) {
-      audioContextRef.current.close()
-      audioContextRef.current = null
+    if (gainNodeRef.current) {
+      gainNodeRef.current.disconnect()
+      gainNodeRef.current = null
+    }
+    if (inputAudioContextRef.current) {
+      inputAudioContextRef.current.close()
+      inputAudioContextRef.current = null
+    }
+    if (outputAudioContextRef.current) {
+      outputAudioContextRef.current.close()
+      outputAudioContextRef.current = null
     }
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
     }
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
     audioQueueRef.current = []
     isPlayingAudioRef.current = false
+    currentResponseIdRef.current = null
     setIsConnected(false)
     setIsRecording(false)
     setStatus('Ready to start')
     setStatusType('idle')
   }
 
-  const getWebSocketUrl = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    return `${protocol}//${host}/`
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    const bytes = new Uint8Array(buffer)
+    let binary = ''
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    return btoa(binary)
+  }
+
+  const resampleAudio = (input: Float32Array, inputSampleRate: number, outputSampleRate: number): Float32Array => {
+    if (inputSampleRate === outputSampleRate) {
+      return input
+    }
+    
+    const ratio = inputSampleRate / outputSampleRate
+    const outputLength = Math.round(input.length / ratio)
+    const output = new Float32Array(outputLength)
+    
+    for (let i = 0; i < outputLength; i++) {
+      const index = i * ratio
+      const indexFloor = Math.floor(index)
+      const indexCeil = Math.min(indexFloor + 1, input.length - 1)
+      const fraction = index - indexFloor
+      output[i] = input[indexFloor] * (1 - fraction) + input[indexCeil] * fraction
+    }
+    
+    return output
+  }
+
+  const queueAudio = (audioData: string, responseId?: string) => {
+    if (responseId && responseId !== currentResponseIdRef.current) {
+      clearAudioQueue()
+      currentResponseIdRef.current = responseId
+    }
+    
+    if (!currentResponseIdRef.current && responseId) {
+      currentResponseIdRef.current = responseId
+    }
+    
+    if (responseId && responseId !== currentResponseIdRef.current) {
+      return
+    }
+    
+    audioQueueRef.current.push(audioData)
+    
+    if (!isPlayingAudioRef.current) {
+      playAudioQueue()
+    }
+  }
+
+  const clearAudioQueue = () => {
+    audioQueueRef.current = []
+    isPlayingAudioRef.current = false
+  }
+
+  const playAudioQueue = async () => {
+    if (audioQueueRef.current.length === 0) {
+      isPlayingAudioRef.current = false
+      return
+    }
+
+    isPlayingAudioRef.current = true
+
+    if (!outputAudioContextRef.current) {
+      outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+        sampleRate: 24000
+      })
+    }
+
+    if (outputAudioContextRef.current.state === 'suspended') {
+      await outputAudioContextRef.current.resume()
+    }
+
+    try {
+      while (audioQueueRef.current.length > 0) {
+        const audioData = audioQueueRef.current.shift()
+        if (!audioData) continue
+        
+        const binaryString = atob(audioData)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+        
+        const int16Data = new Int16Array(bytes.buffer)
+        const float32Data = new Float32Array(int16Data.length)
+        const scale = 1 / 32768
+        for (let i = 0; i < int16Data.length; i++) {
+          float32Data[i] = int16Data[i] * scale
+        }
+
+        const audioBuffer = outputAudioContextRef.current.createBuffer(1, float32Data.length, 24000)
+        audioBuffer.getChannelData(0).set(float32Data)
+
+        const source = outputAudioContextRef.current.createBufferSource()
+        source.buffer = audioBuffer
+        source.connect(outputAudioContextRef.current.destination)
+        source.start(0)
+        
+        await new Promise((resolve) => {
+          source.onended = resolve
+        })
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error)
+    }
+
+    isPlayingAudioRef.current = false
+    
+    if (audioQueueRef.current.length > 0) {
+      playAudioQueue()
+    }
+  }
+
+  const initializeAudio = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      })
+
+      mediaStreamRef.current = stream
+
+      const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      inputAudioContextRef.current = inputAudioContext
+      
+      if (inputAudioContext.state === 'suspended') {
+        await inputAudioContext.resume()
+      }
+      
+      const actualSampleRate = inputAudioContext.sampleRate
+      console.log('Input audio context sample rate:', actualSampleRate)
+
+      const source = inputAudioContext.createMediaStreamSource(stream)
+      
+      const analyser = inputAudioContext.createAnalyser()
+      analyser.fftSize = 256
+      analyserRef.current = analyser
+      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount)
+      source.connect(analyser)
+      
+      const bufferSize = 4096
+      const processor = inputAudioContext.createScriptProcessor(bufferSize, 1, 1)
+      processorRef.current = processor
+      
+      let audioBuffer: number[] = []
+      const sendInterval = 100
+      let lastSendTime = Date.now()
+      
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0)
+        
+        const shouldSend = isRecording && 
+                          isConnected && 
+                          wsRef.current && 
+                          wsRef.current.readyState === WebSocket.OPEN
+        
+        if (shouldSend) {
+          let processedData = inputData
+          if (actualSampleRate !== 24000) {
+            processedData = resampleAudio(inputData, actualSampleRate, 24000)
+          }
+          
+          const int16Data = new Int16Array(processedData.length)
+          for (let i = 0; i < processedData.length; i++) {
+            int16Data[i] = Math.max(-32768, Math.min(32767, processedData[i] * 32768))
+          }
+          
+          audioBuffer.push(...Array.from(int16Data))
+          
+          const now = Date.now()
+          if (now - lastSendTime >= sendInterval && audioBuffer.length > 0) {
+            const bufferToSend = new Int16Array(audioBuffer)
+            const base64Audio = arrayBufferToBase64(bufferToSend.buffer)
+            
+            try {
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({
+                  type: 'audio',
+                  audio: base64Audio
+                }))
+              }
+            } catch (sendError) {
+              console.error('❌ Error sending audio:', sendError)
+              return
+            }
+            
+            audioBuffer = []
+            lastSendTime = now
+          }
+        } else if (!isRecording) {
+          audioBuffer = []
+        }
+      }
+
+      source.connect(processor)
+      const gainNode = inputAudioContext.createGain()
+      gainNode.gain.value = 0
+      gainNodeRef.current = gainNode
+      processor.connect(gainNode)
+      gainNode.connect(inputAudioContext.destination)
+      
+      console.log('Audio processor initialized and connected')
+      setupVisualizer()
+
+    } catch (error) {
+      console.error('Error initializing audio:', error)
+      throw new Error('Could not access microphone. Please check permissions.')
+    }
+  }
+
+  const setupVisualizer = () => {
+    if (!canvasRef.current || !analyserRef.current) return
+
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const draw = () => {
+      if (!isRecording || !analyserRef.current || !dataArrayRef.current) {
+        animationFrameRef.current = requestAnimationFrame(draw)
+        return
+      }
+
+      animationFrameRef.current = requestAnimationFrame(draw)
+      
+      const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary')?.trim() || '#ffffff'
+      ctx.fillStyle = bgColor
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current)
+      
+      const step = Math.floor(dataArrayRef.current.length / 20)
+      for (let i = 0; i < 20; i++) {
+        const value = dataArrayRef.current[i * step] || 0
+        audioLevelsRef.current[i] = Math.max(audioLevelsRef.current[i] * 0.7, value / 255)
+      }
+      
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0)
+      gradient.addColorStop(0, '#3b82f6')
+      gradient.addColorStop(0.5, '#8b5cf6')
+      gradient.addColorStop(1, '#ec4899')
+      ctx.fillStyle = gradient
+      
+      const barWidth = canvas.width / 20
+      for (let i = 0; i < 20; i++) {
+        const barHeight = audioLevelsRef.current[i] * canvas.height * 0.8
+        ctx.fillRect(i * barWidth + 2, canvas.height - barHeight, barWidth - 4, barHeight)
+      }
+    }
+
+    draw()
   }
 
   const startConversation = async () => {
@@ -111,7 +356,6 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       setStatus('Connecting...')
       setStatusType('active')
 
-      // Get token
       const token = localStorage.getItem('token') || sessionStorage.getItem('token')
       if (!token) {
         alert('Please log in to start a conversation')
@@ -119,149 +363,192 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
         return
       }
 
-      // Connect WebSocket
-      const wsUrl = getWebSocketUrl()
+      let userName = null
+      let userId = null
+
+      try {
+        const payload = token.split('.')[1]
+        const decodedPayload = JSON.parse(atob(payload))
+        userName = decodedPayload.name || decodedPayload.userName || decodedPayload.username || decodedPayload.firstName
+        userId = decodedPayload.userId
+      } catch (e) {
+        console.warn('Could not decode token payload:', e)
+      }
+
+      // Use the same protocol and host, connect to root path
+      // Nginx will proxy WebSocket upgrade to Node.js server
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const wsUrl = `${protocol}//${window.location.host}/`
+      console.log('🔌 Connecting WebSocket to:', wsUrl)
+      console.log('📍 Current location:', window.location.href)
+      
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
+      
+      // Add connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.error('⏱️ WebSocket connection timeout')
+          ws.close()
+          setStatus('Connection timeout - please try again')
+          setStatusType('error')
+        }
+      }, 10000) // 10 second timeout
+      
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout)
+        console.log('✅ WebSocket connected')
+        console.log(`🎤 Starting conversation with coach: ${coach.name}`)
+        
+        // Send start message immediately after connection
+        try {
+          const startMessage = {
+            type: 'start',
+            coachName: coach.name.trim(),
+            apiType: apiType,
+            token: token,
+            coachId: coach.id,
+            userName: userName,
+            userId: userId
+          }
+          ws.send(JSON.stringify(startMessage))
+          console.log('📤 Start message sent:', startMessage)
+        } catch (error) {
+          console.error('❌ Error sending start message:', error)
+          setStatus('Error sending start message')
+          setStatusType('error')
+        }
+      }
+      
+      ws.onerror = (error) => {
+        clearTimeout(connectionTimeout)
+        console.error('❌ WebSocket error:', error)
+        setStatus('Connection error - check console for details')
+        setStatusType('error')
+      }
+      
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout)
+        console.log('❌ WebSocket closed:', event.code, event.reason)
+        if (event.code !== 1000 && !isConnected) {
+          setStatus(`Connection failed: ${event.reason || 'Unknown error'} (code: ${event.code})`)
+          setStatusType('error')
+        }
+        cleanup()
+      }
 
       ws.onopen = () => {
         console.log('✅ WebSocket connected')
-        setIsConnected(true)
+        console.log(`🎤 Starting conversation with coach: ${coach.name}`)
         
-        // Request microphone access
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(stream => {
-            mediaStreamRef.current = stream
-            
-            // Setup audio context
-            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-            audioContextRef.current = audioContext
-            
-            const source = audioContext.createMediaStreamSource(stream)
-            const analyser = audioContext.createAnalyser()
-            analyser.fftSize = 256
-            analyserRef.current = analyser
-            source.connect(analyser)
-            
-            // Setup audio processor for streaming
-            const processor = audioContext.createScriptProcessor(4096, 1, 1)
-            processorRef.current = processor
-            processor.onaudioprocess = (e) => {
-              if (!isRecording || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
-              
-              const inputData = e.inputBuffer.getChannelData(0)
-              const pcm16 = new Int16Array(inputData.length)
-              for (let i = 0; i < inputData.length; i++) {
-                pcm16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768))
-              }
-              
-              // Send audio to server
-              wsRef.current.send(JSON.stringify({
-                type: 'audio',
-                audio: Array.from(pcm16)
-              }))
-            }
-            source.connect(processor)
-            processor.connect(audioContext.destination)
-            
-            // Start visualization
-            startVisualization()
-            
-            // Send start message
-            ws.send(JSON.stringify({
-              type: 'start',
-              token: token,
-              coachId: coach.id,
-              coachName: coach.name,
-              apiType: apiType
-            }))
-            
-            setIsRecording(true)
-            setStatus('Connected - Start speaking')
-            setStatusType('active')
-          })
-          .catch(err => {
-            console.error('Microphone access denied:', err)
-            alert('Microphone access is required for voice conversations')
-            setStatus('Microphone access denied')
-            setStatusType('error')
-          })
+        // Send start message immediately after connection
+        try {
+          const startMessage = {
+            type: 'start',
+            coachName: coach.name.trim(),
+            apiType: apiType,
+            token: token,
+            coachId: coach.id,
+            userName: userName,
+            userId: userId
+          }
+          ws.send(JSON.stringify(startMessage))
+          console.log('📤 Start message sent:', startMessage)
+        } catch (error) {
+          console.error('❌ Error sending start message:', error)
+          setStatus('Error sending start message')
+          setStatusType('error')
+        }
       }
 
       ws.onmessage = async (event) => {
         try {
-          // Check if it's binary audio data
-          if (event.data instanceof ArrayBuffer) {
-            await playAudioResponse(event.data)
-            return
+          const data = JSON.parse(event.data)
+          
+          if (data.type !== 'audio') {
+            console.log('📨 Received message:', data.type)
           }
           
-          const message = JSON.parse(event.data)
-          console.log('📨 WebSocket message:', message.type)
-          
-          switch (message.type) {
-            case 'connected':
-              setStatus('Connected')
-              setStatusType('active')
-              break
-            case 'error':
-              setStatus(message.message || 'Error occurred')
+          if (data.type === 'connected') {
+            try {
+              await initializeAudio()
+              setIsConnected(true)
+              setIsRecording(true)
+              setStatus('Listening... Speak now!')
+              setStatusType('recording')
+              currentResponseIdRef.current = null
+            } catch (audioError: any) {
+              console.error('Audio initialization error:', audioError)
+              setStatus(`Error: ${audioError.message}`)
               setStatusType('error')
-              break
-            case 'conversation_saved':
-              setStatus('Conversation saved successfully')
-              setStatusType('success')
-              setTimeout(() => {
-                setStatus('Ready to start')
-                setStatusType('idle')
-              }, 2000)
-              break
-            case 'stopped':
-              setIsRecording(false)
-              setStatus('Stopped')
+              cleanup()
+            }
+          } else if (data.type === 'audio') {
+            queueAudio(data.audio, data.responseId)
+          } else if (data.type === 'greeting') {
+            console.log('👋 Received greeting:', data.message)
+            setStatus(`Connected with ${data.coachName}`)
+            setStatusType('success')
+          } else if (data.type === 'response_cancelled') {
+            if (!data.responseId || data.responseId === currentResponseIdRef.current) {
+              clearAudioQueue()
+              currentResponseIdRef.current = null
+            }
+          } else if (data.type === 'error') {
+            console.error('❌ Server error:', data.message)
+            setStatus(`Error: ${data.message}`)
+            setStatusType('error')
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current)
+              saveTimeoutRef.current = null
+            }
+          } else if (data.type === 'conversation_saved') {
+            console.log('✅ Conversation saved response received:', data)
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current)
+              saveTimeoutRef.current = null
+            }
+            setStatus('Conversation saved successfully!')
+            setStatusType('success')
+            setTimeout(() => {
+              setStatus('Ready')
               setStatusType('idle')
-              break
-            case 'audio_response':
-              // Queue audio for playback
-              if (event.data instanceof ArrayBuffer) {
-                audioQueueRef.current.push(event.data)
-                processAudioQueue()
-              }
-              break
+            }, 3000)
+            alert('Conversation saved successfully!')
+          } else if (data.type === 'stopped') {
+            setIsRecording(false)
+            setStatus('Stopped')
+            setStatusType('idle')
           }
-        } catch (err) {
-          console.error('Error parsing WebSocket message:', err)
+        } catch (parseError) {
+          console.error('❌ Error parsing message:', parseError, event.data)
         }
       }
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
-        setStatus('Connection error')
-        setStatusType('error')
-      }
 
-      ws.onclose = () => {
-        console.log('WebSocket closed')
-        setIsConnected(false)
-        setIsRecording(false)
-        setStatus('Disconnected')
-        setStatusType('idle')
-      }
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting conversation:', error)
-      setStatus('Failed to start conversation')
+      setStatus(`Error: ${error.message}`)
       setStatusType('error')
+      cleanup()
     }
   }
 
   const stopConversation = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (currentResponseIdRef.current) {
+        wsRef.current.send(JSON.stringify({ 
+          type: 'response.cancel',
+          response_id: currentResponseIdRef.current
+        }))
+      }
+      wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }))
       wsRef.current.send(JSON.stringify({ type: 'stop' }))
     }
     setIsRecording(false)
     setStatus('Stopped')
     setStatusType('idle')
+    clearAudioQueue()
   }
 
   const saveConversation = () => {
@@ -272,58 +559,37 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
 
     const token = localStorage.getItem('token') || sessionStorage.getItem('token')
     if (!token) {
-      alert('Authentication token not found')
+      alert('Authentication token not found. Please log in again.')
       return
     }
 
     setStatus('Saving conversation...')
     setStatusType('active')
     
-    wsRef.current.send(JSON.stringify({
-      type: 'save_conversation',
-      token: token,
-      coachId: coach.id
-    }))
-  }
+    saveTimeoutRef.current = setTimeout(() => {
+      console.error('⏱️ Save conversation timeout')
+      setStatus('Save timeout - please try again')
+      setStatusType('error')
+      alert('Save conversation timed out. Please try again.')
+    }, 10000)
 
-  const startVisualization = () => {
-    if (!canvasRef.current || !analyserRef.current) return
-
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const analyser = analyserRef.current
-    const bufferLength = analyser.frequencyBinCount
-    const dataArray = new Uint8Array(bufferLength)
-
-    const draw = () => {
-      if (!isRecording || !analyserRef.current) return
-
-      animationFrameRef.current = requestAnimationFrame(draw)
-      analyser.getByteFrequencyData(dataArray)
-
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      const barWidth = (canvas.width / bufferLength) * 2.5
-      let barHeight
-      let x = 0
-
-      for (let i = 0; i < bufferLength; i++) {
-        barHeight = (dataArray[i] / 255) * canvas.height
-
-        const gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height)
-        gradient.addColorStop(0, '#3b82f6')
-        gradient.addColorStop(1, '#8b5cf6')
-        ctx.fillStyle = gradient
-
-        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight)
-        x += barWidth + 1
+    try {
+      wsRef.current.send(JSON.stringify({
+        type: 'save_conversation',
+        token: token,
+        coachId: coach.id
+      }))
+      console.log('✅ Save message sent successfully')
+    } catch (error: any) {
+      console.error('❌ Error sending save message:', error)
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
       }
+      setStatus('Error sending save request')
+      setStatusType('error')
+      alert('Failed to send save request: ' + error.message)
     }
-
-    draw()
   }
 
   if (!isOpen) return null
@@ -373,7 +639,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
                 onClick={stopConversation}
               >
                 <Square size={20} />
-                <span>Stop</span>
+                <span>Stop & Save</span>
               </button>
             )}
             
@@ -395,4 +661,3 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
 }
 
 export default ConversationModal
-

@@ -349,6 +349,7 @@ const Plans = () => {
                     style={{ 
                       width: '100%',
                       background: '#22c55e',
+                      color: '#ffffff',
                       cursor: 'not-allowed',
                       opacity: 0.7
                     }}
@@ -367,7 +368,8 @@ const Plans = () => {
                       justifyContent: 'center',
                       gap: '8px',
                       opacity: activatingPlan === plan.id ? 0.5 : 1,
-                      cursor: activatingPlan === plan.id ? 'not-allowed' : 'pointer'
+                      cursor: activatingPlan === plan.id ? 'not-allowed' : 'pointer',
+                      color: '#ffffff'
                     }}
                   >
                     {activatingPlan === plan.id ? (
@@ -383,14 +385,25 @@ const Plans = () => {
                     )}
                   </button>
                 ) : (
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '14px', color: 'var(--gray-600)', marginBottom: '12px' }}>
+                  <div>
+                    <p style={{ 
+                      fontSize: '14px', 
+                      color: 'var(--gray-600)', 
+                      marginBottom: '12px',
+                      textAlign: 'center',
+                      fontWeight: 600
+                    }}>
                       Need ${(plan.price - (billingStatus?.creditBalance || 0)).toFixed(2)} more credit
                     </p>
                     <button
                       onClick={handleCreateCheckout}
                       className="primary-button"
-                      style={{ width: '100%', background: 'var(--gray-600)' }}
+                      style={{ 
+                        width: '100%',
+                        background: '#475569',
+                        color: '#ffffff',
+                        border: 'none'
+                      }}
                     >
                       Add Credit First
                     </button>

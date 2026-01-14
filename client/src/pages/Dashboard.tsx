@@ -48,6 +48,7 @@ interface Huddle {
   id: number
   title: string
   huddle_date: string
+  huddleDate?: string  // Support both snake_case and camelCase
   has_short_agenda: boolean
   has_notetaker: boolean
   has_action_steps: boolean

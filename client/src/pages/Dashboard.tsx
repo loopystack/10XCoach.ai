@@ -1421,7 +1421,9 @@ const Dashboard = () => {
 
           // Quiz Scores
           const monthQuizzes = quizResults.filter(qr => {
-            const quizDate = new Date(qr.createdAt || qr.created_at)
+            const quizDateStr = qr.createdAt || qr.created_at
+            if (!quizDateStr) return false
+            const quizDate = new Date(quizDateStr)
             return quizDate >= monthStart && quizDate <= monthEnd
           })
           const avgQuizScore = monthQuizzes.length > 0
@@ -1440,7 +1442,9 @@ const Dashboard = () => {
 
           // Sessions
           const monthSessions = sessions.filter(s => {
-            const sessionDate = new Date(s.startTime || s.start_time || s.createdAt)
+            const sessionDateStr = s.start_time
+            if (!sessionDateStr) return false
+            const sessionDate = new Date(sessionDateStr)
             return sessionDate >= monthStart && sessionDate <= monthEnd
           })
           const sessionCount = monthSessions.length
@@ -1458,7 +1462,10 @@ const Dashboard = () => {
 
           // Notes
           const monthNotes = notes.filter(n => {
-            const noteDate = new Date(n.session_date || n.createdAt)
+            // Notes use created_at, not session_date
+            const noteDateStr = n.created_at
+            if (!noteDateStr) return false
+            const noteDate = new Date(noteDateStr)
             return noteDate >= monthStart && noteDate <= monthEnd
           })
           const notesCount = monthNotes.length

@@ -785,7 +785,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
             {!isRecording ? (
               <button
                 className="conversation-btn conversation-btn-primary"
-                onClick={startConversation}
+                onClick={() => startConversation(0)}
                 disabled={isConnected && !isRecording}
               >
                 <Mic size={20} />

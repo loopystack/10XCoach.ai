@@ -116,6 +116,7 @@ const Coaches = () => {
       model: 'gpt-4',
       temperature: 0.7,
       maxTokens: 2000,
+      voiceId: 'echo',
       active: true
     })
     setEditingId(null)

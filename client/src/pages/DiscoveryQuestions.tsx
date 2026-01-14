@@ -14,7 +14,6 @@ interface Coach {
 const DiscoveryQuestions = () => {
   const navigate = useNavigate()
   const [coaches, setCoaches] = useState<Coach[]>([])
-  const [selectedCoach, setSelectedCoach] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchCoaches = async () => {
@@ -164,33 +163,31 @@ const DiscoveryQuestions = () => {
       </div>
 
       <div className="questions-container">
-        {questionCategories.map((category, index) => {
-          const coach = getCoachForPillar(category.pillar)
-          return (
-            <div key={index} className="question-category">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div>
-                  <h2>{index + 1}. {category.category} Pillar</h2>
-                  {category.coach && (
-                    <p className="coach-label">({category.coach})</p>
-                  )}
-                </div>
-                <button
-                  className="primary-button"
-                  onClick={() => handleStarterQuestions(category.pillar)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    fontWeight: 600
-                  }}
-                >
-                  <Play size={18} />
-                  Starter Questions
-                </button>
+        {questionCategories.map((category, index) => (
+          <div key={index} className="question-category">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h2>{index + 1}. {category.category} Pillar</h2>
+                {category.coach && (
+                  <p className="coach-label">({category.coach})</p>
+                )}
               </div>
+              <button
+                className="primary-button"
+                onClick={() => handleStarterQuestions(category.pillar)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: 600
+                }}
+              >
+                <Play size={18} />
+                Starter Questions
+              </button>
+            </div>
               <div className="questions-list">
                 {category.questions.map((question, qIndex) => (
                   <div key={qIndex} className="question-item">
@@ -200,8 +197,7 @@ const DiscoveryQuestions = () => {
                 ))}
               </div>
             </div>
-          )
-        })}
+        ))}
       </div>
 
       <div className="action-section">

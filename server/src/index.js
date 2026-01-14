@@ -354,6 +354,127 @@ try {
   getUserQuizResults = async () => null;
 }
 
+// Helper function to parse relative dates like "Friday", "tomorrow", "tomorrow 8 AM", etc.
+function parseRelativeDate(dateString) {
+  const lowerDate = dateString.toLowerCase().trim();
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  
+  // Extract time from string (e.g., "8 AM", "14:00", "2 PM")
+  let hours = 14; // Default to 2 PM
+  let minutes = 0;
+  
+  // Parse time patterns: "8 AM", "8:30 AM", "14:00", "2 PM", etc.
+  const timePatterns = [
+    /(\d{1,2})\s*(am|pm)/i,  // "8 AM", "2 PM"
+    /(\d{1,2}):(\d{2})\s*(am|pm)?/i,  // "8:30 AM", "14:00"
+    /(\d{1,2}):(\d{2})/i  // "14:00" (24-hour format)
+  ];
+  
+  for (const pattern of timePatterns) {
+    const match = lowerDate.match(pattern);
+    if (match) {
+      if (match[4]) {
+        // 12-hour format with AM/PM
+        hours = parseInt(match[1]);
+        minutes = match[2] ? parseInt(match[2]) : 0;
+        if (match[4].toLowerCase() === 'pm' && hours !== 12) {
+          hours += 12;
+        } else if (match[4].toLowerCase() === 'am' && hours === 12) {
+          hours = 0;
+        }
+      } else if (match[2]) {
+        // 24-hour format or 12-hour without AM/PM
+        hours = parseInt(match[1]);
+        minutes = parseInt(match[2]);
+        // If hours > 12 and no AM/PM, assume 24-hour format
+        // Otherwise, if hours <= 12, might be ambiguous but we'll use as-is
+      } else {
+        // Just hour number
+        hours = parseInt(match[1]);
+        minutes = 0;
+        // If no AM/PM and hours <= 12, default to PM for morning times
+        if (hours <= 12 && !lowerDate.includes('am') && !lowerDate.includes('pm')) {
+          if (hours < 8) {
+            hours += 12; // Assume PM for early hours
+          }
+        }
+      }
+      break;
+    }
+  }
+  
+  // Parse date part
+  let targetDate = new Date(today);
+  
+  // Check for "tomorrow"
+  if (lowerDate.includes('tomorrow')) {
+    targetDate.setDate(today.getDate() + 1);
+    targetDate.setHours(hours, minutes, 0, 0);
+    return targetDate;
+  }
+  
+  // Check for "today"
+  if (lowerDate.includes('today')) {
+    targetDate.setHours(hours, minutes, 0, 0);
+    // If time has passed today, assume tomorrow
+    if (targetDate < today) {
+      targetDate.setDate(today.getDate() + 1);
+    }
+    return targetDate;
+  }
+  
+  // Check for day names
+  const targetDayIndex = dayNames.findIndex(day => lowerDate.includes(day));
+  
+  if (targetDayIndex === -1) {
+    // Try to parse as "next [day]"
+    if (lowerDate.includes('next')) {
+      const nextDayMatch = lowerDate.match(/next\s+(\w+)/);
+      if (nextDayMatch) {
+        const nextDayName = nextDayMatch[1].toLowerCase();
+        const nextDayIndex = dayNames.findIndex(day => day.startsWith(nextDayName));
+        if (nextDayIndex !== -1) {
+          const daysUntilNext = (nextDayIndex - dayOfWeek + 7) % 7 || 7;
+          targetDate.setDate(today.getDate() + daysUntilNext);
+          targetDate.setHours(hours, minutes, 0, 0);
+          return targetDate;
+        }
+      }
+    }
+    
+    // Try to parse as number of days
+    const daysMatch = lowerDate.match(/(\d+)\s*days?/);
+    if (daysMatch) {
+      const days = parseInt(daysMatch[1]);
+      targetDate.setDate(today.getDate() + days);
+      targetDate.setHours(hours, minutes, 0, 0);
+      return targetDate;
+    }
+    
+    return new Date(NaN); // Invalid
+  }
+  
+  // Calculate days until target day
+  let daysUntilTarget = (targetDayIndex - dayOfWeek + 7) % 7;
+  if (daysUntilTarget === 0) {
+    // If today is the target day, check if time has passed
+    targetDate.setHours(hours, minutes, 0, 0);
+    if (targetDate < today) {
+      // Time has passed today, schedule for next week
+      daysUntilTarget = 7;
+    } else {
+      return targetDate;
+    }
+  }
+  
+  targetDate.setDate(today.getDate() + daysUntilTarget);
+  targetDate.setHours(hours, minutes, 0, 0);
+  return targetDate;
+}
+
 // WebSocket connection handler
 wss.on('connection', (ws, req) => {
   const connectionId = Date.now().toString();
@@ -885,11 +1006,28 @@ wss.on('connection', (ws, req) => {
                   // Submit tool output to OpenAI using conversation.item.create
                   const toolCallId = functionCall.id || functionCall.tool_call_id || functionCall.function?.id;
                   if (openaiWs && openaiWs.readyState === WebSocket.OPEN && toolCallId) {
-                    // Create a conversation item with tool output
+                    // Cancel any active response first to avoid conflicts
+                    if (activeResponseId) {
+                      console.log(`⚠️ Cancelling active response ${activeResponseId} before submitting tool output`);
+                      try {
+                        openaiWs.send(JSON.stringify({
+                          type: 'response.cancel',
+                          response_id: activeResponseId
+                        }));
+                        activeResponseId = null;
+                      } catch (cancelError) {
+                        console.error('Error cancelling response:', cancelError);
+                      }
+                    }
+                    
+                    // Wait a bit for cancellation to process
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // Create a conversation item with function_call_output (correct type)
                     const toolOutputItem = {
                       type: 'conversation.item.create',
                       item: {
-                        type: 'tool_output',
+                        type: 'function_call_output',
                         tool_call_id: toolCallId,
                         output: JSON.stringify(functionError ? { error: functionError } : functionResult)
                       }
@@ -898,15 +1036,20 @@ wss.on('connection', (ws, req) => {
                     openaiWs.send(JSON.stringify(toolOutputItem));
                     console.log(`✅ Tool output submitted for ${functionName}`);
                     
-                    // After submitting tool output, create a new response to continue the conversation
+                    // After submitting tool output, wait a bit then create a new response to continue the conversation
                     setTimeout(() => {
                       if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
-                        openaiWs.send(JSON.stringify({
-                          type: 'response.create'
-                        }));
-                        console.log(`✅ Response.create sent after tool output`);
+                        // Make sure no response is active before creating a new one
+                        if (!activeResponseId) {
+                          openaiWs.send(JSON.stringify({
+                            type: 'response.create'
+                          }));
+                          console.log(`✅ Response.create sent after tool output`);
+                        } else {
+                          console.log(`⚠️ Skipping response.create - response ${activeResponseId} is still active`);
+                        }
                       }
-                    }, 100);
+                    }, 300);
                   } else {
                     console.error(`❌ Cannot submit tool output:`, {
                       hasOpenaiWs: !!openaiWs,

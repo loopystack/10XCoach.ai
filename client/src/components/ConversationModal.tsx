@@ -25,6 +25,8 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   
   // Refs for WebSocket and audio
   const wsRef = useRef<WebSocket | null>(null)
+  const isRecordingRef = useRef(false)
+  const isConnectedRef = useRef(false)
   const inputAudioContextRef = useRef<AudioContext | null>(null)
   const outputAudioContextRef = useRef<AudioContext | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -44,6 +46,11 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     if (!isOpen) {
       cleanup()
       return
+    }
+
+    // Start visualizer when modal opens
+    if (canvasRef.current) {
+      setupVisualizer()
     }
 
     return () => {
@@ -87,6 +94,8 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     audioQueueRef.current = []
     isPlayingAudioRef.current = false
     currentResponseIdRef.current = null
+    isConnectedRef.current = false
+    isRecordingRef.current = false
     setIsConnected(false)
     setIsRecording(false)
     setStatus('Ready to start')
@@ -252,8 +261,9 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0)
         
-        const shouldSend = isRecording && 
-                          isConnected && 
+        // Use refs to get current values (avoid stale closure)
+        const shouldSend = isRecordingRef.current && 
+                          isConnectedRef.current && 
                           wsRef.current && 
                           wsRef.current.readyState === WebSocket.OPEN
         
@@ -290,7 +300,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
             audioBuffer = []
             lastSendTime = now
           }
-        } else if (!isRecording) {
+        } else if (!isRecordingRef.current) {
           audioBuffer = []
         }
       }
@@ -312,48 +322,72 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   }
 
   const setupVisualizer = () => {
-    if (!canvasRef.current || !analyserRef.current) return
+    // Cancel any existing animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+
+    if (!canvasRef.current) return
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const draw = () => {
-      if (!isRecording || !analyserRef.current || !dataArrayRef.current) {
-        animationFrameRef.current = requestAnimationFrame(draw)
-        return
-      }
+    const width = canvas.width
+    const height = canvas.height
 
+    const draw = () => {
+      // Always continue the animation loop
       animationFrameRef.current = requestAnimationFrame(draw)
       
+      // Clear canvas
       const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary')?.trim() || '#ffffff'
       ctx.fillStyle = bgColor
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillRect(0, 0, width, height)
       
-      if (dataArrayRef.current && analyserRef.current) {
+      // Only show bars when recording and analyser is available
+      if (isRecordingRef.current && analyserRef.current && dataArrayRef.current) {
         // TypeScript workaround: getByteFrequencyData requires Uint8Array<ArrayBuffer>
         // Create a new Uint8Array from ArrayBuffer to satisfy TypeScript's strict type checking
         const buffer = new ArrayBuffer(dataArrayRef.current.length)
         const dataArray = new Uint8Array(buffer)
         analyserRef.current.getByteFrequencyData(dataArray)
         
+        // Update audio levels array (smooth the visualization)
         const step = Math.floor(dataArray.length / 20)
         for (let i = 0; i < 20; i++) {
           const value = dataArray[i * step] || 0
           audioLevelsRef.current[i] = Math.max(audioLevelsRef.current[i] * 0.7, value / 255)
         }
-      }
-      
-      const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0)
-      gradient.addColorStop(0, '#3b82f6')
-      gradient.addColorStop(0.5, '#8b5cf6')
-      gradient.addColorStop(1, '#ec4899')
-      ctx.fillStyle = gradient
-      
-      const barWidth = canvas.width / 20
-      for (let i = 0; i < 20; i++) {
-        const barHeight = audioLevelsRef.current[i] * canvas.height * 0.8
-        ctx.fillRect(i * barWidth + 2, canvas.height - barHeight, barWidth - 4, barHeight)
+        
+        // Draw bars
+        const gradient = ctx.createLinearGradient(0, 0, width, 0)
+        gradient.addColorStop(0, '#3b82f6')
+        gradient.addColorStop(0.5, '#8b5cf6')
+        gradient.addColorStop(1, '#ec4899')
+        ctx.fillStyle = gradient
+        
+        const barWidth = width / 20
+        for (let i = 0; i < 20; i++) {
+          const barHeight = audioLevelsRef.current[i] * height * 0.8
+          ctx.fillRect(i * barWidth + 2, height - barHeight, barWidth - 4, barHeight)
+        }
+      } else {
+        // When not recording, gradually fade out the bars
+        for (let i = 0; i < 20; i++) {
+          audioLevelsRef.current[i] = audioLevelsRef.current[i] * 0.9
+          if (audioLevelsRef.current[i] > 0.01) {
+            const gradient = ctx.createLinearGradient(0, 0, width, 0)
+            gradient.addColorStop(0, '#3b82f6')
+            gradient.addColorStop(0.5, '#8b5cf6')
+            gradient.addColorStop(1, '#ec4899')
+            ctx.fillStyle = gradient
+            const barWidth = width / 20
+            const barHeight = audioLevelsRef.current[i] * height * 0.8
+            ctx.fillRect(i * barWidth + 2, height - barHeight, barWidth - 4, barHeight)
+          }
+        }
       }
     }
 
@@ -439,7 +473,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         console.log('❌ WebSocket closed:', event.code, event.reason)
-        if (event.code !== 1000 && !isConnected) {
+        if (event.code !== 1000 && !isConnectedRef.current) {
           setStatus(`Connection failed: ${event.reason || 'Unknown error'} (code: ${event.code})`)
           setStatusType('error')
         }
@@ -481,11 +515,14 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
           if (data.type === 'connected') {
             try {
               await initializeAudio()
+              isConnectedRef.current = true
+              isRecordingRef.current = true
               setIsConnected(true)
               setIsRecording(true)
               setStatus('Listening... Speak now!')
               setStatusType('recording')
               currentResponseIdRef.current = null
+              console.log('✅ Audio initialized, recording started')
             } catch (audioError: any) {
               console.error('Audio initialization error:', audioError)
               setStatus(`Error: ${audioError.message}`)
@@ -525,6 +562,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
             }, 3000)
             alert('Conversation saved successfully!')
           } else if (data.type === 'stopped') {
+            isRecordingRef.current = false
             setIsRecording(false)
             setStatus('Stopped')
             setStatusType('idle')
@@ -554,6 +592,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }))
       wsRef.current.send(JSON.stringify({ type: 'stop' }))
     }
+    isRecordingRef.current = false
     setIsRecording(false)
     setStatus('Stopped')
     setStatusType('idle')

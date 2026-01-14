@@ -421,9 +421,12 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       // Use the same protocol and host, connect to root path
       // Nginx will proxy WebSocket upgrade to Node.js server
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      // Connect to root path - nginx will handle WebSocket upgrade
       const wsUrl = `${protocol}//${window.location.host}/`
       console.log('🔌 Connecting WebSocket to:', wsUrl)
       console.log('📍 Current location:', window.location.href)
+      console.log('🔌 Protocol:', protocol)
+      console.log('🔌 Host:', window.location.host)
       
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws

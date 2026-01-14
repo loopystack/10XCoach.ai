@@ -15,7 +15,6 @@ import {
   ArrowRight,
   Mic
 } from 'lucide-react'
-import ConversationModal from '../components/ConversationModal'
 import { isAuthenticated } from '../utils/api'
 import { 
   AreaChart, 
@@ -113,9 +112,6 @@ const Dashboard = () => {
   const [hoverTimeout, setHoverTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
   const [trialCountdown, setTrialCountdown] = useState<string>('')
-  const [conversationModalOpen, setConversationModalOpen] = useState(false)
-  const [selectedCoachForConversation, setSelectedCoachForConversation] = useState<Coach | null>(null)
-  const [conversationApiType, setConversationApiType] = useState<'openai' | 'elevenlabs'>('openai')
 
   // Check for login and show welcome notification (ONLY for regular users, NOT admins)
   useEffect(() => {
@@ -685,101 +681,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Prominent Talk to Coach Button */}
-      <div style={{
-        marginBottom: '24px',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }}>
-        <button
-          onClick={async () => {
-            // Check authentication
-            if (!isAuthenticated()) {
-              navigate('/login', { state: { from: '/dashboard' } })
-              return
-            }
-
-            // Check billing access
-            try {
-              const billingData = await api.get('/api/billing/status')
-              if (!billingData.hasAccess) {
-                alert('Your free trial has ended. Please upgrade to continue using this feature.')
-                navigate('/plans', { state: { from: 'talk-to-coach' } })
-                return
-              }
-            } catch (error: any) {
-              console.error('Failed to check billing status:', error)
-              if (error.requiresUpgrade) {
-                alert('Your free trial has ended. Please upgrade to continue.')
-                navigate('/plans', { state: { from: 'talk-to-coach' } })
-                return
-              }
-            }
-
-            // Get user's primary coach or first available coach
-            const userStr = localStorage.getItem('user') || sessionStorage.getItem('user')
-            let primaryCoachId = null
-            if (userStr) {
-              try {
-                const user = JSON.parse(userStr)
-                primaryCoachId = user.primaryCoachId || user.primary_coach_id
-              } catch (e) {
-                console.error('Error parsing user data:', e)
-              }
-            }
-
-            // Find the coach
-            let coachToUse: Coach | null = null
-            if (primaryCoachId && coaches.length > 0) {
-              coachToUse = coaches.find(c => c.id === primaryCoachId) || null
-            }
-            
-            // If no primary coach, use first available coach
-            if (!coachToUse && coaches.length > 0) {
-              coachToUse = coaches[0]
-            }
-
-            if (!coachToUse) {
-              alert('No coaches available. Please contact support.')
-              return
-            }
-
-            // Open conversation modal
-            setSelectedCoachForConversation(coachToUse)
-            setConversationApiType('openai')
-            setConversationModalOpen(true)
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '12px',
-            padding: '20px 40px',
-            fontSize: '18px',
-            fontWeight: 700,
-            color: '#ffffff',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-            border: 'none',
-            borderRadius: '16px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.4)',
-            transition: 'all 0.3s ease',
-            minWidth: '280px'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-2px)'
-            e.currentTarget.style.boxShadow = '0 6px 20px 0 rgba(59, 130, 246, 0.5)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)'
-            e.currentTarget.style.boxShadow = '0 4px 14px 0 rgba(59, 130, 246, 0.4)'
-          }}
-        >
-          <Mic size={24} />
-          <span>Talk to Coach</span>
-        </button>
-      </div>
 
       <div className="page-header">
         <div className="header-top">
@@ -788,22 +689,36 @@ const Dashboard = () => {
             <p className="page-subtitle">Comprehensive overview of your 10X coaching activities and metrics</p>
           </div>
           <div className="header-top-right">
-            <div className="coach-selector-dashboard">
-              <label htmlFor="coach-select">Select Coach:</label>
-              <select 
-                id="coach-select"
-                className="coach-select-dashboard"
-                value={selectedCoach || ''}
-                onChange={(e) => setSelectedCoach(e.target.value ? parseInt(e.target.value) : null)}
-              >
-                <option value="">All Coaches</option>
-                {coaches.map(coach => (
-                  <option key={coach.id} value={coach.id}>
-                    {coach.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <button
+              onClick={() => navigate('/coaches')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                fontWeight: 600,
+                color: '#ffffff',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)'
+              }}
+            >
+              <Mic size={20} />
+              <span>Talk to Coach</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1285,17 +1200,6 @@ const Dashboard = () => {
       </div>
 
       {/* Conversation Modal */}
-      {conversationModalOpen && selectedCoachForConversation && (
-        <ConversationModal
-          coach={selectedCoachForConversation}
-          isOpen={conversationModalOpen}
-          onClose={() => {
-            setConversationModalOpen(false)
-            setSelectedCoachForConversation(null)
-          }}
-          apiType={conversationApiType}
-        />
-      )}
     </div>
   )
 }

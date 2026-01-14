@@ -64,12 +64,50 @@ interface Todo {
 }
 
 interface Activity {
-  type: 'todo' | 'huddle' | 'session' | 'action'
+  type: 'todo' | 'huddle' | 'session' | 'action' | 'note' | 'quiz'
   id: number
   title: string
   time?: string | null
   color: string
   data: any
+}
+
+interface Session {
+  id: number
+  start_time: string
+  end_time?: string | null
+  duration?: number | null
+  coach_id: number
+  user_id: number
+  summary?: string | null
+}
+
+interface Note {
+  id: number
+  title: string
+  content: string
+  created_at: string
+  coach_id: number
+  user_id: number
+}
+
+interface QuizResult {
+  id: number
+  quiz_id: number
+  user_id: number
+  coach_id: number
+  score: number
+  createdAt: string
+  created_at?: string
+}
+
+interface ActionStep {
+  id: number
+  description: string
+  due_date?: string | null
+  dueDate?: string | null
+  status: string
+  priority: string
 }
 
 interface BillingStatus {
@@ -91,6 +129,10 @@ const Dashboard = () => {
   const [quizData, setQuizData] = useState<any[]>([])
   const [huddles, setHuddles] = useState<Huddle[]>([])
   const [todos, setTodos] = useState<Todo[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [notes, setNotes] = useState<Note[]>([])
+  const [quizResults, setQuizResults] = useState<QuizResult[]>([])
+  const [actionSteps, setActionSteps] = useState<ActionStep[]>([])
   const [monthlyActivity, setMonthlyActivity] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -342,6 +384,46 @@ const Dashboard = () => {
         } catch (err) {
           console.warn('Failed to fetch todos:', err)
         }
+
+        // Fetch sessions for calendar
+        try {
+          const sessionsData = await api.get('/api/sessions')
+          if (Array.isArray(sessionsData)) {
+            setSessions(sessionsData)
+          }
+        } catch (err) {
+          console.warn('Failed to fetch sessions:', err)
+        }
+
+        // Fetch notes for calendar
+        try {
+          const notesData = await api.get('/api/notes')
+          if (Array.isArray(notesData)) {
+            setNotes(notesData)
+          }
+        } catch (err) {
+          console.warn('Failed to fetch notes:', err)
+        }
+
+        // Fetch quiz results for calendar
+        try {
+          const quizResultsData = await api.get('/api/quiz/results')
+          if (Array.isArray(quizResultsData)) {
+            setQuizResults(quizResultsData)
+          }
+        } catch (err) {
+          console.warn('Failed to fetch quiz results:', err)
+        }
+
+        // Fetch action steps for calendar
+        try {
+          const actionStepsData = await api.get('/api/action-steps').catch(() => null)
+          if (Array.isArray(actionStepsData)) {
+            setActionSteps(actionStepsData)
+          }
+        } catch (err) {
+          console.warn('Failed to fetch action steps:', err)
+        }
       } catch (err) {
         console.error('Error fetching data:', err)
         setError('Failed to connect to the server. Please make sure the backend is running.')
@@ -503,7 +585,7 @@ const Dashboard = () => {
     return num.toLocaleString()
   }
 
-  // Calendar functions
+  // 10X Calendar functions - captures ALL activities
   const getActivitiesForDate = (date: Date): Activity[] => {
     const dateStr = date.toISOString().split('T')[0]
     const activities: Activity[] = []
@@ -533,13 +615,79 @@ const Dashboard = () => {
     huddles.forEach(huddle => {
       const huddleDate = huddle.huddle_date || (huddle as any).date
       if (huddleDate && huddleDate.split('T')[0] === dateStr) {
+        const timeStr = huddleDate.includes('T') ? huddleDate.split('T')[1]?.substring(0, 5) : null
         activities.push({
           type: 'huddle',
           id: huddle.id,
           title: huddle.title,
-          time: null,
+          time: timeStr || null,
           color: '#3b82f6',
           data: huddle
+        })
+      }
+    })
+
+    // Sessions
+    sessions.forEach(session => {
+      const sessionDate = session.start_time?.split('T')[0]
+      if (sessionDate === dateStr) {
+        const timeStr = session.start_time?.includes('T') ? session.start_time.split('T')[1]?.substring(0, 5) : null
+        activities.push({
+          type: 'session',
+          id: session.id,
+          title: session.summary || 'Coach Session',
+          time: timeStr || null,
+          color: '#8b5cf6',
+          data: session
+        })
+      }
+    })
+
+    // Notes
+    notes.forEach(note => {
+      const noteDate = note.created_at?.split('T')[0]
+      if (noteDate === dateStr) {
+        const timeStr = note.created_at?.includes('T') ? note.created_at.split('T')[1]?.substring(0, 5) : null
+        activities.push({
+          type: 'note',
+          id: note.id,
+          title: note.title || 'Note',
+          time: timeStr || null,
+          color: '#10b981',
+          data: note
+        })
+      }
+    })
+
+    // Quiz Results
+    quizResults.forEach(quiz => {
+      const quizDate = (quiz.createdAt || quiz.created_at)?.split('T')[0]
+      if (quizDate === dateStr) {
+        const timeStr = (quiz.createdAt || quiz.created_at)?.includes('T') 
+          ? (quiz.createdAt || quiz.created_at)?.split('T')[1]?.substring(0, 5) 
+          : null
+        activities.push({
+          type: 'quiz',
+          id: quiz.id,
+          title: `Quiz Completed (Score: ${quiz.score}%)`,
+          time: timeStr || null,
+          color: '#f59e0b',
+          data: quiz
+        })
+      }
+    })
+
+    // Action Steps
+    actionSteps.forEach(step => {
+      const stepDate = step.due_date || step.dueDate
+      if (stepDate && stepDate.split('T')[0] === dateStr) {
+        activities.push({
+          type: 'action',
+          id: step.id,
+          title: step.description,
+          time: null,
+          color: '#ec4899',
+          data: step
         })
       }
     })
@@ -1035,11 +1183,11 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Chart 6: 10X Calendar-At-A-Glance */}
+        {/* Chart 6: 10X Calendar - All Activities */}
         <div className="dashboard-chart-card" style={{ position: 'relative' }}>
           <h3>
             <span className="chart-indicator-small"></span>
-            10X Calendar-At-A-Glance
+            10X Calendar
           </h3>
           <div className="dashboard-interactive-calendar">
             <div className="calendar-header-small">
@@ -1116,15 +1264,17 @@ const Dashboard = () => {
                 </div>
                 <div className="calendar-popup-activities-small">
                   {selectedDateActivities.slice(0, 5).map((activity, idx) => (
-                    <div key={idx} className="calendar-popup-activity-small" style={{ borderLeftColor: activity.color }}>
-                      <div className="activity-type-label-small">
-                        {activity.type === 'todo' && '📋 Todo'}
-                        {activity.type === 'huddle' && '👥 10Min Huddle'}
-                        {activity.type === 'action' && '✅ Action Item'}
-                        {activity.type === 'session' && '💼 Coach Session'}
+                      <div key={idx} className="calendar-popup-activity-small" style={{ borderLeftColor: activity.color }}>
+                        <div className="activity-type-label-small">
+                          {activity.type === 'todo' && '📋 Todo'}
+                          {activity.type === 'huddle' && '👥 10X Huddle'}
+                          {activity.type === 'action' && '✅ Action Step'}
+                          {activity.type === 'session' && '💼 Session'}
+                          {activity.type === 'note' && '📝 Note'}
+                          {activity.type === 'quiz' && '📊 Quiz'}
+                        </div>
+                        <div className="activity-title-small">{activity.title}</div>
                       </div>
-                      <div className="activity-title-small">{activity.title}</div>
-                    </div>
                   ))}
                   {selectedDateActivities.length > 5 && (
                     <div className="calendar-popup-more-small">+{selectedDateActivities.length - 5} more</div>
@@ -1154,9 +1304,11 @@ const Dashboard = () => {
                       <div key={idx} className="calendar-modal-activity" style={{ borderLeftColor: activity.color }}>
                         <div className="activity-type-label-modal">
                           {activity.type === 'todo' && '📋 Todo'}
-                          {activity.type === 'huddle' && '👥 10Min Huddle'}
-                          {activity.type === 'action' && '✅ Action Item'}
+                          {activity.type === 'huddle' && '👥 10X Huddle'}
+                          {activity.type === 'action' && '✅ Action Step'}
                           {activity.type === 'session' && '💼 Coach Session'}
+                          {activity.type === 'note' && '📝 Note'}
+                          {activity.type === 'quiz' && '📊 Quiz'}
                         </div>
                         <div className="activity-title-modal">{activity.title}</div>
                         {activity.time && (
@@ -1168,6 +1320,27 @@ const Dashboard = () => {
                         {activity.type === 'huddle' && (
                           <div className="activity-status-modal">
                             Status: {activity.data.status || 'Scheduled'}
+                          </div>
+                        )}
+                        {activity.type === 'session' && activity.data.duration && (
+                          <div className="activity-duration-modal">
+                            Duration: {Math.round(activity.data.duration)} minutes
+                          </div>
+                        )}
+                        {activity.type === 'quiz' && activity.data.score !== undefined && (
+                          <div className="activity-score-modal">
+                            Score: {activity.data.score}%
+                          </div>
+                        )}
+                        {activity.type === 'note' && activity.data.content && (
+                          <div className="activity-content-modal" style={{ 
+                            maxHeight: '100px', 
+                            overflow: 'auto', 
+                            fontSize: '12px', 
+                            color: 'var(--gray-600)',
+                            marginTop: '8px'
+                          }}>
+                            {activity.data.content.substring(0, 200)}{activity.data.content.length > 200 ? '...' : ''}
                           </div>
                         )}
                       </div>

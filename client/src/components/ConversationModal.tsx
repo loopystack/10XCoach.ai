@@ -22,11 +22,14 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Ready to start')
   const [statusType, setStatusType] = useState<'idle' | 'active' | 'success' | 'error' | 'recording'>('idle')
+  const [elapsedTime, setElapsedTime] = useState(0) // Timer in seconds
   
   // Refs for WebSocket and audio
   const wsRef = useRef<WebSocket | null>(null)
   const isRecordingRef = useRef(false)
   const isConnectedRef = useRef(false)
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sessionStartTimeRef = useRef<number | null>(null)
   const inputAudioContextRef = useRef<AudioContext | null>(null)
   const outputAudioContextRef = useRef<AudioContext | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -446,6 +449,16 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
         console.log('✅ WebSocket connected')
         console.log(`🎤 Starting conversation with coach: ${coach.name}`)
         
+        // Start timer when connection is established
+        sessionStartTimeRef.current = Date.now()
+        setElapsedTime(0)
+        timerIntervalRef.current = setInterval(() => {
+          if (sessionStartTimeRef.current) {
+            const elapsed = Math.floor((Date.now() - sessionStartTimeRef.current) / 1000)
+            setElapsedTime(elapsed)
+          }
+        }, 1000) // Update every second
+        
         // Send start message immediately after connection
         try {
           const startMessage = {
@@ -476,35 +489,17 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout)
         console.log('❌ WebSocket closed:', event.code, event.reason)
+        // Stop timer when connection closes
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current)
+          timerIntervalRef.current = null
+        }
+        sessionStartTimeRef.current = null
         if (event.code !== 1000 && !isConnectedRef.current) {
           setStatus(`Connection failed: ${event.reason || 'Unknown error'} (code: ${event.code})`)
           setStatusType('error')
         }
         cleanup()
-      }
-
-      ws.onopen = () => {
-        console.log('✅ WebSocket connected')
-        console.log(`🎤 Starting conversation with coach: ${coach.name}`)
-        
-        // Send start message immediately after connection
-        try {
-          const startMessage = {
-            type: 'start',
-            coachName: coach.name.trim(),
-            apiType: apiType,
-            token: token,
-            coachId: coach.id,
-            userName: userName,
-            userId: userId
-          }
-          ws.send(JSON.stringify(startMessage))
-          console.log('📤 Start message sent:', startMessage)
-        } catch (error) {
-          console.error('❌ Error sending start message:', error)
-          setStatus('Error sending start message')
-          setStatusType('error')
-        }
       }
 
       ws.onmessage = async (event) => {
@@ -659,9 +654,21 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
               {coach.tagline && <p className="conversation-coach-tagline">"{coach.tagline}"</p>}
             </div>
           </div>
-          <button className="conversation-modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <div className="conversation-header-right">
+            {isConnected && (
+              <div className="conversation-timer">
+                <span className="conversation-timer-label">Session Time:</span>
+                <span className="conversation-timer-value">
+                  {Math.floor(elapsedTime / 3600).toString().padStart(2, '0')}:
+                  {Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0')}:
+                  {(elapsedTime % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
+            )}
+            <button className="conversation-modal-close" onClick={onClose}>
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="conversation-modal-body">

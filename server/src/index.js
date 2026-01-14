@@ -1077,11 +1077,12 @@ wss.on('connection', (ws, req) => {
                     await new Promise(resolve => setTimeout(resolve, 200));
                     
                     // Create a conversation item with function_call_output (correct type)
+                    // Note: OpenAI Realtime API requires 'call_id' not 'tool_call_id'
                     const toolOutputItem = {
                       type: 'conversation.item.create',
                       item: {
                         type: 'function_call_output',
-                        tool_call_id: toolCallId,
+                        call_id: toolCallId,  // Changed from tool_call_id to call_id
                         output: JSON.stringify(functionError ? { error: functionError } : functionResult)
                       }
                     };

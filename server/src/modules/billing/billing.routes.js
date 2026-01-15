@@ -86,26 +86,42 @@ router.get('/billing/status', authenticate, async (req, res) => {
       trialDaysRemaining = Math.ceil((user.trialEndDate - now) / (1000 * 60 * 60 * 24));
     }
 
-    // Calculate prepaid time stats
-    const prepaidHoursBalance = parseFloat(user.prepaidHoursBalance) || 0;
-    const includedHoursMonthly = user.includedHoursMonthly ? parseFloat(user.includedHoursMonthly) : null;
-    const hoursUsedThisMonth = parseFloat(user.hoursUsedThisMonth) || 0;
+    // Calculate prepaid time stats (handle case where fields don't exist yet)
+    let prepaidHoursBalance = 0;
+    let includedHoursMonthly = null;
+    let hoursUsedThisMonth = 0;
+    let activeTimePacks = [];
     
-    // Get active time pack purchases
-    const activeTimePacks = await prisma.timePackPurchase.findMany({
-      where: {
-        userId: req.user.id,
-        status: 'ACTIVE',
-        OR: [
-          { expiresAt: null },
-          { expiresAt: { gt: new Date() } }
-        ]
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    try {
+      prepaidHoursBalance = user.prepaidHoursBalance ? parseFloat(user.prepaidHoursBalance) : 0;
+      includedHoursMonthly = user.includedHoursMonthly ? parseFloat(user.includedHoursMonthly) : null;
+      hoursUsedThisMonth = user.hoursUsedThisMonth ? parseFloat(user.hoursUsedThisMonth) : 0;
+      
+      // Get active time pack purchases (only if table exists)
+      try {
+        activeTimePacks = await prisma.timePackPurchase.findMany({
+          where: {
+            userId: req.user.id,
+            status: 'ACTIVE',
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: new Date() } }
+            ]
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+      } catch (timePackError) {
+        // TimePackPurchase table might not exist yet
+        console.warn('TimePackPurchase table may not exist yet:', timePackError.message);
+        activeTimePacks = [];
+      }
+    } catch (prepaidError) {
+      // Prepaid time fields might not exist yet
+      console.warn('Prepaid time fields may not exist yet:', prepaidError.message);
+    }
     
     const totalPrepaidHours = activeTimePacks.reduce((sum, pack) => {
-      return sum + parseFloat(pack.hoursRemaining);
+      return sum + parseFloat(pack.hoursRemaining || 0);
     }, 0);
 
     res.json({
@@ -119,11 +135,11 @@ router.get('/billing/status', authenticate, async (req, res) => {
       planEndDate: user.planEndDate,
       creditBalance: parseFloat(user.creditBalance) || 0,
       stripeCustomerId: user.stripeCustomerId,
-      // Prepaid time info
+      // Prepaid time info (may be null if fields don't exist)
       prepaidHoursBalance: totalPrepaidHours,
       includedHoursMonthly,
       hoursUsedThisMonth,
-      lastUsageResetDate: user.lastUsageResetDate,
+      lastUsageResetDate: user.lastUsageResetDate || null,
       usageAlerts: {
         alert75Sent: user.usageAlert75Sent || false,
         alert90Sent: user.usageAlert90Sent || false,
@@ -132,7 +148,7 @@ router.get('/billing/status', authenticate, async (req, res) => {
       spendingControls: {
         hardStopAtLimit: user.hardStopAtLimit || false,
         autoPurchaseEnabled: user.autoPurchaseEnabled || false,
-        autoPurchasePackSize: user.autoPurchasePackSize
+        autoPurchasePackSize: user.autoPurchasePackSize || null
       },
       activeTimePacks: activeTimePacks.map(pack => ({
         id: pack.id,
@@ -458,20 +474,73 @@ const processPaymentSuccess = async (sessionId) => {
         return { success: false, message: 'User not found' };
       }
 
-      const currentCredit = parseFloat(user.creditBalance) || 0;
+      // Check if creditBalance field exists, handle gracefully if it doesn't
+      let currentCredit = 0;
+      try {
+        currentCredit = parseFloat(user.creditBalance) || 0;
+      } catch (creditError) {
+        console.warn('creditBalance field may not exist, defaulting to 0:', creditError.message);
+        currentCredit = 0;
+      }
+
       const newCredit = currentCredit + amount;
 
-      await prisma.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: newCredit,
-          lastPaymentStatus: 'SUCCEEDED',
-          lastPaymentDate: new Date()
-        }
-      });
+      // Update user with credit balance
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            creditBalance: newCredit,
+            lastPaymentStatus: 'SUCCEEDED',
+            lastPaymentDate: new Date()
+          }
+        });
 
-      console.log(`✅ Added $${amount} credit to user ${userId}. New balance: $${newCredit}`);
-      return { success: true, amount, newCredit, userId, type: 'credit' };
+        console.log(`✅ Added $${amount} credit to user ${userId}. New balance: $${newCredit}`);
+        return { success: true, amount, newCredit, userId, type: 'credit' };
+      } catch (updateError) {
+        // Check if it's a field doesn't exist error
+        if (updateError.message && (
+          updateError.message.includes('Unknown arg') ||
+          updateError.message.includes('does not exist') ||
+          updateError.message.includes('Unknown field') ||
+          updateError.code === 'P2009' ||
+          updateError.code === 'P2012'
+        )) {
+          console.error('❌ creditBalance field does not exist in database.');
+          console.error('   Error code:', updateError.code);
+          console.error('   Error message:', updateError.message);
+          console.error('   Error meta:', updateError.meta);
+          console.error('   Please run: npm run db:push in the server directory');
+          
+          // Still update payment status even if creditBalance doesn't exist
+          try {
+            await prisma.user.update({
+              where: { id: userId },
+              data: {
+                lastPaymentStatus: 'SUCCEEDED',
+                lastPaymentDate: new Date()
+              }
+            });
+            console.log('✅ Updated payment status (creditBalance field missing)');
+          } catch (statusError) {
+            console.error('Failed to update payment status:', statusError);
+          }
+          
+          return { 
+            success: false, 
+            message: 'Credit balance field does not exist in database. Database migration required.',
+            details: 'Please run: npm run db:push in the server directory to add the creditBalance field.',
+            amount,
+            newCredit,
+            migrationNeeded: true
+          };
+        }
+        
+        // Re-throw other errors
+        console.error('❌ Unexpected error updating credit balance:', updateError);
+        throw updateError;
+      }
     }
   } catch (error) {
     console.error('❌ Error processing payment:', error);

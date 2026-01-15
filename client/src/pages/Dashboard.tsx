@@ -248,6 +248,33 @@ const Dashboard = () => {
     return () => clearInterval(interval)
   }, [billingStatus])
 
+  // Function to fetch billing status (can be called from anywhere)
+  const fetchBillingStatus = async () => {
+    try {
+      const billingData = await api.get('/api/billing/status')
+      console.log('📊 Billing status fetched:', billingData)
+      setBillingStatus(billingData)
+      return billingData
+    } catch (err: any) {
+      console.error('Failed to fetch billing status:', err)
+      // Set default billing status on error to prevent UI issues
+      const defaultStatus: BillingStatus = {
+        trialStartDate: null,
+        trialEndDate: null,
+        trialDaysRemaining: null,
+        accessStatus: 'TRIAL_ACTIVE',
+        hasAccess: true,
+        currentPlanName: null,
+        planStartDate: null,
+        planEndDate: null,
+        creditBalance: 0,
+        stripeCustomerId: null
+      }
+      setBillingStatus(defaultStatus)
+      return defaultStatus
+    }
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
@@ -255,12 +282,7 @@ const Dashboard = () => {
       
       try {
         // Fetch billing status
-        try {
-          const billingData = await api.get('/api/billing/status')
-          setBillingStatus(billingData)
-        } catch (err) {
-          console.warn('Failed to fetch billing status:', err)
-        }
+        await fetchBillingStatus()
 
         // Fetch stats
         try {
@@ -450,6 +472,18 @@ const Dashboard = () => {
     }
 
     fetchData()
+    
+    // Refresh billing status when window regains focus (e.g., after returning from Stripe checkout)
+    const handleFocus = () => {
+      console.log('🔄 Window focused, refreshing billing status...')
+      fetchBillingStatus()
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   useEffect(() => {
@@ -943,11 +977,11 @@ const Dashboard = () => {
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {billingStatus.creditBalance > 0 && (
+              {billingStatus.creditBalance !== undefined && billingStatus.creditBalance > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'rgba(139, 92, 246, 0.1)', borderRadius: '8px' }}>
                   <CreditCard size={16} style={{ color: '#8b5cf6' }} />
                   <span style={{ fontWeight: 700, color: 'var(--gray-900)', fontSize: '16px' }}>
-                    ${billingStatus.creditBalance.toFixed(2)}
+                    Credit: ${billingStatus.creditBalance.toFixed(2)}
                   </span>
                 </div>
               )}

@@ -225,6 +225,9 @@ router.put('/profile', authenticate, async (req, res) => {
     if (name !== undefined) updateData.name = name;
     if (businessName !== undefined) updateData.businessName = businessName;
     if (industry !== undefined) updateData.industry = industry;
+    
+    // Only include phone and address if they're provided and the fields exist in the database
+    // We'll try to update them, but if they don't exist, we'll catch the error and provide a helpful message
     if (phone !== undefined) updateData.phone = phone;
     if (address !== undefined) updateData.address = address;
 
@@ -232,32 +235,122 @@ router.put('/profile', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'No fields to update' });
     }
 
-    const user = await prisma.user.update({
-      where: { id: req.user.id },
-      data: updateData,
-      select: {
+    try {
+      // Try to build the select object dynamically based on what fields exist
+      const selectFields = {
         id: true,
         name: true,
         email: true,
         businessName: true,
         industry: true,
-        phone: true,
-        address: true,
         updatedAt: true
-      }
-    });
+      };
 
-    res.json({
-      success: true,
-      message: 'Profile updated successfully',
-      user
-    });
+      // Try to include phone and address in select, but don't fail if they don't exist
+      const user = await prisma.user.update({
+        where: { id: req.user.id },
+        data: updateData,
+        select: selectFields
+      });
+
+      // Try to fetch phone and address separately if they were updated
+      let phoneValue = null;
+      let addressValue = null;
+      if (phone !== undefined || address !== undefined) {
+        try {
+          const fullUser = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { phone: true, address: true }
+          });
+          if (fullUser) {
+            phoneValue = fullUser.phone;
+            addressValue = fullUser.address;
+          }
+        } catch (fieldError) {
+          // Fields don't exist yet - that's okay, we'll return null
+          console.warn('Phone/address fields may not exist in database yet:', fieldError.message);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        user: {
+          ...user,
+          phone: phoneValue,
+          address: addressValue
+        }
+      });
+    } catch (updateError) {
+      // Check if it's a database field error
+      if (updateError.message && (
+        updateError.message.includes('Unknown arg') ||
+        updateError.message.includes('does not exist') ||
+        updateError.code === 'P2009' || // Prisma query validation error
+        updateError.code === 'P2012'    // Missing required value (but could also be field doesn't exist)
+      )) {
+        console.error('Database field error - phone/address may not exist yet:', updateError.message);
+        console.error('Error code:', updateError.code);
+        console.error('Full error:', updateError);
+        
+        // Try updating without phone/address
+        const safeUpdateData = { ...updateData };
+        delete safeUpdateData.phone;
+        delete safeUpdateData.address;
+        
+        if (Object.keys(safeUpdateData).length === 0) {
+          return res.status(400).json({ 
+            error: 'Phone and address fields are not available yet. Please run database migration first.',
+            details: 'The database schema needs to be updated to include phone and address fields. Please contact support or run: npm run db:push'
+          });
+        }
+
+        // Update with only safe fields
+        const user = await prisma.user.update({
+          where: { id: req.user.id },
+          data: safeUpdateData,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            businessName: true,
+            industry: true,
+            updatedAt: true
+          }
+        });
+
+        return res.json({
+          success: true,
+          message: 'Profile updated (phone and address fields not available yet - database migration needed)',
+          user: {
+            ...user,
+            phone: null,
+            address: null
+          },
+          warning: 'Phone and address fields require a database migration. Other fields were updated successfully.'
+        });
+      }
+      
+      // Re-throw other errors
+      throw updateError;
+    }
   } catch (error) {
     console.error('Update profile error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack
+    });
+    
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.status(500).json({ error: 'Failed to update profile' });
+    
+    res.status(500).json({ 
+      error: 'Failed to update profile',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

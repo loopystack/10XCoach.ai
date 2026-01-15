@@ -770,7 +770,7 @@ wss.on('connection', (ws, req) => {
                     },
                     meeting_date: {
                       type: 'string',
-                      description: 'The date and time for the meeting in ISO 8601 format (e.g., "2024-01-15T14:00:00" or "2024-01-15T14:00:00Z"). Must be a future date and time.'
+                      description: 'The date and time for the meeting. Can be in ISO 8601 format (e.g., "2024-01-15T14:00:00") or natural language like "tomorrow 8 AM", "Friday 2 PM", "next Monday 10:00". The system will interpret this in the user\'s timezone. Must be a future date and time.'
                     },
                     notes: {
                       type: 'string',
@@ -1055,6 +1055,24 @@ wss.on('connection', (ws, req) => {
                         throw new Error('Coach ID not available. Please try again.');
                       }
                       
+                      // Get user's timezone from database
+                      const prisma = require('./lib/prisma');
+                      let userTimezone = 'America/New_York'; // Default timezone
+                      try {
+                        const user = await prisma.user.findUnique({
+                          where: { id: currentUserId },
+                          select: { timezone: true }
+                        });
+                        if (user && user.timezone) {
+                          userTimezone = user.timezone;
+                          console.log(`🌍 Using user timezone: ${userTimezone}`);
+                        } else {
+                          console.log(`⚠️ User timezone not set, defaulting to ${userTimezone}`);
+                        }
+                      } catch (tzError) {
+                        console.warn('⚠️ Could not fetch user timezone:', tzError.message);
+                      }
+                      
                       // Parse meeting date - handle relative dates like "tomorrow", "Friday", etc.
                       let meetingDate;
                       const dateInput = functionArgs.meeting_date || 
@@ -1065,6 +1083,7 @@ wss.on('connection', (ws, req) => {
                       
                       console.log(`📅 Received function args:`, JSON.stringify(functionArgs, null, 2));
                       console.log(`📅 Extracted date input: "${dateInput}"`);
+                      console.log(`🌍 User timezone: ${userTimezone}`);
                       
                       if (!dateInput) {
                         // Try to construct date from separate fields if available
@@ -1081,34 +1100,64 @@ wss.on('connection', (ws, req) => {
                           throw new Error('Meeting date is required. Please provide a date like "tomorrow 8 AM", "Friday 2 PM", or a specific date.');
                         }
                       } else {
-                        // Try to parse as ISO date first
-                        meetingDate = new Date(dateInput);
+                        // Check for "tomorrow" first before trying ISO parsing
+                        const lowerInput = dateInput.toLowerCase().trim();
+                        const today = new Date();
+                        let isTomorrow = false;
                         
-                        // If that fails, try to parse relative dates
-                        if (isNaN(meetingDate.getTime())) {
-                          console.log(`📅 Date parsing failed, trying relative date parsing...`);
-                          try {
-                            meetingDate = parseRelativeDate(dateInput);
-                          } catch (parseError) {
-                            console.error(`❌ Relative date parsing failed:`, parseError);
-                            // Try common patterns like "tomorrow", "next week", etc.
-                            const lowerInput = dateInput.toLowerCase().trim();
-                            const today = new Date();
-                            
-                            if (lowerInput.includes('tomorrow')) {
-                              meetingDate = new Date(today);
-                              meetingDate.setDate(meetingDate.getDate() + 1);
-                              // Extract time if present
-                              const timeMatch = dateInput.match(/(\d{1,2})\s*(am|pm)/i);
-                              if (timeMatch) {
-                                let hours = parseInt(timeMatch[1]);
-                                if (timeMatch[2].toLowerCase() === 'pm' && hours !== 12) hours += 12;
-                                if (timeMatch[2].toLowerCase() === 'am' && hours === 12) hours = 0;
-                                meetingDate.setHours(hours, 0, 0, 0);
-                              } else {
-                                meetingDate.setHours(14, 0, 0, 0); // Default to 2 PM
+                        // Check if input contains "tomorrow" - handle this first
+                        if (lowerInput.includes('tomorrow')) {
+                          isTomorrow = true;
+                          meetingDate = new Date(today);
+                          meetingDate.setDate(meetingDate.getDate() + 1);
+                          meetingDate.setSeconds(0, 0); // Reset seconds and milliseconds
+                          
+                          // Extract time if present
+                          const timePatterns = [
+                            /(\d{1,2}):(\d{2})\s*(am|pm)/i,  // "8:30 AM", "2:00 PM"
+                            /(\d{1,2})\s*(am|pm)/i,  // "8 AM", "2 PM"
+                            /(\d{1,2}):(\d{2})/i,  // "14:00" (24-hour)
+                            /(\d{1,2})/i  // Just hour "8" or "14"
+                          ];
+                          
+                          let timeFound = false;
+                          for (const pattern of timePatterns) {
+                            const timeMatch = dateInput.match(pattern);
+                            if (timeMatch) {
+                              let hours = parseInt(timeMatch[1]);
+                              let minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+                              
+                              if (timeMatch[3]) {
+                                // AM/PM format
+                                if (timeMatch[3].toLowerCase() === 'pm' && hours !== 12) hours += 12;
+                                if (timeMatch[3].toLowerCase() === 'am' && hours === 12) hours = 0;
+                              } else if (hours <= 12 && !timeMatch[2]) {
+                                // Just hour number without AM/PM - assume PM if reasonable
+                                if (hours < 8) hours += 12; // Early hours likely mean PM
                               }
-                            } else {
+                              
+                              meetingDate.setHours(hours, minutes, 0, 0);
+                              timeFound = true;
+                              break;
+                            }
+                          }
+                          
+                          if (!timeFound) {
+                            meetingDate.setHours(14, 0, 0, 0); // Default to 2 PM if no time specified
+                          }
+                          
+                          console.log(`📅 Parsed "tomorrow" date: ${meetingDate.toISOString()}`);
+                        } else {
+                          // Try to parse as ISO date first
+                          meetingDate = new Date(dateInput);
+                          
+                          // If that fails, try to parse relative dates
+                          if (isNaN(meetingDate.getTime())) {
+                            console.log(`📅 Date parsing failed, trying relative date parsing...`);
+                            try {
+                              meetingDate = parseRelativeDate(dateInput);
+                            } catch (parseError) {
+                              console.error(`❌ Relative date parsing failed:`, parseError);
                               throw new Error(`Could not parse date: "${dateInput}". Please try formats like "tomorrow 8 AM", "Friday 2 PM", or "2024-01-15T14:00:00".`);
                             }
                           }
@@ -1120,14 +1169,48 @@ wss.on('connection', (ws, req) => {
                         }
                       }
                       
-                      console.log(`📅 Parsed meeting date: ${meetingDate.toISOString()}`);
+                      console.log(`📅 Parsed meeting date: ${meetingDate.toISOString()}, Local: ${meetingDate.toLocaleString()}`);
                       
-                      // Check if date is in the past (with 5 minute buffer for clock differences)
-                      const now = new Date();
-                      now.setMinutes(now.getMinutes() - 5); // 5 minute buffer
-                      if (meetingDate < now) {
-                        throw new Error(`Meeting date must be in the future. You provided: ${meetingDate.toLocaleString()}, but current time is: ${new Date().toLocaleString()}`);
+                      // Convert meeting date to UTC for storage (database stores in UTC)
+                      // The meetingDate is currently in user's local timezone
+                      // We need to interpret it as being in the user's timezone, then convert to UTC
+                      const meetingDateInUserTz = new Date(meetingDate.toLocaleString('en-US', { timeZone: userTimezone }));
+                      const nowInUserTz = new Date(new Date().toLocaleString('en-US', { timeZone: userTimezone }));
+                      
+                      // Calculate the offset to convert user's local time to UTC
+                      const userTzOffset = meetingDateInUserTz.getTime() - meetingDate.getTime();
+                      const meetingDateUTC = new Date(meetingDate.getTime() - userTzOffset);
+                      
+                      // Check if date is in the past (with 5 minute buffer) in user's timezone
+                      const nowWithBuffer = new Date(nowInUserTz);
+                      nowWithBuffer.setMinutes(nowWithBuffer.getMinutes() - 5); // 5 minute buffer
+                      
+                      // Compare in user's timezone
+                      if (meetingDateInUserTz < nowWithBuffer) {
+                        const meetingDateOnly = new Date(meetingDateInUserTz);
+                        meetingDateOnly.setHours(0, 0, 0, 0);
+                        const todayOnly = new Date(nowInUserTz);
+                        todayOnly.setHours(0, 0, 0, 0);
+                        
+                        // If it's the same day but time has passed, move to tomorrow
+                        if (meetingDateOnly.getTime() === todayOnly.getTime()) {
+                          console.log(`📅 Meeting time has passed today in user's timezone (${userTimezone}), moving to tomorrow...`);
+                          meetingDate.setDate(meetingDate.getDate() + 1);
+                          // Recalculate UTC date after moving to tomorrow
+                          const newMeetingDateInUserTz = new Date(meetingDate.toLocaleString('en-US', { timeZone: userTimezone }));
+                          const newUserTzOffset = newMeetingDateInUserTz.getTime() - meetingDate.getTime();
+                          meetingDateUTC = new Date(meetingDate.getTime() - newUserTzOffset);
+                          console.log(`📅 Adjusted meeting date to tomorrow: ${meetingDate.toLocaleString('en-US', { timeZone: userTimezone })} (${userTimezone}) = ${meetingDateUTC.toISOString()} UTC`);
+                        } else {
+                          // It's a past date (not today), throw error
+                          const nowFormatted = new Date().toLocaleString('en-US', { timeZone: userTimezone, timeZoneName: 'short' });
+                          const meetingFormatted = meetingDate.toLocaleString('en-US', { timeZone: userTimezone, timeZoneName: 'short' });
+                          throw new Error(`Meeting date must be in the future. You provided: ${meetingFormatted}, but current time is: ${nowFormatted}. Please specify a future date like "tomorrow 8 AM" or a specific future date.`);
+                        }
                       }
+                      
+                      // Use UTC date for database storage
+                      meetingDate = meetingDateUTC;
                       
                       // Create huddle via Prisma
                       const prisma = require('./lib/prisma');
@@ -1175,21 +1258,35 @@ wss.on('connection', (ws, req) => {
                         throw new Error(`Failed to create meeting in database: ${dbError.message}`);
                       }
                       
+                      // Format date in user's timezone for display
+                      const meetingDateFormatted = new Date(meetingDate).toLocaleString('en-US', { 
+                        timeZone: userTimezone,
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        timeZoneName: 'short'
+                      });
+                      
                       functionResult = {
                         success: true,
-                        message: `10X meeting scheduled successfully for ${meetingDate.toLocaleString()}`,
+                        message: `10X meeting scheduled successfully for ${meetingDateFormatted}`,
                         meeting_id: huddle.id,
                         title: huddle.title,
                         date: meetingDate.toISOString(),
+                        dateFormatted: meetingDateFormatted,
+                        timezone: userTimezone,
                         coach: huddle.coach.name
                       };
                       
                       console.log('✅ Meeting scheduled:', functionResult);
                       
-                      // Send confirmation message to user
+                      // Send confirmation message to user with timezone-aware date
                       safeSend({
                         type: 'info',
-                        message: `Meeting scheduled: ${huddle.title} on ${meetingDate.toLocaleString()}`
+                        message: `Meeting scheduled: ${huddle.title} on ${meetingDateFormatted}`
                       });
                       
                     } else if (functionName === 'send_text_message') {

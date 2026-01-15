@@ -10,7 +10,7 @@ const { authenticate, generateToken } = require('../../middleware/auth.middlewar
 // =============================================
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, timezone } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -39,6 +39,14 @@ router.post('/register', async (req, res) => {
     const trialEndDate = new Date();
     trialEndDate.setDate(trialEndDate.getDate() + 14);
 
+    // Validate and set timezone (default to America/New_York if invalid)
+    let userTimezone = timezone || 'America/New_York';
+    // Validate timezone format (basic check - should be IANA timezone like "America/New_York")
+    if (typeof userTimezone !== 'string' || !userTimezone.includes('/')) {
+      console.warn(`⚠️ Invalid timezone format: ${userTimezone}, defaulting to America/New_York`);
+      userTimezone = 'America/New_York';
+    }
+
     // Create user with 14-day free trial
     const user = await prisma.user.create({
       data: {
@@ -48,6 +56,7 @@ router.post('/register', async (req, res) => {
         role: 'USER',
         plan: 'FOUNDATION',
         status: 'ACTIVE',
+        timezone: userTimezone, // Store user's timezone
         // Auto-start 14-day free trial
         trialStartDate: trialStartDate,
         trialEndDate: trialEndDate,
@@ -83,7 +92,7 @@ router.post('/register', async (req, res) => {
 // =============================================
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, timezone } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -128,11 +137,35 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'Account has been canceled' });
     }
 
-    // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() }
-    });
+    // Validate and update timezone if provided
+    let userTimezone = user.timezone || 'America/New_York';
+    if (timezone && typeof timezone === 'string' && timezone.includes('/')) {
+      userTimezone = timezone;
+      // Update user's timezone if it changed
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { timezone: userTimezone, lastLogin: new Date() }
+        });
+      } catch (updateError) {
+        // If timezone field doesn't exist yet, just update lastLogin
+        console.warn('⚠️ Could not update timezone (field may not exist):', updateError.message);
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLogin: new Date() }
+          });
+        } catch (e) {
+          console.error('Failed to update lastLogin:', e);
+        }
+      }
+    } else {
+      // Just update last login
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() }
+      });
+    }
 
     // Generate token
     const token = generateToken(user.id, user.name, user.email);

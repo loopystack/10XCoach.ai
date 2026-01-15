@@ -23,6 +23,7 @@ model User {
   industry          String?   @db.VarChar(100)
   phone             String?   @db.VarChar(20) // Cell number for text messages
   address           String?   @db.Text // Full address
+  timezone          String?   @default("America/New_York") @db.VarChar(50) // User's timezone (e.g., "America/New_York", "Europe/London")
   plan              PlanTier  @default(FOUNDATION)
   status            UserStatus @default(ACTIVE)
   emailVerified     Boolean   @default(false) @map("email_verified")

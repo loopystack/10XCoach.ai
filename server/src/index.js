@@ -1212,8 +1212,7 @@ wss.on('connection', (ws, req) => {
                       // Use UTC date for database storage
                       meetingDate = meetingDateUTC;
                       
-                      // Create huddle via Prisma
-                      const prisma = require('./lib/prisma');
+                      // Create huddle via Prisma (prisma already declared above)
                       console.log(`📅 Creating huddle in database...`);
                       console.log(`📅 Data:`, {
                         title: functionArgs.title || '10X Coaching Session',

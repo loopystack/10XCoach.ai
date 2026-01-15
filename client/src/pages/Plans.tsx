@@ -50,13 +50,39 @@ const Plans = () => {
     
     // Check for payment success/cancel in URL
     const params = new URLSearchParams(location.search)
-    if (params.get('payment') === 'success') {
-      alert('Payment successful! Your credit has been added.')
-      fetchBillingStatus() // Refresh status
-    } else if (params.get('payment') === 'cancelled') {
+    const paymentStatus = params.get('payment')
+    const sessionId = params.get('session_id')
+    
+    if (paymentStatus === 'success') {
+      // Verify payment and add credit if webhook hasn't fired yet
+      if (sessionId) {
+        verifyPayment(sessionId)
+      } else {
+        alert('Payment successful! Your credit has been added.')
+        fetchBillingStatus() // Refresh status
+      }
+    } else if (paymentStatus === 'cancelled') {
       alert('Payment was cancelled.')
     }
   }, [location.search])
+
+  const verifyPayment = async (sessionId: string) => {
+    try {
+      const result = await api.get(`/api/billing/verify-payment?session_id=${sessionId}`)
+      if (result.success) {
+        alert(`Payment successful! $${result.amount?.toFixed(2) || 'Credit'} has been added to your account.`)
+        fetchBillingStatus() // Refresh status
+      } else {
+        alert('Payment was successful, but there was an issue adding credit. Please contact support.')
+        fetchBillingStatus() // Still refresh to check if webhook processed it
+      }
+    } catch (error: any) {
+      console.error('Failed to verify payment:', error)
+      // Still refresh status in case webhook processed it
+      fetchBillingStatus()
+      alert('Payment was successful. Please wait a moment and refresh the page to see your updated credit balance.')
+    }
+  }
 
   const fetchBillingStatus = async () => {
     try {
@@ -261,13 +287,13 @@ const Plans = () => {
                 >
                   {checkoutLoading ? (
                     <>
-                      <div className="loading" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>
-                      Processing...
+                      <div className="modern-spinner"></div>
+                      <span>Processing...</span>
                     </>
                   ) : (
                     <>
                       <CreditCard size={16} />
-                      Add Credit
+                      <span>Add Credit</span>
                     </>
                   )}
                 </button>
@@ -281,7 +307,8 @@ const Plans = () => {
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap: '24px',
-          marginBottom: '32px'
+          marginBottom: '32px',
+          alignItems: 'stretch' // Make all cards same height
         }}>
           {plans.map((plan) => {
             const features = plan.featuresJson && typeof plan.featuresJson === 'object' 
@@ -306,7 +333,10 @@ const Plans = () => {
                   background: isActive
                     ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(22, 163, 74, 0.05) 100%)'
                     : 'transparent',
-                  padding: '24px'
+                  padding: '24px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%'
                 }}
               >
                 <div style={{ marginBottom: '20px' }}>
@@ -322,7 +352,7 @@ const Plans = () => {
                   )}
                 </div>
 
-                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0' }}>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0', flexGrow: 1 }}>
                   {Array.isArray(features) ? (
                     features.map((feature: string, idx: number) => (
                       <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', fontSize: '14px' }}>
@@ -342,88 +372,133 @@ const Plans = () => {
                   )}
                 </ul>
 
-                {isActive ? (
-                  <button
-                    disabled
-                    className="primary-button"
-                    style={{ 
-                      width: '100%',
-                      background: '#22c55e',
-                      color: '#ffffff',
-                      cursor: 'not-allowed',
-                      opacity: 0.7,
-                      textAlign: 'center',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    Active Plan
-                  </button>
-                ) : canActivate ? (
-                  <button
-                    onClick={() => handleActivatePlan(plan)}
-                    disabled={activatingPlan === plan.id}
-                    className="primary-button"
-                    style={{ 
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      opacity: activatingPlan === plan.id ? 0.5 : 1,
-                      cursor: activatingPlan === plan.id ? 'not-allowed' : 'pointer',
-                      color: '#ffffff',
-                      textAlign: 'center'
-                    }}
-                  >
-                    {activatingPlan === plan.id ? (
-                      <>
-                        <div className="loading" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>
-                        Activating...
-                      </>
-                    ) : (
-                      <>
-                        Activate Plan
-                        <ArrowRight size={16} />
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <div>
-                    <p style={{ 
-                      fontSize: '14px', 
-                      color: 'var(--gray-600)', 
-                      marginBottom: '12px',
-                      textAlign: 'center',
-                      fontWeight: 600
-                    }}>
-                      Need ${(plan.price - (billingStatus?.creditBalance || 0)).toFixed(2)} more credit
-                    </p>
-                  </div>
-                )}
-                
-                {/* Add Credit First button at bottom of all cards (when not active) */}
-                {!isActive && (
-                  <div style={{ marginTop: '16px' }}>
+                {/* Button Container - All buttons aligned at bottom */}
+                <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+
+                  {isActive ? (
                     <button
-                      onClick={handleCreateCheckout}
+                      disabled
                       className="primary-button"
                       style={{ 
                         width: '100%',
-                        background: '#475569',
+                        background: '#22c55e',
                         color: '#ffffff',
-                        border: 'none',
+                        cursor: 'not-allowed',
+                        opacity: 0.7,
                         textAlign: 'center',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        padding: '12px 20px',
+                        minHeight: '44px'
                       }}
                     >
-                      Add Credit First
+                      Active Plan
                     </button>
-                  </div>
-                )}
+                  ) : canActivate ? (
+                    <>
+                      <button
+                        onClick={() => handleActivatePlan(plan)}
+                        disabled={activatingPlan === plan.id}
+                        className="primary-button"
+                        style={{ 
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          opacity: activatingPlan === plan.id ? 0.7 : 1,
+                          cursor: activatingPlan === plan.id ? 'not-allowed' : 'pointer',
+                          color: '#ffffff',
+                          textAlign: 'center',
+                          padding: '12px 20px',
+                          minHeight: '44px',
+                          marginBottom: '12px'
+                        }}
+                      >
+                        {activatingPlan === plan.id ? (
+                          <>
+                            <div className="modern-spinner"></div>
+                            <span>Activating...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Activate Plan</span>
+                            <ArrowRight size={16} />
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleCreateCheckout}
+                        disabled={checkoutLoading}
+                        className="primary-button"
+                        style={{ 
+                          width: '100%',
+                          background: '#475569',
+                          color: '#ffffff',
+                          border: 'none',
+                          textAlign: 'center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '12px 20px',
+                          minHeight: '44px',
+                          opacity: checkoutLoading ? 0.7 : 1,
+                          cursor: checkoutLoading ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {checkoutLoading ? (
+                          <>
+                            <div className="modern-spinner"></div>
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <span>Add Credit First</span>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ 
+                        fontSize: '14px', 
+                        color: 'var(--gray-600)', 
+                        marginBottom: '12px',
+                        textAlign: 'center',
+                        fontWeight: 600
+                      }}>
+                        Need ${(plan.price - (billingStatus?.creditBalance || 0)).toFixed(2)} more credit
+                      </p>
+                      <button
+                        onClick={handleCreateCheckout}
+                        disabled={checkoutLoading}
+                        className="primary-button"
+                        style={{ 
+                          width: '100%',
+                          background: '#475569',
+                          color: '#ffffff',
+                          border: 'none',
+                          textAlign: 'center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '12px 20px',
+                          minHeight: '44px',
+                          opacity: checkoutLoading ? 0.7 : 1,
+                          cursor: checkoutLoading ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {checkoutLoading ? (
+                          <>
+                            <div className="modern-spinner"></div>
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <span>Add Credit First</span>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             )
           })}

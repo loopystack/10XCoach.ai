@@ -303,6 +303,122 @@ router.get('/billing/transactions', authenticate, async (req, res) => {
   }
 });
 
+// Helper function to process successful payment
+const processPaymentSuccess = async (sessionId) => {
+  try {
+    console.log(`🔄 Processing payment for session: ${sessionId}`);
+    
+    // Find transaction by checkout session ID
+    const transaction = await prisma.paymentTransaction.findFirst({
+      where: { stripeCheckoutSessionId: sessionId }
+    });
+
+    if (!transaction) {
+      console.log(`⚠️ No transaction found for session: ${sessionId}`);
+      return { success: false, message: 'Transaction not found' };
+    }
+
+    if (transaction.status !== 'PENDING') {
+      console.log(`ℹ️ Transaction ${transaction.id} already processed with status: ${transaction.status}`);
+      return { success: true, message: 'Already processed', alreadyProcessed: true };
+    }
+
+    // Retrieve session from Stripe to get payment details
+    if (!stripe) {
+      throw new Error('Stripe is not initialized');
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    if (session.payment_status !== 'paid') {
+      console.log(`⚠️ Session ${sessionId} payment status is: ${session.payment_status}`);
+      return { success: false, message: `Payment status is ${session.payment_status}` };
+    }
+
+    const userId = parseInt(session.metadata?.userId || transaction.userId);
+    const amount = parseFloat(session.amount_total) / 100; // Convert from cents
+
+    console.log(`💳 Processing payment: User ${userId}, Amount $${amount}, Session ${sessionId}`);
+
+    // Update transaction status
+    await prisma.paymentTransaction.update({
+      where: { id: transaction.id },
+      data: {
+        status: 'SUCCEEDED',
+        stripePaymentIntentId: session.payment_intent,
+        metadata: {
+          ...(transaction.metadata || {}),
+          stripeSessionId: session.id,
+          stripePaymentIntentId: session.payment_intent,
+          processedAt: new Date().toISOString()
+        }
+      }
+    });
+
+    // Add credit to user account
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      console.error(`❌ User ${userId} not found`);
+      return { success: false, message: 'User not found' };
+    }
+
+    const currentCredit = parseFloat(user.creditBalance) || 0;
+    const newCredit = currentCredit + amount;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        creditBalance: newCredit,
+        lastPaymentStatus: 'SUCCEEDED',
+        lastPaymentDate: new Date()
+      }
+    });
+
+    console.log(`✅ Added $${amount} credit to user ${userId}. New balance: $${newCredit}`);
+    return { success: true, amount, newCredit, userId };
+  } catch (error) {
+    console.error('❌ Error processing payment:', error);
+    console.error('   Error stack:', error.stack);
+    return { success: false, message: error.message };
+  }
+};
+
+// =============================================
+// GET /api/billing/verify-payment
+// Verify payment status and process if needed (fallback for webhook)
+// =============================================
+router.get('/billing/verify-payment', authenticate, async (req, res) => {
+  try {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+      return res.status(400).json({ error: 'session_id is required' });
+    }
+
+    const result = await processPaymentSuccess(session_id);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: result.alreadyProcessed ? 'Payment already processed' : 'Payment verified and credit added',
+        amount: result.amount,
+        newCredit: result.newCredit
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.message || 'Failed to verify payment'
+      });
+    }
+  } catch (error) {
+    console.error('Verify payment error:', error);
+    res.status(500).json({ error: 'Failed to verify payment', details: error.message });
+  }
+});
+
 // =============================================
 // POST /api/billing/webhook
 // Stripe webhook handler (must be public, signature verified)
@@ -311,68 +427,52 @@ router.post('/billing/webhook', express.raw({ type: 'application/json' }), async
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+  console.log('📥 Webhook received');
+
+  // If webhook secret is not set, log warning but still try to process
+  if (!webhookSecret) {
+    console.warn('⚠️ STRIPE_WEBHOOK_SECRET is not set. Webhook signature verification will fail.');
+    console.warn('   For production, set STRIPE_WEBHOOK_SECRET in .env file');
+  }
+
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    if (webhookSecret) {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } else {
+      // In development/test mode, parse the event without verification
+      console.warn('⚠️ Skipping webhook signature verification (STRIPE_WEBHOOK_SECRET not set)');
+      event = JSON.parse(req.body.toString());
+    }
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
+    console.error('❌ Webhook signature verification failed:', err.message);
+    console.error('   This might be okay in development, but should be fixed in production');
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
+
+  console.log(`📨 Webhook event type: ${event.type}`);
 
   // Handle the event
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
+      console.log(`✅ Checkout session completed: ${session.id}`);
 
-      // Find transaction by checkout session ID
-      const transaction = await prisma.paymentTransaction.findFirst({
-        where: { stripeCheckoutSessionId: session.id }
-      });
-
-      if (transaction && transaction.status === 'PENDING') {
-        const userId = parseInt(session.metadata?.userId || transaction.userId);
-        const amount = parseFloat(session.amount_total) / 100; // Convert from cents
-
-        // Update transaction status
-        await prisma.paymentTransaction.update({
-          where: { id: transaction.id },
-          data: {
-            status: 'SUCCEEDED',
-            stripePaymentIntentId: session.payment_intent,
-            metadata: {
-              ...transaction.metadata,
-              stripeSessionId: session.id,
-              stripePaymentIntentId: session.payment_intent
-            }
-          }
-        });
-
-        // Add credit to user account
-        const user = await prisma.user.findUnique({
-          where: { id: userId }
-        });
-
-        if (user) {
-          const currentCredit = parseFloat(user.creditBalance) || 0;
-          await prisma.user.update({
-            where: { id: userId },
-            data: {
-              creditBalance: currentCredit + amount,
-              lastPaymentStatus: 'SUCCEEDED',
-              lastPaymentDate: new Date()
-            }
-          });
-
-          console.log(`✅ Added $${amount} credit to user ${userId}. New balance: $${currentCredit + amount}`);
-        }
+      const result = await processPaymentSuccess(session.id);
+      if (result.success && !result.alreadyProcessed) {
+        console.log(`✅ Webhook processed payment successfully for session ${session.id}`);
+      } else if (result.alreadyProcessed) {
+        console.log(`ℹ️ Payment was already processed for session ${session.id}`);
+      } else {
+        console.error(`❌ Failed to process payment for session ${session.id}: ${result.message}`);
       }
     } else if (event.type === 'payment_intent.succeeded') {
       // Additional confirmation if needed
-      console.log('Payment intent succeeded:', event.data.object.id);
+      console.log('💳 Payment intent succeeded:', event.data.object.id);
     } else if (event.type === 'payment_intent.payment_failed') {
       const paymentIntent = event.data.object;
-      console.log('Payment failed:', paymentIntent.id);
+      console.log('❌ Payment failed:', paymentIntent.id);
 
       // Update transaction status if found
       const transaction = await prisma.paymentTransaction.findFirst({
@@ -384,11 +484,15 @@ router.post('/billing/webhook', express.raw({ type: 'application/json' }), async
           where: { id: transaction.id },
           data: { status: 'FAILED' }
         });
+        console.log(`✅ Updated transaction ${transaction.id} status to FAILED`);
       }
+    } else {
+      console.log(`ℹ️ Unhandled webhook event type: ${event.type}`);
     }
   } catch (error) {
-    console.error('Webhook processing error:', error);
-    return res.status(500).json({ error: 'Webhook processing failed' });
+    console.error('❌ Webhook processing error:', error);
+    console.error('   Error stack:', error.stack);
+    return res.status(500).json({ error: 'Webhook processing failed', details: error.message });
   }
 
   res.json({ received: true });

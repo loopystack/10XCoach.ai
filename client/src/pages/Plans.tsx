@@ -482,7 +482,7 @@ const Plans = () => {
               gap: '20px',
               marginBottom: '24px'
             }}>
-              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+              <div style={{ padding: '16px', background: 'var(--card-bg, #ffffff)', borderRadius: '12px', border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))' }}>
                 <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
                   Included Hours
                 </p>
@@ -494,7 +494,7 @@ const Plans = () => {
                 </p>
               </div>
 
-              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+              <div style={{ padding: '16px', background: 'var(--card-bg, #ffffff)', borderRadius: '12px', border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))' }}>
                 <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
                   Extra Hours Purchased
                 </p>
@@ -506,7 +506,7 @@ const Plans = () => {
                 </p>
               </div>
 
-              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+              <div style={{ padding: '16px', background: 'var(--card-bg, #ffffff)', borderRadius: '12px', border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))' }}>
                 <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
                   Hours Used
                 </p>
@@ -518,7 +518,7 @@ const Plans = () => {
                 </p>
               </div>
 
-              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+              <div style={{ padding: '16px', background: 'var(--card-bg, #ffffff)', borderRadius: '12px', border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))' }}>
                 <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
                   Remaining Balance
                 </p>
@@ -608,11 +608,11 @@ const Plans = () => {
               <div style={{ 
                 marginTop: '24px', 
                 padding: '20px', 
-                background: 'rgba(249, 250, 251, 0.8)', 
+                background: 'var(--card-bg, rgba(249, 250, 251, 0.8))', 
                 borderRadius: '12px',
-                border: '1px solid rgba(229, 231, 235, 0.8)'
+                border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))'
               }}>
-                <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', fontWeight: 700 }}>Spending Controls & Alerts</h3>
+                <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', fontWeight: 700, color: 'var(--gray-900)' }}>Spending Controls & Alerts</h3>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
@@ -622,7 +622,7 @@ const Plans = () => {
                       onChange={(e) => setSpendingControls({ ...spendingControls, hardStopAtLimit: e.target.checked })}
                       style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                     />
-                    <span style={{ fontSize: '14px', fontWeight: 500 }}>Hard stop at limit (prevent usage when balance reaches 0)</span>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--gray-900)' }}>Hard stop at limit (prevent usage when balance reaches 0)</span>
                   </label>
 
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
@@ -632,12 +632,12 @@ const Plans = () => {
                       onChange={(e) => setSpendingControls({ ...spendingControls, autoPurchaseEnabled: e.target.checked })}
                       style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                     />
-                    <span style={{ fontSize: '14px', fontWeight: 500 }}>Auto-purchase next pack when balance reaches 0</span>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--gray-900)' }}>Auto-purchase next pack when balance reaches 0</span>
                   </label>
 
                   {spendingControls.autoPurchaseEnabled && (
                     <div style={{ marginLeft: '30px' }}>
-                      <label style={{ fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+                      <label style={{ fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block', color: 'var(--gray-900)' }}>
                         Auto-purchase pack size:
                       </label>
                       <select
@@ -645,10 +645,12 @@ const Plans = () => {
                         onChange={(e) => setSpendingControls({ ...spendingControls, autoPurchasePackSize: e.target.value ? parseInt(e.target.value) : null })}
                         style={{
                           padding: '8px 12px',
-                          border: '1px solid rgba(229, 231, 235, 0.8)',
+                          border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))',
                           borderRadius: '8px',
                           fontSize: '14px',
-                          width: '200px'
+                          width: '200px',
+                          background: 'var(--card-bg, #ffffff)',
+                          color: 'var(--gray-900)'
                         }}
                       >
                         <option value="">Select pack size</option>
@@ -730,7 +732,7 @@ const Plans = () => {
             {/* 5 Hours Pack */}
             <div style={{
               padding: '20px',
-              background: 'white',
+              background: 'var(--card-bg, #ffffff)',
               borderRadius: '12px',
               border: '2px solid rgba(139, 92, 246, 0.2)',
               display: 'flex',
@@ -788,7 +790,7 @@ const Plans = () => {
             {/* 10 Hours Pack */}
             <div style={{
               padding: '20px',
-              background: 'white',
+              background: 'var(--card-bg, #ffffff)',
               borderRadius: '12px',
               border: '2px solid rgba(139, 92, 246, 0.3)',
               display: 'flex',
@@ -863,7 +865,7 @@ const Plans = () => {
             {/* 25 Hours Pack */}
             <div style={{
               padding: '20px',
-              background: 'white',
+              background: 'var(--card-bg, #ffffff)',
               borderRadius: '12px',
               border: '2px solid rgba(139, 92, 246, 0.2)',
               display: 'flex',
@@ -923,18 +925,19 @@ const Plans = () => {
           <div style={{ 
             marginTop: '24px', 
             padding: '16px', 
-            background: 'rgba(249, 250, 251, 0.8)', 
+            background: 'var(--card-bg, rgba(249, 250, 251, 0.8))', 
             borderRadius: '8px',
             fontSize: '13px',
-            color: 'var(--gray-600)',
-            lineHeight: '1.6'
+            color: 'var(--gray-700)',
+            lineHeight: '1.6',
+            border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))'
           }}>
-            <p style={{ margin: 0, fontWeight: 600, marginBottom: '8px', color: 'var(--gray-700)' }}>
+            <p style={{ margin: 0, fontWeight: 600, marginBottom: '8px', color: 'var(--gray-900)' }}>
               Contract Language:
             </p>
-            <p style={{ margin: 0 }}>
-              "Additional usage beyond the included monthly hours is billed at $35 per hour, calculated per minute. 
-              Clients may pre-purchase additional hours at the same rate. Unused prepaid hours expire after 9 months."
+            <p style={{ margin: 0, color: 'var(--gray-700)' }}>
+              "Additional usage beyond the included monthly hours is billed at $35 per hour ($0.5833 per minute), calculated per minute. 
+              Clients may pre-purchase additional hours at the same rate. Unused prepaid hours roll over and remain available for up to 9 months from the purchase date, then expire."
             </p>
           </div>
         </div>
@@ -1263,9 +1266,9 @@ const Plans = () => {
               }
             ].map((faq) => (
               <div key={faq.id} style={{
-                background: 'white',
+                background: 'var(--card-bg, #ffffff)',
                 borderRadius: '12px',
-                border: '1px solid rgba(229, 231, 235, 0.8)',
+                border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))',
                 overflow: 'hidden'
               }}>
                 <button
@@ -1286,11 +1289,15 @@ const Plans = () => {
                   }}
                 >
                   <span>{faq.question}</span>
-                  {expandedFaq === faq.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  {expandedFaq === faq.id ? <ChevronUp size={20} style={{ color: 'var(--gray-900)' }} /> : <ChevronDown size={20} style={{ color: 'var(--gray-900)' }} />}
                 </button>
                 {expandedFaq === faq.id && (
                   <div style={{ padding: '0 20px 20px 20px', fontSize: '14px', color: 'var(--gray-700)', lineHeight: '1.6' }}>
-                    {typeof faq.answer === 'string' ? <p style={{ margin: 0 }}>{faq.answer}</p> : faq.answer}
+                    {typeof faq.answer === 'string' ? <p style={{ margin: 0, color: 'var(--gray-700)' }}>{faq.answer}</p> : (
+                      <div style={{ color: 'var(--gray-700)' }}>
+                        {faq.answer}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

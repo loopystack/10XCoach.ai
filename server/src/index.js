@@ -751,9 +751,9 @@ wss.on('connection', (ws, req) => {
             },
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.7,
+              threshold: 0.5, // Lower threshold to be less sensitive to background noise
               prefix_padding_ms: 300,
-              silence_duration_ms: 2000, // Increased to 2 seconds to prevent premature turn detection
+              silence_duration_ms: 3000, // Increased to 3 seconds to prevent premature turn detection
               create_response: true // Auto-create responses when user finishes speaking
             },
             tools: [
@@ -941,6 +941,11 @@ wss.on('connection', (ws, req) => {
                 }
               } else if (message.type === 'response.cancelled') {
                 console.log(`⚠️ Response cancelled: ${message.response_id || 'unknown'}`);
+                // Notify client about cancellation so it can handle audio queue
+                safeSend({
+                  type: 'response_cancelled',
+                  responseId: message.response_id
+                });
                 if (activeResponseId === message.response_id) {
                   activeResponseId = null;
                 }
@@ -1230,7 +1235,8 @@ wss.on('connection', (ws, req) => {
                           type: 'response.cancel',
                           response_id: activeResponseId
                         }));
-                        activeResponseId = null;
+                        // Don't clear activeResponseId immediately - let cancellation message handle it
+                        // This ensures proper cleanup and client notification
                       } catch (cancelError) {
                         console.error('Error cancelling response:', cancelError);
                       }
@@ -1429,7 +1435,14 @@ wss.on('connection', (ws, req) => {
                   // Keep processedResponses for the session to avoid duplicates
                 }
                 
-                activeResponseId = null;
+                // Don't clear activeResponseId immediately - let audio finish playing
+                // Only clear it after a delay to ensure all audio chunks are processed
+                setTimeout(() => {
+                  if (activeResponseId === responseId) {
+                    activeResponseId = null;
+                  }
+                }, 1000); // Wait 1 second before clearing to allow audio to finish
+                
                 safeSend({
                   type: 'response_done',
                   response: message.response

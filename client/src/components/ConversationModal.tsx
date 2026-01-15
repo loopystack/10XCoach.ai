@@ -202,35 +202,46 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       return
     }
     
-    // Handle response ID changes - only clear queue if we have a valid new response ID
-    // and it's actually different from the current one
+    // Handle response ID changes - be more lenient to avoid cutting off audio
     if (responseId) {
       if (currentResponseIdRef.current && responseId !== currentResponseIdRef.current) {
-        // New response started - clear old audio but don't stop playback immediately
-        // Let the current audio finish playing naturally
+        // New response started - but DON'T clear queue if audio is playing
+        // This prevents cutting off mid-sentence
         console.log(`🔄 Response ID changed: ${currentResponseIdRef.current} -> ${responseId}`)
-        // Only clear if we're not currently playing (to avoid cutting off mid-sentence)
-        if (!isPlayingAudioRef.current) {
-          clearAudioQueue()
+        
+        // Only clear queue if we're NOT currently playing audio AND queue is empty
+        if (!isPlayingAudioRef.current && audioQueueRef.current.length === 0) {
+          console.log(`   Clearing audio queue for new response (no audio playing)`)
+          currentResponseIdRef.current = responseId
+          shouldStopAudioRef.current = false
+        } else {
+          // Audio is playing or queued - update response ID but keep playing
+          console.log(`   Audio is playing/queued - updating response ID but continuing playback`)
+          currentResponseIdRef.current = responseId
+          shouldStopAudioRef.current = false
         }
-        currentResponseIdRef.current = responseId
-        shouldStopAudioRef.current = false // Reset stop flag for new response
       } else if (!currentResponseIdRef.current) {
         // First response ID for this conversation
         currentResponseIdRef.current = responseId
+        shouldStopAudioRef.current = false
       }
     }
     
-    // Only queue audio if it matches the current response ID (or if no response ID is set)
-    if (!responseId || responseId === currentResponseIdRef.current) {
+    // Queue audio more leniently - always queue if we're not stopping
+    // This ensures audio continues playing even if response IDs change
+    if (!shouldStopAudioRef.current) {
       audioQueueRef.current.push(audioData)
       
-      if (!isPlayingAudioRef.current && !shouldStopAudioRef.current) {
+      // Update response ID if it's new and we're not playing
+      if (responseId && !currentResponseIdRef.current) {
+        currentResponseIdRef.current = responseId
+      }
+      
+      if (!isPlayingAudioRef.current) {
         playAudioQueue()
       }
     } else {
-      // Response ID mismatch - ignore this audio chunk
-      console.warn(`⚠️ Ignoring audio chunk - response ID mismatch: expected ${currentResponseIdRef.current}, got ${responseId}`)
+      console.log(`⚠️ Not queueing audio - shouldStopAudioRef is true`)
     }
   }
 
@@ -798,10 +809,23 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
             setStatus(`Connected with ${data.coachName}`)
             setStatusType('success')
           } else if (data.type === 'response_cancelled') {
-            if (!data.responseId || data.responseId === currentResponseIdRef.current) {
+            console.log(`⚠️ Response cancelled: ${data.responseId || 'unknown'}, current: ${currentResponseIdRef.current}`)
+            // Only clear if this is the current response being cancelled
+            if (data.responseId && data.responseId === currentResponseIdRef.current) {
+              console.log(`🛑 Clearing audio queue for cancelled response: ${data.responseId}`)
+              clearAudioQueue()
+              currentResponseIdRef.current = null
+            } else if (!data.responseId) {
+              // If no response ID specified, clear everything (shouldn't happen normally)
+              console.warn(`⚠️ Response cancelled without response ID - clearing all audio`)
               clearAudioQueue()
               currentResponseIdRef.current = null
             }
+          } else if (data.type === 'response_done') {
+            // Response is done - don't clear audio queue, let it finish playing
+            console.log(`✅ Response done: ${data.response?.id || 'unknown'}`)
+            // Don't clear the audio queue here - let it finish playing naturally
+            // The response ID will be cleared when a new response starts
           } else if (data.type === 'error') {
             console.error('❌ Server error:', data.message)
             setStatus(`Error: ${data.message}`)

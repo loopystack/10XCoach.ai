@@ -3,6 +3,17 @@
    Full Width Immersive Design with Animations
    ============================================ */
 
+/* Card background variables for dark mode support */
+:root {
+  --card-bg: #ffffff;
+  --border-color: rgba(229, 231, 235, 0.8);
+}
+
+[data-theme="dark"] {
+  --card-bg: #1e293b;
+  --border-color: rgba(75, 85, 99, 0.8);
+}
+
 .page-container {
   padding: 40px 48px;
   width: 100%;

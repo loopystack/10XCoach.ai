@@ -1521,14 +1521,54 @@ const Dashboard = () => {
           const sessionTarget = Math.max(sessionCount, 1)
           const normalizedNotes = Math.min((notesCount / sessionTarget) * 100, 100)
 
-          // Calculate overall grade
-          const overallGrade = Math.round(
-            (avgQuizScore * 0.25) +
-            (huddleCompliance * 0.25) +
-            (normalizedSessions * 0.20) +
-            (todoCompletion * 0.20) +
-            (normalizedNotes * 0.10)
-          )
+          // Load revenue data for 6th category
+          const loadRevenueData = (key: string) => {
+            const saved = localStorage.getItem(key)
+            if (saved) {
+              try {
+                return JSON.parse(saved)
+              } catch {
+                return { annual: 0, quarterly: 0, monthly: 0, weekly: 0, daily: 0 }
+              }
+            }
+            return { annual: 0, quarterly: 0, monthly: 0, weekly: 0, daily: 0 }
+          }
+          const revenueTargets = loadRevenueData('revenue_targets')
+          const actualSales = loadRevenueData('actual_sales')
+          const annualRevenueTarget = revenueTargets.annual || 0
+          
+          // Calculate revenue achievement if revenue target exists
+          let revenueAchievement = 0
+          let hasRevenue = false
+          if (annualRevenueTarget > 0) {
+            hasRevenue = true
+            const monthlyTarget = revenueTargets.monthly || (annualRevenueTarget / 12)
+            const monthlyActual = actualSales.monthly || 0
+            revenueAchievement = monthlyTarget > 0 ? Math.min(Math.round((monthlyActual / monthlyTarget) * 100), 100) : 0
+          }
+          
+          // Calculate overall grade - adjust weights if revenue exists
+          let overallGrade
+          if (hasRevenue) {
+            // 6 categories: Quiz (20%), Huddles (20%), Sessions (15%), Todos (15%), Notes (10%), Revenue (20%)
+            overallGrade = Math.round(
+              (avgQuizScore * 0.20) +
+              (huddleCompliance * 0.20) +
+              (normalizedSessions * 0.15) +
+              (todoCompletion * 0.15) +
+              (normalizedNotes * 0.10) +
+              (revenueAchievement * 0.20)
+            )
+          } else {
+            // 5 categories: Quiz (25%), Huddles (25%), Sessions (20%), Todos (20%), Notes (10%)
+            overallGrade = Math.round(
+              (avgQuizScore * 0.25) +
+              (huddleCompliance * 0.25) +
+              (normalizedSessions * 0.20) +
+              (todoCompletion * 0.20) +
+              (normalizedNotes * 0.10)
+            )
+          }
 
           return (
             <div className="scorecard-grade-display">
@@ -1565,6 +1605,39 @@ const Dashboard = () => {
                   <span className="metric-value">{notesCount}</span>
                   <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: ≥ 1 per session</span>
                 </div>
+                {(() => {
+                  // Load revenue target from localStorage (same as Scorecard page)
+                  const loadRevenueData = (key: string) => {
+                    const saved = localStorage.getItem(key)
+                    if (saved) {
+                      try {
+                        return JSON.parse(saved)
+                      } catch {
+                        return { annual: 0, quarterly: 0, monthly: 0, weekly: 0, daily: 0 }
+                      }
+                    }
+                    return { annual: 0, quarterly: 0, monthly: 0, weekly: 0, daily: 0 }
+                  }
+                  const revenueTargets = loadRevenueData('revenue_targets')
+                  const actualSales = loadRevenueData('actual_sales')
+                  const annualRevenueTarget = revenueTargets.annual || 0
+                  
+                  if (annualRevenueTarget > 0) {
+                    // Calculate revenue achievement rate for current month
+                    const monthlyTarget = revenueTargets.monthly || (annualRevenueTarget / 12)
+                    const monthlyActual = actualSales.monthly || 0
+                    const revenueAchievement = monthlyTarget > 0 ? Math.round((monthlyActual / monthlyTarget) * 100) : 0
+                    
+                    return (
+                      <div className="scorecard-grade-metric">
+                        <span className="metric-label">6. Financial: Revenue Target</span>
+                        <span className="metric-value">{revenueAchievement}%</span>
+                        <span style={{ fontSize: '10px', color: 'var(--gray-500)' }}>Target: ≥ 100% Achievement</span>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             </div>
           )

@@ -752,8 +752,8 @@ wss.on('connection', (ws, req) => {
             turn_detection: {
               type: 'server_vad',
               threshold: 0.6, // Balanced threshold - not too sensitive, not too insensitive
-              prefix_padding_ms: 300,
-              silence_duration_ms: 1500, // Reduced to 1.5 seconds for faster response time while still preventing premature detection
+              prefix_padding_ms: 200, // Reduced from 300ms to 200ms for faster response
+              silence_duration_ms: 800, // Reduced to 800ms (0.8 seconds) for much faster response time
               create_response: true // Auto-create responses when user finishes speaking
             },
             tools: [
@@ -1055,34 +1055,78 @@ wss.on('connection', (ws, req) => {
                         throw new Error('Coach ID not available. Please try again.');
                       }
                       
-                      // Parse meeting date - handle relative dates like "Friday"
+                      // Parse meeting date - handle relative dates like "tomorrow", "Friday", etc.
                       let meetingDate;
-                      const dateInput = functionArgs.meeting_date || functionArgs.date || functionArgs.meetingDate;
+                      const dateInput = functionArgs.meeting_date || 
+                                      functionArgs.date || 
+                                      functionArgs.meetingDate ||
+                                      functionArgs.meeting_time ||
+                                      functionArgs.time;
+                      
+                      console.log(`📅 Received function args:`, JSON.stringify(functionArgs, null, 2));
+                      console.log(`📅 Extracted date input: "${dateInput}"`);
                       
                       if (!dateInput) {
-                        throw new Error('Meeting date is required');
-                      }
-                      
-                      console.log(`📅 Parsing date input: "${dateInput}"`);
-                      
-                      // Try to parse as ISO date first
-                      meetingDate = new Date(dateInput);
-                      
-                      // If that fails, try to parse relative dates
-                      if (isNaN(meetingDate.getTime())) {
-                        console.log(`📅 Date parsing failed, trying relative date parsing...`);
-                        meetingDate = parseRelativeDate(dateInput);
-                      }
-                      
-                      if (isNaN(meetingDate.getTime())) {
-                        console.error(`❌ Invalid date format: "${dateInput}"`);
-                        throw new Error(`Invalid meeting date format: "${dateInput}". Please provide a date in ISO format (e.g., "2024-01-15T14:00:00") or a relative date like "Friday", "next Monday", etc.`);
+                        // Try to construct date from separate fields if available
+                        const year = functionArgs.year || new Date().getFullYear();
+                        const month = functionArgs.month || (new Date().getMonth() + 1);
+                        const day = functionArgs.day || new Date().getDate();
+                        const hour = functionArgs.hour || 14;
+                        const minute = functionArgs.minute || 0;
+                        
+                        if (year && month && day) {
+                          meetingDate = new Date(year, month - 1, day, hour, minute);
+                          console.log(`📅 Constructed date from separate fields: ${meetingDate.toISOString()}`);
+                        } else {
+                          throw new Error('Meeting date is required. Please provide a date like "tomorrow 8 AM", "Friday 2 PM", or a specific date.');
+                        }
+                      } else {
+                        // Try to parse as ISO date first
+                        meetingDate = new Date(dateInput);
+                        
+                        // If that fails, try to parse relative dates
+                        if (isNaN(meetingDate.getTime())) {
+                          console.log(`📅 Date parsing failed, trying relative date parsing...`);
+                          try {
+                            meetingDate = parseRelativeDate(dateInput);
+                          } catch (parseError) {
+                            console.error(`❌ Relative date parsing failed:`, parseError);
+                            // Try common patterns like "tomorrow", "next week", etc.
+                            const lowerInput = dateInput.toLowerCase().trim();
+                            const today = new Date();
+                            
+                            if (lowerInput.includes('tomorrow')) {
+                              meetingDate = new Date(today);
+                              meetingDate.setDate(meetingDate.getDate() + 1);
+                              // Extract time if present
+                              const timeMatch = dateInput.match(/(\d{1,2})\s*(am|pm)/i);
+                              if (timeMatch) {
+                                let hours = parseInt(timeMatch[1]);
+                                if (timeMatch[2].toLowerCase() === 'pm' && hours !== 12) hours += 12;
+                                if (timeMatch[2].toLowerCase() === 'am' && hours === 12) hours = 0;
+                                meetingDate.setHours(hours, 0, 0, 0);
+                              } else {
+                                meetingDate.setHours(14, 0, 0, 0); // Default to 2 PM
+                              }
+                            } else {
+                              throw new Error(`Could not parse date: "${dateInput}". Please try formats like "tomorrow 8 AM", "Friday 2 PM", or "2024-01-15T14:00:00".`);
+                            }
+                          }
+                        }
+                        
+                        if (isNaN(meetingDate.getTime())) {
+                          console.error(`❌ Invalid date format: "${dateInput}"`);
+                          throw new Error(`Invalid meeting date format: "${dateInput}". Please provide a date in ISO format (e.g., "2024-01-15T14:00:00") or a relative date like "tomorrow 8 AM", "Friday 2 PM", etc.`);
+                        }
                       }
                       
                       console.log(`📅 Parsed meeting date: ${meetingDate.toISOString()}`);
                       
-                      if (meetingDate < new Date()) {
-                        throw new Error('Meeting date must be in the future');
+                      // Check if date is in the past (with 5 minute buffer for clock differences)
+                      const now = new Date();
+                      now.setMinutes(now.getMinutes() - 5); // 5 minute buffer
+                      if (meetingDate < now) {
+                        throw new Error(`Meeting date must be in the future. You provided: ${meetingDate.toLocaleString()}, but current time is: ${new Date().toLocaleString()}`);
                       }
                       
                       // Create huddle via Prisma
@@ -1225,25 +1269,26 @@ wss.on('connection', (ws, req) => {
                   }
                   
                   // Submit tool output to OpenAI using conversation.item.create
-                  const toolCallId = functionCall.id || functionCall.tool_call_id || functionCall.function?.id;
+                  // Extract the correct call_id - OpenAI Realtime API uses different formats
+                  // The call_id should be the function_call's id, not the item's id
+                  const toolCallId = functionCall.call_id || 
+                                    functionCall.id || 
+                                    functionCall.tool_call_id || 
+                                    functionCall.function?.id ||
+                                    (functionCall.type === 'function_call' ? functionCall.id : null);
+                  
+                  console.log(`🔧 Extracted tool call ID: ${toolCallId}`);
+                  console.log(`🔧 Function call structure:`, JSON.stringify({
+                    id: functionCall.id,
+                    call_id: functionCall.call_id,
+                    tool_call_id: functionCall.tool_call_id,
+                    type: functionCall.type,
+                    name: functionName
+                  }, null, 2));
+                  
                   if (openaiWs && openaiWs.readyState === WebSocket.OPEN && toolCallId) {
-                    // Cancel any active response first to avoid conflicts
-                    if (activeResponseId) {
-                      console.log(`⚠️ Cancelling active response ${activeResponseId} before submitting tool output`);
-                      try {
-                        openaiWs.send(JSON.stringify({
-                          type: 'response.cancel',
-                          response_id: activeResponseId
-                        }));
-                        // Don't clear activeResponseId immediately - let cancellation message handle it
-                        // This ensures proper cleanup and client notification
-                      } catch (cancelError) {
-                        console.error('Error cancelling response:', cancelError);
-                      }
-                    }
-                    
-                    // Wait a bit for cancellation to process
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // Don't cancel the response - let it continue naturally
+                    // The tool output will be added to the conversation and the model will continue
                     
                     // Create a conversation item with function_call_output (correct type)
                     // Note: OpenAI Realtime API requires 'call_id' not 'tool_call_id'
@@ -1251,28 +1296,25 @@ wss.on('connection', (ws, req) => {
                       type: 'conversation.item.create',
                       item: {
                         type: 'function_call_output',
-                        call_id: toolCallId,  // Changed from tool_call_id to call_id
+                        call_id: toolCallId,
                         output: JSON.stringify(functionError ? { error: functionError } : functionResult)
                       }
                     };
                     console.log(`📤 Submitting tool output:`, JSON.stringify(toolOutputItem, null, 2));
-                    openaiWs.send(JSON.stringify(toolOutputItem));
-                    console.log(`✅ Tool output submitted for ${functionName}`);
                     
-                    // After submitting tool output, wait a bit then create a new response to continue the conversation
-                    setTimeout(() => {
-                      if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
-                        // Make sure no response is active before creating a new one
-                        if (!activeResponseId) {
-                          openaiWs.send(JSON.stringify({
-                            type: 'response.create'
-                          }));
-                          console.log(`✅ Response.create sent after tool output`);
-                        } else {
-                          console.log(`⚠️ Skipping response.create - response ${activeResponseId} is still active`);
-                        }
-                      }
-                    }, 300);
+                    try {
+                      openaiWs.send(JSON.stringify(toolOutputItem));
+                      console.log(`✅ Tool output submitted for ${functionName} with call_id: ${toolCallId}`);
+                    } catch (sendError) {
+                      console.error(`❌ Error sending tool output:`, sendError);
+                      safeSend({
+                        type: 'error',
+                        message: `Failed to submit tool output: ${sendError.message}`
+                      });
+                    }
+                    
+                    // Don't create a new response - the model will continue automatically after receiving the tool output
+                    // The conversation will continue naturally without needing to explicitly create a response
                   } else {
                     console.error(`❌ Cannot submit tool output:`, {
                       hasOpenaiWs: !!openaiWs,

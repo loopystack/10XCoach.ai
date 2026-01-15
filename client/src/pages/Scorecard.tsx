@@ -588,7 +588,7 @@ const Scorecard = () => {
         </div>
 
         {/* Metric Categories Section */}
-        <div style={{ marginBottom: '24px', padding: '20px', background: 'var(--gray-100)', borderRadius: '12px', border: '1px solid var(--gray-200)' }}>
+          <div style={{ marginBottom: '24px', padding: '20px', background: 'var(--card-bg, var(--gray-100))', borderRadius: '12px', border: '1px solid var(--border-color, var(--gray-200))' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: 'var(--gray-900)' }}>
             📊 Scorecard Organization
           </h3>
@@ -904,15 +904,15 @@ const Scorecard = () => {
         </div>
 
         {/* Revenue Tracking Table */}
-        <div style={{ marginTop: '40px', padding: '24px', background: 'var(--gray-100)', borderRadius: '12px', border: '1px solid var(--gray-200)' }}>
+        <div style={{ marginTop: '40px', padding: '24px', background: 'var(--card-bg, var(--gray-100))', borderRadius: '12px', border: '1px solid var(--border-color, var(--gray-200))' }}>
           <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px', color: 'var(--gray-900)' }}>
             6. Financial: Revenue Target & Actual Sales
           </h3>
-          <p style={{ fontSize: '14px', color: 'var(--gray-600)', marginBottom: '20px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--gray-700)', marginBottom: '20px' }}>
             Set your revenue targets and track actual sales for each time period. Click on any value to edit.
           </p>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card-bg, #ffffff)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))' }}>
               <thead>
                 <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                   <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, fontSize: '14px', border: 'none' }}>Period</th>
@@ -925,7 +925,7 @@ const Scorecard = () => {
               </thead>
               <tbody>
                 {/* Annual Revenue Target Row */}
-                <tr style={{ borderBottom: '1px solid var(--gray-200)' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-color, var(--gray-200))' }}>
                   <td style={{ padding: '14px', fontWeight: 600, color: 'var(--gray-900)', fontSize: '14px' }}>
                     Annual Revenue Target:
                   </td>
@@ -948,7 +948,9 @@ const Scorecard = () => {
                               border: '2px solid #667eea',
                               borderRadius: '6px',
                               fontSize: '14px',
-                              textAlign: 'right'
+                              textAlign: 'right',
+                              background: 'var(--card-bg, #ffffff)',
+                              color: 'var(--gray-900)'
                             }}
                           />
                           <button
@@ -989,22 +991,25 @@ const Scorecard = () => {
                             cursor: 'pointer',
                             padding: '6px 12px',
                             borderRadius: '6px',
-                            background: 'var(--gray-50)',
+                            background: 'var(--card-bg, var(--gray-50))',
                             color: 'var(--gray-900)',
                             fontWeight: 600,
                             fontSize: '14px',
                             transition: 'all 0.2s',
                             display: 'inline-block',
                             minWidth: '80px',
-                            textAlign: 'right'
+                            textAlign: 'right',
+                            border: '1px solid var(--border-color, rgba(229, 231, 235, 0.5))'
                           }}
                           onMouseOver={(e) => {
                             e.currentTarget.style.background = 'var(--gray-200)'
                             e.currentTarget.style.transform = 'scale(1.05)'
+                            e.currentTarget.style.borderColor = 'var(--border-color, rgba(139, 92, 246, 0.3))'
                           }}
                           onMouseOut={(e) => {
-                            e.currentTarget.style.background = 'var(--gray-50)'
+                            e.currentTarget.style.background = 'var(--card-bg, var(--gray-50))'
                             e.currentTarget.style.transform = 'scale(1)'
+                            e.currentTarget.style.borderColor = 'var(--border-color, rgba(229, 231, 235, 0.5))'
                           }}
                         >
                           {revenueTargets[period] > 0 ? formatCurrency(revenueTargets[period]) : 'Click to set'}
@@ -1014,7 +1019,7 @@ const Scorecard = () => {
                   ))}
                 </tr>
                 {/* Actual Sales Row */}
-                <tr>
+                <tr style={{ borderBottom: '1px solid var(--border-color, var(--gray-200))' }}>
                   <td style={{ padding: '14px', fontWeight: 600, color: 'var(--gray-900)', fontSize: '14px' }}>
                     Actual Sales:
                   </td>
@@ -1037,7 +1042,9 @@ const Scorecard = () => {
                               border: '2px solid #667eea',
                               borderRadius: '6px',
                               fontSize: '14px',
-                              textAlign: 'right'
+                              textAlign: 'right',
+                              background: 'var(--card-bg, #ffffff)',
+                              color: 'var(--gray-900)'
                             }}
                           />
                           <button
@@ -1078,22 +1085,25 @@ const Scorecard = () => {
                             cursor: 'pointer',
                             padding: '6px 12px',
                             borderRadius: '6px',
-                            background: 'var(--gray-50)',
+                            background: 'var(--card-bg, var(--gray-50))',
                             color: 'var(--gray-900)',
                             fontWeight: 600,
                             fontSize: '14px',
                             transition: 'all 0.2s',
                             display: 'inline-block',
                             minWidth: '80px',
-                            textAlign: 'right'
+                            textAlign: 'right',
+                            border: '1px solid var(--border-color, rgba(229, 231, 235, 0.5))'
                           }}
                           onMouseOver={(e) => {
                             e.currentTarget.style.background = 'var(--gray-200)'
                             e.currentTarget.style.transform = 'scale(1.05)'
+                            e.currentTarget.style.borderColor = 'var(--border-color, rgba(139, 92, 246, 0.3))'
                           }}
                           onMouseOut={(e) => {
-                            e.currentTarget.style.background = 'var(--gray-50)'
+                            e.currentTarget.style.background = 'var(--card-bg, var(--gray-50))'
                             e.currentTarget.style.transform = 'scale(1)'
+                            e.currentTarget.style.borderColor = 'var(--border-color, rgba(229, 231, 235, 0.5))'
                           }}
                         >
                           {actualSales[period] > 0 ? formatCurrency(actualSales[period]) : 'Click to set'}
@@ -1104,7 +1114,7 @@ const Scorecard = () => {
                 </tr>
                 {/* Achievement Rate Row */}
                 {(revenueTargets.annual > 0 || revenueTargets.quarterly > 0 || revenueTargets.monthly > 0 || revenueTargets.weekly > 0 || revenueTargets.daily > 0) && (
-                  <tr style={{ borderTop: '2px solid var(--gray-300)', background: 'var(--gray-50)' }}>
+                  <tr style={{ borderTop: '2px solid var(--border-color, var(--gray-300))', background: 'var(--card-bg, var(--gray-50))' }}>
                     <td style={{ padding: '14px', fontWeight: 600, color: 'var(--gray-900)', fontSize: '14px' }}>
                       Achievement Rate:
                     </td>

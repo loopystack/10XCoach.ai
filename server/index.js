@@ -1183,10 +1183,10 @@ app.post('/api/huddles', async (req, res) => {
     
     // Insert into database - huddle_date is DATE type, status is VARCHAR
     const result = await db.query(
-      `INSERT INTO huddles (title, huddle_date, coach_id, user_id, has_short_agenda, has_notetaker, has_action_steps, status) 
-       VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8) 
+      `INSERT INTO huddles (title, huddle_date, coach_id, user_id, has_short_agenda, has_notetaker, has_action_steps, compliance_line_item_1, compliance_line_item_2, compliance_line_item_3, compliance_line_item_4, status) 
+       VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
        RETURNING *`,
-      [title, huddleDate, coach_id, user_id, has_short_agenda || false, has_notetaker || false, has_action_steps || false, statusValue]
+      [title, huddleDate, coach_id, user_id, has_short_agenda || false, has_notetaker || false, has_action_steps || false, compliance_line_item_1 || null, compliance_line_item_2 || null, compliance_line_item_3 || null, compliance_line_item_4 || null, statusValue]
     );
     
     const huddle = result.rows[0];
@@ -1233,7 +1233,7 @@ app.post('/api/huddles', async (req, res) => {
 app.put('/api/huddles/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, huddle_date, coach_id, user_id, has_short_agenda, has_notetaker, has_action_steps, status } = req.body;
+    const { title, huddle_date, coach_id, user_id, has_short_agenda, has_notetaker, has_action_steps, compliance_line_item_1, compliance_line_item_2, compliance_line_item_3, compliance_line_item_4, status } = req.body;
     
     // Validate required fields
     if (!title || !title.trim()) {
@@ -1266,11 +1266,12 @@ app.put('/api/huddles/:id', async (req, res) => {
     const result = await db.query(
       `UPDATE huddles 
        SET title = $1, huddle_date = $2::date, coach_id = $3, user_id = $4, 
-           has_short_agenda = $5, has_notetaker = $6, has_action_steps = $7, status = $8,
-           updated_at = NOW()
-       WHERE id = $9 
+           has_short_agenda = $5, has_notetaker = $6, has_action_steps = $7, 
+           compliance_line_item_1 = $8, compliance_line_item_2 = $9, compliance_line_item_3 = $10, compliance_line_item_4 = $11, 
+           status = $12, updated_at = NOW()
+       WHERE id = $13 
        RETURNING *`,
-      [title, huddleDate, coach_id, user_id, has_short_agenda || false, has_notetaker || false, has_action_steps || false, statusValue, id]
+      [title, huddleDate, coach_id, user_id, has_short_agenda || false, has_notetaker || false, has_action_steps || false, compliance_line_item_1 || null, compliance_line_item_2 || null, compliance_line_item_3 || null, compliance_line_item_4 || null, statusValue, id]
     );
     
     if (result.rows.length === 0) {

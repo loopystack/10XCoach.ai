@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Mail, 
   Lock, 
@@ -21,6 +21,7 @@ import './Auth.css'
 
 const Login = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -28,6 +29,15 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  
+  // Check if redirected due to expired session
+  useEffect(() => {
+    if (searchParams.get('expired') === 'true') {
+      setError('Your session has expired. Please log in again.')
+      // Remove the query parameter from URL
+      navigate('/login', { replace: true })
+    }
+  }, [searchParams, navigate])
 
   useEffect(() => {
     const saved = localStorage.getItem('theme') as 'dark' | 'light'

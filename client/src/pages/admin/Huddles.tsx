@@ -20,6 +20,14 @@ interface Huddle {
   hasNotetaker?: boolean
   has_action_steps?: boolean
   hasActionSteps?: boolean
+  complianceLineItem1?: string
+  compliance_line_item_1?: string
+  complianceLineItem2?: string
+  compliance_line_item_2?: string
+  complianceLineItem3?: string
+  compliance_line_item_3?: string
+  complianceLineItem4?: string
+  compliance_line_item_4?: string
   status: string
   coach_name?: string
   user_name?: string
@@ -52,6 +60,10 @@ const Huddles = () => {
     has_short_agenda: false,
     has_notetaker: false,
     has_action_steps: false,
+    compliance_line_item_1: '',
+    compliance_line_item_2: '',
+    compliance_line_item_3: '',
+    compliance_line_item_4: '',
     status: 'scheduled'
   })
   const [stats, setStats] = useState<any>(null)
@@ -168,6 +180,10 @@ const Huddles = () => {
       has_short_agenda: false,
       has_notetaker: false,
       has_action_steps: false,
+      compliance_line_item_1: '',
+      compliance_line_item_2: '',
+      compliance_line_item_3: '',
+      compliance_line_item_4: '',
       status: 'scheduled'
     })
     setEditingId(null)
@@ -594,6 +610,56 @@ const Huddles = () => {
                     />
                     <span>Action Steps with Follow-through</span>
                   </label>
+                </div>
+                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>
+                      Line Item 1
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.compliance_line_item_1}
+                      onChange={(e) => setFormData({ ...formData, compliance_line_item_1: e.target.value })}
+                      placeholder="Enter line item 1"
+                      className="admin-form-input"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>
+                      Line Item 2
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.compliance_line_item_2}
+                      onChange={(e) => setFormData({ ...formData, compliance_line_item_2: e.target.value })}
+                      placeholder="Enter line item 2"
+                      className="admin-form-input"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>
+                      Line Item 3
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.compliance_line_item_3}
+                      onChange={(e) => setFormData({ ...formData, compliance_line_item_3: e.target.value })}
+                      placeholder="Enter line item 3"
+                      className="admin-form-input"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '14px' }}>
+                      Line Item 4
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.compliance_line_item_4}
+                      onChange={(e) => setFormData({ ...formData, compliance_line_item_4: e.target.value })}
+                      placeholder="Enter line item 4"
+                      className="admin-form-input"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

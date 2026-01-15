@@ -347,18 +347,22 @@ model Quiz {
 // HUDDLE MODEL
 // =============================================
 model Huddle {
-  id             Int          @id @default(autoincrement())
-  title          String       @db.VarChar(255)
-  huddleDate     DateTime     @default(now()) @map("huddle_date")
-  coachId        Int          @map("coach_id")
-  userId         Int          @map("user_id")
-  hasShortAgenda Boolean      @default(false) @map("has_short_agenda")
-  hasNotetaker   Boolean      @default(false) @map("has_notetaker")
-  hasActionSteps Boolean      @default(false) @map("has_action_steps")
-  status         HuddleStatus @default(SCHEDULED)
-  notes          String?      @db.Text
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                  Int          @id @default(autoincrement())
+  title               String       @db.VarChar(255)
+  huddleDate          DateTime     @default(now()) @map("huddle_date")
+  coachId             Int          @map("coach_id")
+  userId              Int          @map("user_id")
+  hasShortAgenda      Boolean      @default(false) @map("has_short_agenda")
+  hasNotetaker        Boolean      @default(false) @map("has_notetaker")
+  hasActionSteps      Boolean      @default(false) @map("has_action_steps")
+  complianceLineItem1 String?      @db.VarChar(500) @map("compliance_line_item_1")
+  complianceLineItem2 String?      @db.VarChar(500) @map("compliance_line_item_2")
+  complianceLineItem3 String?      @db.VarChar(500) @map("compliance_line_item_3")
+  complianceLineItem4 String?      @db.VarChar(500) @map("compliance_line_item_4")
+  status              HuddleStatus @default(SCHEDULED)
+  notes               String?      @db.Text
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
 
   // Relations
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)

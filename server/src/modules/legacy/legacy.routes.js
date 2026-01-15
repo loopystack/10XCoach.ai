@@ -201,7 +201,7 @@ router.get('/huddles/stats', async (req, res) => {
 
 router.post('/huddles', authenticate, requireAccess, async (req, res) => {
   try {
-    const { title, coach_id, user_id, has_short_agenda, has_notetaker, has_action_steps, status, huddle_date } = req.body;
+    const { title, coach_id, user_id, has_short_agenda, has_notetaker, has_action_steps, compliance_line_item_1, compliance_line_item_2, compliance_line_item_3, compliance_line_item_4, status, huddle_date } = req.body;
     
     // Convert status to uppercase enum value for Prisma
     let statusValue = (status || 'scheduled').toUpperCase();
@@ -231,6 +231,10 @@ router.post('/huddles', authenticate, requireAccess, async (req, res) => {
         hasShortAgenda: has_short_agenda || false,
         hasNotetaker: has_notetaker || false,
         hasActionSteps: has_action_steps || false,
+        complianceLineItem1: compliance_line_item_1 || null,
+        complianceLineItem2: compliance_line_item_2 || null,
+        complianceLineItem3: compliance_line_item_3 || null,
+        complianceLineItem4: compliance_line_item_4 || null,
         status: statusValue
       }
     });
@@ -276,6 +280,10 @@ router.put('/huddles/:id', async (req, res) => {
         hasShortAgenda: has_short_agenda || false,
         hasNotetaker: has_notetaker || false,
         hasActionSteps: has_action_steps || false,
+        complianceLineItem1: compliance_line_item_1 || null,
+        complianceLineItem2: compliance_line_item_2 || null,
+        complianceLineItem3: compliance_line_item_3 || null,
+        complianceLineItem4: compliance_line_item_4 || null,
         status: statusValue
       }
     });

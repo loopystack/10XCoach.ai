@@ -36,15 +36,37 @@ const Scorecard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  // Revenue Target State
-  const [annualRevenueTarget, setAnnualRevenueTarget] = useState<number>(() => {
-    const saved = localStorage.getItem('revenue_target_annual')
-    return saved ? parseFloat(saved) : 0
-  })
-  const [showRevenueTargetModal, setShowRevenueTargetModal] = useState(false)
-  const [revenueTargetInput, setRevenueTargetInput] = useState('')
+  // Revenue Target and Actual Sales State
+  interface RevenueData {
+    annual: number
+    quarterly: number
+    monthly: number
+    weekly: number
+    daily: number
+  }
+
+  const loadRevenueData = (key: string): RevenueData => {
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return { annual: 0, quarterly: 0, monthly: 0, weekly: 0, daily: 0 }
+      }
+    }
+    return { annual: 0, quarterly: 0, monthly: 0, weekly: 0, daily: 0 }
+  }
+
+  const saveRevenueData = (key: string, data: RevenueData) => {
+    localStorage.setItem(key, JSON.stringify(data))
+  }
+
+  const [revenueTargets, setRevenueTargets] = useState<RevenueData>(() => loadRevenueData('revenue_targets'))
+  const [actualSales, setActualSales] = useState<RevenueData>(() => loadRevenueData('actual_sales'))
+  const [editingRevenue, setEditingRevenue] = useState<{ type: 'target' | 'actual', period: keyof RevenueData } | null>(null)
+  const [revenueEditValue, setRevenueEditValue] = useState('')
   
-  // Calculate revenue targets from annual goal
+  // Calculate revenue targets from annual goal (for backward compatibility)
   const calculateRevenueTargets = (annual: number) => {
     return {
       annual: annual,
@@ -55,7 +77,8 @@ const Scorecard = () => {
     }
   }
   
-  const revenueTargets = calculateRevenueTargets(annualRevenueTarget)
+  // Get annual revenue target for backward compatibility
+  const annualRevenueTarget = revenueTargets.annual
   
   // Format currency
   const formatCurrency = (amount: number): string => {
@@ -67,16 +90,42 @@ const Scorecard = () => {
     }
     return `$${amount.toFixed(0)}`
   }
-  
-  // Handle revenue target update
-  const handleSetRevenueTarget = () => {
-    const value = parseFloat(revenueTargetInput.replace(/[^0-9.]/g, ''))
-    if (!isNaN(value) && value > 0) {
-      setAnnualRevenueTarget(value)
-      localStorage.setItem('revenue_target_annual', value.toString())
-      setShowRevenueTargetModal(false)
-      setRevenueTargetInput('')
+
+  // Format currency for input (full number)
+  const formatCurrencyInput = (amount: number): string => {
+    if (amount === 0) return ''
+    return amount.toLocaleString('en-US', { maximumFractionDigits: 0 })
+  }
+
+  // Handle revenue value update
+  const handleRevenueEdit = (type: 'target' | 'actual', period: keyof RevenueData) => {
+    const currentValue = type === 'target' ? revenueTargets[period] : actualSales[period]
+    setEditingRevenue({ type, period })
+    setRevenueEditValue(currentValue > 0 ? currentValue.toString() : '')
+  }
+
+  const handleRevenueSave = () => {
+    if (!editingRevenue) return
+    
+    const value = parseFloat(revenueEditValue.replace(/[^0-9.]/g, ''))
+    if (!isNaN(value) && value >= 0) {
+      if (editingRevenue.type === 'target') {
+        const newTargets = { ...revenueTargets, [editingRevenue.period]: value }
+        setRevenueTargets(newTargets)
+        saveRevenueData('revenue_targets', newTargets)
+      } else {
+        const newActuals = { ...actualSales, [editingRevenue.period]: value }
+        setActualSales(newActuals)
+        saveRevenueData('actual_sales', newActuals)
+      }
     }
+    setEditingRevenue(null)
+    setRevenueEditValue('')
+  }
+
+  const handleRevenueCancel = () => {
+    setEditingRevenue(null)
+    setRevenueEditValue('')
   }
 
   useEffect(() => {
@@ -532,30 +581,6 @@ const Scorecard = () => {
             </p>
           </div>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {/* Revenue Target Button */}
-            <button
-              onClick={() => {
-                setRevenueTargetInput(annualRevenueTarget > 0 ? annualRevenueTarget.toString() : '')
-                setShowRevenueTargetModal(true)
-              }}
-              style={{
-                padding: '10px 20px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              {annualRevenueTarget > 0 
-                ? `Annual Target: ${formatCurrency(annualRevenueTarget)}` 
-                : 'Set Revenue Target'}
-            </button>
             <div className="scorecard-view-toggle">
               <button 
                 className={scorecardView === 'monthly' ? 'active' : ''}
@@ -578,124 +603,6 @@ const Scorecard = () => {
             </div>
           </div>
         </div>
-        
-        {/* Revenue Target Modal */}
-        {showRevenueTargetModal && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000
-          }}
-          onClick={() => setShowRevenueTargetModal(false)}
-          >
-            <div style={{
-              background: 'var(--bg-primary, #ffffff)',
-              color: 'var(--text-primary, #1f2937)',
-              padding: '32px',
-              borderRadius: '16px',
-              maxWidth: '500px',
-              width: '90%',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-              border: '1px solid var(--border-color, #e5e7eb)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ marginTop: 0, marginBottom: '16px', color: 'var(--text-primary, #1f2937)' }}>Set Annual Revenue Target</h3>
-              <p style={{ color: 'var(--text-secondary, #6b7280)', marginBottom: '24px', fontSize: '14px' }}>
-                Enter your annual revenue target. Targets for daily, weekly, monthly, and quarterly will be calculated automatically.
-              </p>
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-primary, #1f2937)' }}>Annual Target ($)</label>
-                <input
-                  type="text"
-                  value={revenueTargetInput}
-                  onChange={(e) => setRevenueTargetInput(e.target.value)}
-                  placeholder="e.g., 1000000 for $1M"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid var(--border-color, #d1d5db)',
-                    borderRadius: '8px',
-                    fontSize: '16px',
-                    background: 'var(--bg-secondary, #f9fafb)',
-                    color: 'var(--text-primary, #1f2937)'
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSetRevenueTarget()
-                    }
-                  }}
-                />
-              </div>
-              {(() => {
-                const inputValue = parseFloat(revenueTargetInput.replace(/[^0-9.]/g, '') || '0');
-                const previewTargets = inputValue > 0 ? calculateRevenueTargets(inputValue) : null;
-                return previewTargets ? (
-                  <div style={{
-                    background: 'var(--bg-secondary, #f0fdf4)',
-                    padding: '16px',
-                    borderRadius: '8px',
-                    marginBottom: '24px',
-                    border: '1px solid var(--border-color, #d1fae5)'
-                  }}>
-                    <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: 'var(--text-primary, #1f2937)' }}>Calculated Targets:</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '14px', color: 'var(--text-secondary, #6b7280)' }}>
-                      <div>Annual: <strong style={{ color: 'var(--text-primary, #1f2937)' }}>{formatCurrency(previewTargets.annual)}</strong></div>
-                      <div>Quarterly: <strong style={{ color: 'var(--text-primary, #1f2937)' }}>{formatCurrency(previewTargets.quarterly)}</strong></div>
-                      <div>Monthly: <strong style={{ color: 'var(--text-primary, #1f2937)' }}>{formatCurrency(previewTargets.monthly)}</strong></div>
-                      <div>Weekly: <strong style={{ color: 'var(--text-primary, #1f2937)' }}>{formatCurrency(previewTargets.weekly)}</strong></div>
-                      <div style={{ gridColumn: 'span 2' }}>Daily: <strong style={{ color: 'var(--text-primary, #1f2937)' }}>{formatCurrency(previewTargets.daily)}</strong></div>
-                    </div>
-                  </div>
-                ) : null;
-              })()}
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setShowRevenueTargetModal(false)}
-                  style={{
-                    padding: '10px 20px',
-                    background: 'var(--bg-secondary, #f3f4f6)',
-                    color: 'var(--text-primary, #1f2937)',
-                    border: '1px solid var(--border-color, #d1d5db)',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = 'var(--gray-200, #e5e7eb)'
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-secondary, #f3f4f6)'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSetRevenueTarget}
-                  style={{
-                    padding: '10px 20px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 600
-                  }}
-                >
-                  Save Target
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Metric Categories Section */}
         <div style={{ marginBottom: '24px', padding: '20px', background: 'var(--gray-100)', borderRadius: '12px', border: '1px solid var(--gray-200)' }}>
@@ -1011,6 +918,236 @@ const Scorecard = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Revenue Tracking Table */}
+        <div style={{ marginTop: '40px', padding: '24px', background: 'var(--gray-100)', borderRadius: '12px', border: '1px solid var(--gray-200)' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px', color: 'var(--gray-900)' }}>
+            6. Financial: Revenue Target & Actual Sales
+          </h3>
+          <p style={{ fontSize: '14px', color: 'var(--gray-600)', marginBottom: '20px' }}>
+            Set your revenue targets and track actual sales for each time period. Click on any value to edit.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
+              <thead>
+                <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: 600, fontSize: '14px', border: 'none' }}>Period</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600, fontSize: '14px', border: 'none' }}>Annual</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600, fontSize: '14px', border: 'none' }}>Quarterly</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600, fontSize: '14px', border: 'none' }}>Monthly</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600, fontSize: '14px', border: 'none' }}>Weekly</th>
+                  <th style={{ padding: '12px', textAlign: 'right', fontWeight: 600, fontSize: '14px', border: 'none' }}>Daily</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Annual Revenue Target Row */}
+                <tr style={{ borderBottom: '1px solid var(--gray-200)' }}>
+                  <td style={{ padding: '14px', fontWeight: 600, color: 'var(--gray-900)', fontSize: '14px' }}>
+                    Annual Revenue Target:
+                  </td>
+                  {(['annual', 'quarterly', 'monthly', 'weekly', 'daily'] as const).map((period) => (
+                    <td key={period} style={{ padding: '14px', textAlign: 'right' }}>
+                      {editingRevenue?.type === 'target' && editingRevenue.period === period ? (
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <input
+                            type="text"
+                            value={revenueEditValue}
+                            onChange={(e) => setRevenueEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRevenueSave()
+                              if (e.key === 'Escape') handleRevenueCancel()
+                            }}
+                            autoFocus
+                            style={{
+                              width: '120px',
+                              padding: '6px 10px',
+                              border: '2px solid #667eea',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              textAlign: 'right'
+                            }}
+                          />
+                          <button
+                            onClick={handleRevenueSave}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600
+                            }}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={handleRevenueCancel}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => handleRevenueEdit('target', period)}
+                          style={{
+                            cursor: 'pointer',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            background: 'var(--gray-50)',
+                            color: 'var(--gray-900)',
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            transition: 'all 0.2s',
+                            display: 'inline-block',
+                            minWidth: '80px',
+                            textAlign: 'right'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.background = 'var(--gray-200)'
+                            e.currentTarget.style.transform = 'scale(1.05)'
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.background = 'var(--gray-50)'
+                            e.currentTarget.style.transform = 'scale(1)'
+                          }}
+                        >
+                          {revenueTargets[period] > 0 ? formatCurrency(revenueTargets[period]) : 'Click to set'}
+                        </div>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+                {/* Actual Sales Row */}
+                <tr>
+                  <td style={{ padding: '14px', fontWeight: 600, color: 'var(--gray-900)', fontSize: '14px' }}>
+                    Actual Sales:
+                  </td>
+                  {(['annual', 'quarterly', 'monthly', 'weekly', 'daily'] as const).map((period) => (
+                    <td key={period} style={{ padding: '14px', textAlign: 'right' }}>
+                      {editingRevenue?.type === 'actual' && editingRevenue.period === period ? (
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <input
+                            type="text"
+                            value={revenueEditValue}
+                            onChange={(e) => setRevenueEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRevenueSave()
+                              if (e.key === 'Escape') handleRevenueCancel()
+                            }}
+                            autoFocus
+                            style={{
+                              width: '120px',
+                              padding: '6px 10px',
+                              border: '2px solid #667eea',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              textAlign: 'right'
+                            }}
+                          />
+                          <button
+                            onClick={handleRevenueSave}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600
+                            }}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={handleRevenueCancel}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => handleRevenueEdit('actual', period)}
+                          style={{
+                            cursor: 'pointer',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            background: 'var(--gray-50)',
+                            color: 'var(--gray-900)',
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            transition: 'all 0.2s',
+                            display: 'inline-block',
+                            minWidth: '80px',
+                            textAlign: 'right'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.background = 'var(--gray-200)'
+                            e.currentTarget.style.transform = 'scale(1.05)'
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.background = 'var(--gray-50)'
+                            e.currentTarget.style.transform = 'scale(1)'
+                          }}
+                        >
+                          {actualSales[period] > 0 ? formatCurrency(actualSales[period]) : 'Click to set'}
+                        </div>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+                {/* Achievement Rate Row */}
+                {(revenueTargets.annual > 0 || revenueTargets.quarterly > 0 || revenueTargets.monthly > 0 || revenueTargets.weekly > 0 || revenueTargets.daily > 0) && (
+                  <tr style={{ borderTop: '2px solid var(--gray-300)', background: 'var(--gray-50)' }}>
+                    <td style={{ padding: '14px', fontWeight: 600, color: 'var(--gray-900)', fontSize: '14px' }}>
+                      Achievement Rate:
+                    </td>
+                    {(['annual', 'quarterly', 'monthly', 'weekly', 'daily'] as const).map((period) => {
+                      const target = revenueTargets[period]
+                      const actual = actualSales[period]
+                      const rate = target > 0 ? Math.round((actual / target) * 100) : 0
+                      return (
+                        <td key={period} style={{ padding: '14px', textAlign: 'right' }}>
+                          {target > 0 ? (
+                            <span style={{
+                              fontWeight: 700,
+                              fontSize: '14px',
+                              color: rate >= 100 ? '#10b981' : rate >= 80 ? '#f59e0b' : '#ef4444'
+                            }}>
+                              {rate}%
+                            </span>
+                          ) : '-'}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

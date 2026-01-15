@@ -17,12 +17,62 @@ const getAuthHeaders = (): HeadersInit => {
   return headers
 }
 
+// Flag to prevent multiple simultaneous redirects
+let isRedirecting = false
+
+// Handle 401 errors by clearing auth and redirecting to login
+const handleUnauthorized = () => {
+  // Prevent multiple simultaneous redirects
+  if (isRedirecting) {
+    return
+  }
+  
+  isRedirecting = true
+  
+  // Clear authentication data
+  clearAuthToken()
+  localStorage.removeItem('user')
+  sessionStorage.removeItem('user')
+  sessionStorage.removeItem('loginTime')
+  
+  // Dispatch auth state change event
+  window.dispatchEvent(new CustomEvent('authStateChanged'))
+  
+  // Only redirect if we're not already on login/register page
+  const currentPath = window.location.pathname
+  if (!currentPath.startsWith('/login') && !currentPath.startsWith('/register') && !currentPath.startsWith('/verify-email')) {
+    // Use window.location for a hard redirect to ensure state is cleared
+    window.location.href = '/login?expired=true'
+  } else {
+    // Reset flag if we're already on login page
+    setTimeout(() => {
+      isRedirecting = false
+    }, 1000)
+  }
+}
+
 export const api = {
   get: async (url: string): Promise<any> => {
     const response = await fetch(url, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
+    
+    // Handle 401 before parsing JSON (token might be expired)
+    if (response.status === 401) {
+      handleUnauthorized()
+      // Try to parse error message if available
+      try {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          throw new Error(data.error || 'Your session has expired. Please log in again.')
+        }
+      } catch (e) {
+        // If parsing fails, just throw generic error
+      }
+      throw new Error('Your session has expired. Please log in again.')
+    }
     
     // Check if response is JSON before parsing
     const contentType = response.headers.get('content-type')
@@ -38,6 +88,12 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Handle 401 Unauthorized (token expired or invalid) - should already be handled above, but keep as fallback
+      if (response.status === 401) {
+        handleUnauthorized()
+        throw new Error(data.error || 'Your session has expired. Please log in again.')
+      }
+      
       // Check if this is an upgrade required error
       if (response.status === 403 && data.requiresUpgrade) {
         const error = new Error(data.error || 'Upgrade required')
@@ -60,6 +116,22 @@ export const api = {
       body: JSON.stringify(body),
     })
     
+    // Handle 401 before parsing JSON (token might be expired)
+    if (response.status === 401) {
+      handleUnauthorized()
+      // Try to parse error message if available
+      try {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          throw new Error(data.error || 'Your session has expired. Please log in again.')
+        }
+      } catch (e) {
+        // If parsing fails, just throw generic error
+      }
+      throw new Error('Your session has expired. Please log in again.')
+    }
+    
     // Check if response is JSON before parsing
     const contentType = response.headers.get('content-type')
     let data
@@ -74,6 +146,12 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Handle 401 Unauthorized (token expired or invalid) - should already be handled above, but keep as fallback
+      if (response.status === 401) {
+        handleUnauthorized()
+        throw new Error(data.error || 'Your session has expired. Please log in again.')
+      }
+      
       // Check if this is an upgrade required error
       if (response.status === 403 && data.requiresUpgrade) {
         const error = new Error(data.error || 'Upgrade required')
@@ -96,6 +174,22 @@ export const api = {
       body: JSON.stringify(body),
     })
     
+    // Handle 401 before parsing JSON (token might be expired)
+    if (response.status === 401) {
+      handleUnauthorized()
+      // Try to parse error message if available
+      try {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          throw new Error(data.error || 'Your session has expired. Please log in again.')
+        }
+      } catch (e) {
+        // If parsing fails, just throw generic error
+      }
+      throw new Error('Your session has expired. Please log in again.')
+    }
+    
     // Check if response is JSON before parsing
     const contentType = response.headers.get('content-type')
     let data
@@ -110,6 +204,12 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Handle 401 Unauthorized (token expired or invalid) - should already be handled above, but keep as fallback
+      if (response.status === 401) {
+        handleUnauthorized()
+        throw new Error(data.error || 'Your session has expired. Please log in again.')
+      }
+      
       // Check if this is an upgrade required error
       if (response.status === 403 && data.requiresUpgrade) {
         const error = new Error(data.error || 'Upgrade required')
@@ -145,6 +245,12 @@ export const api = {
     }
     
     if (!response.ok) {
+      // Handle 401 Unauthorized (token expired or invalid)
+      if (response.status === 401) {
+        handleUnauthorized()
+        throw new Error(data.error || 'Your session has expired. Please log in again.')
+      }
+      
       // Check if this is an upgrade required error
       if (response.status === 403 && data.requiresUpgrade) {
         const error = new Error(data.error || 'Upgrade required')

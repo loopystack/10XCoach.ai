@@ -65,49 +65,100 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   }, [isOpen])
 
   const cleanup = () => {
+    // Stop all audio FIRST - this is critical
+    clearAudioQueue()
+    
+    // Close WebSocket connection
     if (wsRef.current) {
-      wsRef.current.close()
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+          wsRef.current.close(1000, 'Cleanup')
+        }
+      } catch (e) {
+        console.warn('Error closing WebSocket:', e)
+      }
       wsRef.current = null
     }
+    
+    // Stop media stream
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop())
+      mediaStreamRef.current.getTracks().forEach(track => {
+        track.stop()
+        track.enabled = false
+      })
       mediaStreamRef.current = null
     }
+    
+    // Disconnect audio processors
     if (processorRef.current) {
-      processorRef.current.disconnect()
+      try {
+        processorRef.current.disconnect()
+      } catch (e) {
+        // Already disconnected
+      }
       processorRef.current = null
     }
     if (gainNodeRef.current) {
-      gainNodeRef.current.disconnect()
+      try {
+        gainNodeRef.current.disconnect()
+      } catch (e) {
+        // Already disconnected
+      }
       gainNodeRef.current = null
     }
+    
+    // Close audio contexts completely
     if (inputAudioContextRef.current) {
-      inputAudioContextRef.current.close()
+      try {
+        if (inputAudioContextRef.current.state !== 'closed') {
+          inputAudioContextRef.current.close()
+        }
+      } catch (e) {
+        console.warn('Error closing input audio context:', e)
+      }
       inputAudioContextRef.current = null
     }
     if (outputAudioContextRef.current) {
-      outputAudioContextRef.current.close()
+      try {
+        if (outputAudioContextRef.current.state !== 'closed') {
+          outputAudioContextRef.current.close()
+        }
+      } catch (e) {
+        console.warn('Error closing output audio context:', e)
+      }
       outputAudioContextRef.current = null
     }
+    
+    // Cancel animation frame
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
     }
+    
+    // Clear timeouts
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
       saveTimeoutRef.current = null
     }
-    // Stop all audio
-    clearAudioQueue()
-    shouldStopAudioRef.current = false // Reset for next session
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+      timerIntervalRef.current = null
+    }
+    
+    // Reset all refs
+    shouldStopAudioRef.current = true
     currentAudioSourceRef.current = null
     currentResponseIdRef.current = null
     isConnectedRef.current = false
     isRecordingRef.current = false
+    sessionStartTimeRef.current = null
+    
+    // Reset state
     setIsConnected(false)
     setIsRecording(false)
     setStatus('Ready to start')
     setStatusType('idle')
+    setElapsedTime(0)
   }
 
   const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
@@ -169,6 +220,9 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   }
 
   const clearAudioQueue = () => {
+    // Set stop flag first to prevent new audio from playing
+    shouldStopAudioRef.current = true
+    
     // Stop any currently playing audio source
     if (currentAudioSourceRef.current) {
       try {
@@ -180,50 +234,83 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       currentAudioSourceRef.current = null
     }
     
-    // Clear the queue and stop flag
+    // Clear the audio queue
     audioQueueRef.current = []
     isPlayingAudioRef.current = false
-    shouldStopAudioRef.current = true
     
-    // Suspend the audio context to stop all audio
-    if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
-      outputAudioContextRef.current.suspend().catch(() => {
-        // Ignore errors if context is already closed
-      })
+    // Close the audio context completely to stop all audio
+    if (outputAudioContextRef.current) {
+      try {
+        // Stop all audio sources first
+        if (outputAudioContextRef.current.state !== 'closed') {
+          // Suspend first to stop playback immediately
+          outputAudioContextRef.current.suspend().catch(() => {})
+          
+          // Then close after a short delay to ensure all audio stops
+          setTimeout(() => {
+            if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+              outputAudioContextRef.current.close().catch(() => {})
+            }
+          }, 100)
+        }
+      } catch (e) {
+        console.warn('Error closing audio context:', e)
+      }
     }
   }
 
   const playAudioQueue = async () => {
-    if (audioQueueRef.current.length === 0) {
+    // Don't play if we should stop
+    if (shouldStopAudioRef.current) {
       isPlayingAudioRef.current = false
+      audioQueueRef.current = [] // Clear queue
       return
     }
-
-    // Check if we should stop playing
-    if (shouldStopAudioRef.current) {
+    
+    if (audioQueueRef.current.length === 0) {
       isPlayingAudioRef.current = false
       return
     }
 
     isPlayingAudioRef.current = true
 
-    if (!outputAudioContextRef.current) {
+    // Check if audio context was closed (e.g., during cleanup)
+    if (!outputAudioContextRef.current || outputAudioContextRef.current.state === 'closed') {
+      // Don't create a new context if we're stopping
+      if (shouldStopAudioRef.current) {
+        isPlayingAudioRef.current = false
+        audioQueueRef.current = []
+        return
+      }
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
         sampleRate: 24000
       })
     }
-
+    
     if (outputAudioContextRef.current.state === 'suspended') {
-      await outputAudioContextRef.current.resume()
+      try {
+        await outputAudioContextRef.current.resume()
+      } catch (e) {
+        console.warn('Error resuming audio context:', e)
+        isPlayingAudioRef.current = false
+        return
+      }
     }
 
     try {
       while (audioQueueRef.current.length > 0 && !shouldStopAudioRef.current) {
+        // Double-check stop flag before each audio chunk
+        if (shouldStopAudioRef.current) {
+          audioQueueRef.current = [] // Clear remaining queue
+          break
+        }
+        
         const audioData = audioQueueRef.current.shift()
         if (!audioData) continue
-        
+
         // Check again before processing
-        if (shouldStopAudioRef.current) {
+        if (shouldStopAudioRef.current || !outputAudioContextRef.current || outputAudioContextRef.current.state === 'closed') {
+          audioQueueRef.current = [] // Clear remaining queue
           break
         }
         
@@ -269,9 +356,12 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
 
     isPlayingAudioRef.current = false
     
-    // Only continue playing if we haven't been told to stop
-    if (audioQueueRef.current.length > 0 && !shouldStopAudioRef.current) {
+    // Only continue playing if we should not stop and context is still valid
+    if (audioQueueRef.current.length > 0 && !shouldStopAudioRef.current && outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
       playAudioQueue()
+    } else if (shouldStopAudioRef.current) {
+      // Clear any remaining audio if we should stop
+      audioQueueRef.current = []
     }
   }
 

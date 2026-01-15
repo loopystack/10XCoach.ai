@@ -514,7 +514,7 @@ wss.on('connection', (ws, req) => {
   console.log(`   Headers: ${JSON.stringify(req.headers)}`);
   
   // Set connection timeout to prevent hanging connections
-  const connectionTimeout = setTimeout(() => {
+  let connectionTimeout = setTimeout(() => {
     if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
       console.warn(`⏱️ Connection ${connectionId} timeout - closing`);
       try {
@@ -585,6 +585,13 @@ wss.on('connection', (ws, req) => {
       if (message.type === 'start') {
         console.log('🎯 Starting conversation session...');
         
+        // Clear the connection timeout since conversation has started
+        if (connectionTimeout) {
+          clearTimeout(connectionTimeout);
+          connectionTimeout = null;
+          console.log('✅ Cleared connection timeout - conversation started');
+        }
+        
         // Check user access before starting conversation
         const { checkUserAccess } = require('./middleware/access.middleware');
         if (currentUserId) {
@@ -632,6 +639,31 @@ wss.on('connection', (ws, req) => {
         sessionStartTime = new Date();
         sessionSaved = false; // Reset saved flag for new session
         sessionId = null; // Reset session ID
+        
+        // Start client keepalive to prevent connection timeout
+        if (clientKeepaliveInterval) {
+          clearInterval(clientKeepaliveInterval);
+        }
+        clientKeepaliveInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            try {
+              // Send a ping-like message to keep connection alive
+              ws.ping();
+            } catch (err) {
+              console.warn('Client keepalive ping error:', err);
+              if (clientKeepaliveInterval) {
+                clearInterval(clientKeepaliveInterval);
+                clientKeepaliveInterval = null;
+              }
+            }
+          } else {
+            // Connection is not open, clear interval
+            if (clientKeepaliveInterval) {
+              clearInterval(clientKeepaliveInterval);
+              clientKeepaliveInterval = null;
+            }
+          }
+        }, 25000); // Send keepalive every 25 seconds (before 30s timeout)
 
         // Get user conversation history for memory
         let conversationHistory = [];
@@ -1725,6 +1757,10 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', (code, reason) => {
     clearTimeout(connectionTimeout);
+    if (clientKeepaliveInterval) {
+      clearInterval(clientKeepaliveInterval);
+      clientKeepaliveInterval = null;
+    }
     console.log(`🔌 Client WebSocket closed: ${connectionId}, Code: ${code}, Reason: ${reason?.toString() || 'none'}`);
     // Clean up OpenAI connection if it exists
     if (openaiWs) {

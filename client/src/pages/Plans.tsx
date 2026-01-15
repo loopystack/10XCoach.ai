@@ -92,6 +92,7 @@ const Plans = () => {
     autoPurchasePackSize: null as number | null
   })
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
+  const [confirmPurchaseModal, setConfirmPurchaseModal] = useState<{ open: boolean; packSize: number | null; amount: number }>({ open: false, packSize: null, amount: 0 })
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -224,18 +225,53 @@ const Plans = () => {
 
   const handlePurchaseTimePack = async (packSize: number) => {
     try {
-      setPurchasingPack(packSize)
-      const response = await api.post('/api/billing/purchase-time-pack', { 
-        packSize: packSize
-      })
-      
-      // Redirect to Stripe checkout
-      if (response.url) {
-        window.location.href = response.url
+      // Calculate purchase amount
+      const amount = packSize * 35
+      const currentCredit = billingStatus?.creditBalance || 0
+
+      // Check if user has enough credit
+      if (currentCredit >= amount) {
+        // Show confirmation modal
+        setConfirmPurchaseModal({ open: true, packSize, amount })
+      } else {
+        // Not enough credit - show notification
+        const shortfall = amount - currentCredit
+        notify.warning(`Insufficient credit. You need $${shortfall.toFixed(2)} more. Please add credit first.`)
       }
     } catch (error: any) {
-      console.error('Failed to purchase time pack:', error)
-      notify.error(error.message || 'Failed to start checkout. Please try again.')
+      console.error('Failed to check credit for time pack purchase:', error)
+      notify.error(error.message || 'Failed to check credit balance. Please try again.')
+    }
+  }
+
+  const confirmPurchaseTimePack = async () => {
+    if (!confirmPurchaseModal.packSize) return
+
+    try {
+      setPurchasingPack(confirmPurchaseModal.packSize)
+      const response = await api.post('/api/billing/purchase-time-pack-with-credit', { 
+        packSize: confirmPurchaseModal.packSize
+      })
+      
+      if (response.success) {
+        notify.success(response.message || `Successfully purchased ${confirmPurchaseModal.packSize} hours pack!`)
+        setConfirmPurchaseModal({ open: false, packSize: null, amount: 0 })
+        
+        // Refresh billing status and usage data
+        fetchBillingStatus()
+        fetchUsageData()
+      }
+    } catch (error: any) {
+      console.error('Failed to purchase time pack with credit:', error)
+      
+      // If credit is insufficient, show notification
+      if (error.message?.includes('Insufficient credit') || error.response?.data?.error === 'Insufficient credit') {
+        const shortfall = error.response?.data?.shortfall || (confirmPurchaseModal.amount - (billingStatus?.creditBalance || 0))
+        notify.warning(`Insufficient credit. You need $${shortfall.toFixed(2)} more. Please add credit first.`)
+      } else {
+        notify.error(error.message || 'Failed to purchase time pack. Please try again.')
+      }
+    } finally {
       setPurchasingPack(null)
     }
   }
@@ -396,21 +432,31 @@ const Plans = () => {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <input
-                  type="number"
-                  min="10"
-                  step="10"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 10)}
-                  style={{ 
-                    width: '100px',
-                    padding: '10px 12px',
-                    border: '1px solid rgba(229, 231, 235, 0.8)',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: 600
-                  }}
-                />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ 
+                    position: 'absolute', 
+                    left: '12px', 
+                    fontSize: '14px', 
+                    fontWeight: 600,
+                    color: 'var(--gray-700)',
+                    zIndex: 1
+                  }}>$</span>
+                  <input
+                    type="number"
+                    min="10"
+                    step="10"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 10)}
+                    style={{ 
+                      width: '100px',
+                      padding: '10px 12px 10px 28px',
+                      border: '1px solid rgba(229, 231, 235, 0.8)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 600
+                    }}
+                  />
+                </div>
                 <button
                   onClick={handleCreateCheckout}
                   disabled={checkoutLoading || depositAmount < 10}
@@ -1305,6 +1351,108 @@ const Plans = () => {
           </div>
         </div>
       </div>
+
+      {/* Purchase Confirmation Modal */}
+      {confirmPurchaseModal.open && confirmPurchaseModal.packSize && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          backdropFilter: 'blur(4px)'
+        }} onClick={() => setConfirmPurchaseModal({ open: false, packSize: null, amount: 0 })}>
+          <div style={{
+            background: 'var(--card-bg, #ffffff)',
+            borderRadius: '16px',
+            padding: '32px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            border: '1px solid var(--border-color, rgba(229, 231, 235, 0.8))'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ 
+              marginTop: 0, 
+              marginBottom: '16px', 
+              fontSize: '24px', 
+              fontWeight: 700,
+              color: 'var(--gray-900)'
+            }}>
+              Confirm Purchase
+            </h3>
+            <p style={{ 
+              fontSize: '16px', 
+              color: 'var(--gray-700)', 
+              marginBottom: '24px',
+              lineHeight: '1.6'
+            }}>
+              You are about to purchase a <strong>{confirmPurchaseModal.packSize} hours</strong> time pack for <strong>${confirmPurchaseModal.amount.toFixed(2)}</strong>.
+            </p>
+            <div style={{
+              padding: '16px',
+              background: 'rgba(139, 92, 246, 0.1)',
+              borderRadius: '8px',
+              marginBottom: '24px'
+            }}>
+              <p style={{ margin: 0, fontSize: '14px', color: 'var(--gray-700)', marginBottom: '8px' }}>
+                Current Credit: <strong>${(billingStatus?.creditBalance || 0).toFixed(2)}</strong>
+              </p>
+              <p style={{ margin: 0, fontSize: '14px', color: 'var(--gray-700)' }}>
+                After Purchase: <strong>${((billingStatus?.creditBalance || 0) - confirmPurchaseModal.amount).toFixed(2)}</strong>
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmPurchaseModal({ open: false, packSize: null, amount: 0 })}
+                style={{
+                  padding: '12px 24px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: '8px',
+                  color: '#ef4444',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmPurchaseTimePack}
+                disabled={purchasingPack === confirmPurchaseModal.packSize}
+                className="primary-button"
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  opacity: purchasingPack === confirmPurchaseModal.packSize ? 0.6 : 1,
+                  cursor: purchasingPack === confirmPurchaseModal.packSize ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {purchasingPack === confirmPurchaseModal.packSize ? (
+                  <>
+                    <div className="modern-spinner"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={18} />
+                    <span>Confirm Purchase</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

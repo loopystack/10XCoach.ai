@@ -751,9 +751,9 @@ wss.on('connection', (ws, req) => {
             },
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.5, // Lower threshold to be less sensitive to background noise
+              threshold: 0.6, // Balanced threshold - not too sensitive, not too insensitive
               prefix_padding_ms: 300,
-              silence_duration_ms: 3000, // Increased to 3 seconds to prevent premature turn detection
+              silence_duration_ms: 1500, // Reduced to 1.5 seconds for faster response time while still preventing premature detection
               create_response: true // Auto-create responses when user finishes speaking
             },
             tools: [

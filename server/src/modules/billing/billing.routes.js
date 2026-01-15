@@ -806,6 +806,115 @@ router.post('/billing/purchase-time-pack', authenticate, async (req, res) => {
   }
 });
 
+// POST /api/billing/purchase-time-pack-with-credit
+// Purchase a prepaid time pack using account credit
+// =============================================
+router.post('/billing/purchase-time-pack-with-credit', authenticate, async (req, res) => {
+  try {
+    const { packSize } = req.body; // 5, 10, or 25 hours
+
+    // Validate pack size
+    const validPackSizes = [5, 10, 25];
+    if (!validPackSizes.includes(packSize)) {
+      return res.status(400).json({ error: 'Invalid pack size. Must be 5, 10, or 25 hours' });
+    }
+
+    // Calculate price ($35 per hour)
+    const hours = packSize;
+    const amount = hours * 35;
+
+    // Get user with credit balance
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        creditBalance: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentCredit = parseFloat(user.creditBalance || 0);
+
+    // Check if user has enough credit
+    if (currentCredit < amount) {
+      return res.status(400).json({ 
+        error: 'Insufficient credit',
+        required: amount,
+        current: currentCredit,
+        shortfall: amount - currentCredit
+      });
+    }
+
+    // Calculate expiration date (9 months from now)
+    const expiresAt = new Date();
+    expiresAt.setMonth(expiresAt.getMonth() + 9);
+
+    // Create time pack purchase record
+    const timePack = await prisma.timePackPurchase.create({
+      data: {
+        userId: user.id,
+        packSize: packSize,
+        hoursPurchased: hours,
+        hoursRemaining: hours,
+        amount: amount,
+        currency: 'usd',
+        expiresAt: expiresAt,
+        status: 'ACTIVE'
+      }
+    });
+
+    // Deduct credit from user account
+    const newCreditBalance = currentCredit - amount;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        creditBalance: newCreditBalance
+      }
+    });
+
+    // Create transaction record
+    await prisma.paymentTransaction.create({
+      data: {
+        userId: user.id,
+        amount: amount,
+        currency: 'usd',
+        status: 'SUCCEEDED',
+        transactionType: 'TIME_PACK',
+        description: `Time Pack Purchase: ${packSize} hours (Credit)`,
+        metadata: {
+          packSize,
+          hours,
+          type: 'time_pack',
+          paymentMethod: 'credit',
+          timePackId: timePack.id
+        }
+      }
+    });
+
+    console.log(`✅ Time pack purchased with credit: ${packSize} hours for user ${user.id}, remaining credit: $${newCreditBalance}`);
+
+    res.json({
+      success: true,
+      message: `Successfully purchased ${packSize} hours pack`,
+      timePack: {
+        id: timePack.id,
+        packSize: timePack.packSize,
+        hoursPurchased: timePack.hoursPurchased,
+        hoursRemaining: timePack.hoursRemaining,
+        expiresAt: timePack.expiresAt
+      },
+      newCreditBalance: newCreditBalance
+    });
+
+  } catch (error) {
+    console.error('❌ Purchase time pack with credit error:', error);
+    res.status(500).json({ error: 'Failed to purchase time pack', details: error.message });
+  }
+});
+
 // =============================================
 // GET /api/billing/usage
 // Get user's usage statistics

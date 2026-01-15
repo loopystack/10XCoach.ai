@@ -165,6 +165,10 @@ const Huddles = () => {
       has_short_agenda: false,
       has_notetaker: false,
       has_action_steps: false,
+      compliance_line_item_1: '',
+      compliance_line_item_2: '',
+      compliance_line_item_3: '',
+      compliance_line_item_4: '',
       status: 'scheduled'
     })
     setEditingId(null)

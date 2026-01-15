@@ -199,6 +199,10 @@ const Huddles = () => {
       has_short_agenda: huddle.has_short_agenda ?? huddle.hasShortAgenda ?? false,
       has_notetaker: huddle.has_notetaker ?? huddle.hasNotetaker ?? false,
       has_action_steps: huddle.has_action_steps ?? huddle.hasActionSteps ?? false,
+      compliance_line_item_1: huddle.compliance_line_item_1 ?? huddle.complianceLineItem1 ?? '',
+      compliance_line_item_2: huddle.compliance_line_item_2 ?? huddle.complianceLineItem2 ?? '',
+      compliance_line_item_3: huddle.compliance_line_item_3 ?? huddle.complianceLineItem3 ?? '',
+      compliance_line_item_4: huddle.compliance_line_item_4 ?? huddle.complianceLineItem4 ?? '',
       status: (huddle.status || 'scheduled').toLowerCase()
     })
     setEditingId(huddle.id)

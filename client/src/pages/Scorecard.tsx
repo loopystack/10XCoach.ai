@@ -66,17 +66,6 @@ const Scorecard = () => {
   const [editingRevenue, setEditingRevenue] = useState<{ type: 'target' | 'actual', period: keyof RevenueData } | null>(null)
   const [revenueEditValue, setRevenueEditValue] = useState('')
   
-  // Calculate revenue targets from annual goal (for backward compatibility)
-  const calculateRevenueTargets = (annual: number) => {
-    return {
-      annual: annual,
-      quarterly: annual / 4,
-      monthly: annual / 12,
-      weekly: annual / 52,
-      daily: annual / 365
-    }
-  }
-  
   // Get annual revenue target for backward compatibility
   const annualRevenueTarget = revenueTargets.annual
   
@@ -89,12 +78,6 @@ const Scorecard = () => {
       return `$${(amount / 1000).toFixed(1)}K`
     }
     return `$${amount.toFixed(0)}`
-  }
-
-  // Format currency for input (full number)
-  const formatCurrencyInput = (amount: number): string => {
-    if (amount === 0) return ''
-    return amount.toLocaleString('en-US', { maximumFractionDigits: 0 })
   }
 
   // Handle revenue value update

@@ -24,6 +24,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   const [status, setStatus] = useState('Ready to start')
   const [statusType, setStatusType] = useState<'idle' | 'active' | 'success' | 'error' | 'recording'>('idle')
   const [elapsedTime, setElapsedTime] = useState(0) // Timer in seconds
+  const [isConnecting, setIsConnecting] = useState(false) // Loading state for connection
   
   // Refs for WebSocket and audio
   const wsRef = useRef<WebSocket | null>(null)
@@ -67,6 +68,9 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   const cleanup = () => {
     // Stop all audio FIRST - this is critical
     clearAudioQueue()
+    
+    // Clear loading state
+    setIsConnecting(false)
     
     // Close WebSocket connection
     if (wsRef.current) {
@@ -545,7 +549,21 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     const MAX_RETRIES = 3
     const RETRY_DELAY = 2000 // 2 seconds between retries
     
+    // Prevent multiple simultaneous connection attempts
+    if (isConnecting) {
+      console.log('⚠️ Connection already in progress, ignoring duplicate request')
+      return
+    }
+    
+    // If already connected and recording, don't start a new connection
+    if (isConnectedRef.current && isRecordingRef.current) {
+      console.log('⚠️ Conversation already in progress')
+      return
+    }
+    
     try {
+      setIsConnecting(true)
+      
       // Reset audio stop flag for new conversation
       shouldStopAudioRef.current = false
       
@@ -588,16 +606,25 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       console.log('🔌 Protocol:', protocol)
       console.log('🔌 Host:', window.location.host)
       
-      // Close any existing connection before creating a new one
+      // Only close existing connection if it's not already connected and working
       if (wsRef.current) {
-        try {
-          if (wsRef.current.readyState === WebSocket.CONNECTING || wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.close(1000, 'Reconnecting')
+        const currentState = wsRef.current.readyState
+        // Only close if it's in a bad state (CLOSING or CLOSED) or if we're retrying
+        if (retryCount > 0 || currentState === WebSocket.CLOSING || currentState === WebSocket.CLOSED) {
+          try {
+            if (currentState === WebSocket.CONNECTING || currentState === WebSocket.OPEN) {
+              wsRef.current.close(1000, 'Reconnecting')
+            }
+          } catch (e) {
+            console.warn('Error closing existing WebSocket:', e)
           }
-        } catch (e) {
-          console.warn('Error closing existing WebSocket:', e)
+          wsRef.current = null
+        } else if (currentState === WebSocket.OPEN && isConnectedRef.current) {
+          // Already connected and working, don't create a new connection
+          console.log('✅ WebSocket already connected, reusing connection')
+          setIsConnecting(false)
+          return
         }
-        wsRef.current = null
       }
       
       const ws = new WebSocket(wsUrl)
@@ -622,6 +649,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
               startConversation(retryCount + 1)
             }, RETRY_DELAY * (retryCount + 1))
           } else {
+            setIsConnecting(false) // Clear loading state
             setStatus('Connection failed after multiple attempts. Please check your connection and try again.')
             setStatusType('error')
             notify.error('Unable to connect to the coach. Please check your internet connection and try again.')
@@ -633,6 +661,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       ws.onopen = () => {
         clearTimeout(connectionTimeout)
         console.log('✅ WebSocket connected')
+        setIsConnecting(false) // Clear loading state
         console.log(`🎤 Starting conversation with coach: ${coach.name}`)
         
         // Start timer when connection is established
@@ -704,6 +733,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
             }, RETRY_DELAY * (retryCount + 1))
             return // Don't cleanup yet, we're retrying
           } else {
+            setIsConnecting(false) // Clear loading state
             setStatus(`Connection failed: ${event.reason || `Error code ${event.code}`}. Please try again.`)
             setStatusType('error')
           }
@@ -798,8 +828,10 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
 
     } catch (error: any) {
       console.error('Error starting conversation:', error)
+      setIsConnecting(false) // Clear loading state
       setStatus(`Error: ${error.message}`)
       setStatusType('error')
+      notify.error(error.message || 'Failed to start conversation. Please try again.')
       cleanup()
     }
   }
@@ -938,10 +970,36 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
               <button
                 className="conversation-btn conversation-btn-primary"
                 onClick={() => startConversation(0)}
-                disabled={isConnected && !isRecording}
+                disabled={(isConnected && !isRecording) || isConnecting}
+                style={{
+                  opacity: isConnecting ? 0.7 : 1,
+                  cursor: isConnecting ? 'wait' : 'pointer',
+                  position: 'relative',
+                  minHeight: '48px'
+                }}
               >
-                <Mic size={20} />
-                <span>Start Conversation</span>
+                {isConnecting ? (
+                  <>
+                    <div style={{
+                      position: 'absolute',
+                      width: '20px',
+                      height: '20px',
+                      border: '2px solid rgba(255, 255, 255, 0.3)',
+                      borderTop: '2px solid white',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)'
+                    }} />
+                    <span style={{ opacity: 0 }}>Start Conversation</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic size={20} />
+                    <span>Start Conversation</span>
+                  </>
+                )}
               </button>
             ) : (
               <button

@@ -41,6 +41,8 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   const gainNodeRef = useRef<GainNode | null>(null)
   const audioQueueRef = useRef<string[]>([])
   const isPlayingAudioRef = useRef(false)
+  const shouldStopAudioRef = useRef(false)
+  const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const currentResponseIdRef = useRef<string | null>(null)
   const audioLevelsRef = useRef<number[]>(new Array(20).fill(0))
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -94,8 +96,10 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       clearTimeout(saveTimeoutRef.current)
       saveTimeoutRef.current = null
     }
-    audioQueueRef.current = []
-    isPlayingAudioRef.current = false
+    // Stop all audio
+    clearAudioQueue()
+    shouldStopAudioRef.current = false // Reset for next session
+    currentAudioSourceRef.current = null
     currentResponseIdRef.current = null
     isConnectedRef.current = false
     isRecordingRef.current = false
@@ -137,8 +141,14 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   }
 
   const queueAudio = (audioData: string, responseId?: string) => {
+    // Don't queue audio if we've been told to stop
+    if (shouldStopAudioRef.current) {
+      return
+    }
+    
     if (responseId && responseId !== currentResponseIdRef.current) {
       clearAudioQueue()
+      shouldStopAudioRef.current = false // Reset stop flag for new response
       currentResponseIdRef.current = responseId
     }
     
@@ -152,18 +162,44 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     
     audioQueueRef.current.push(audioData)
     
-    if (!isPlayingAudioRef.current) {
+    if (!isPlayingAudioRef.current && !shouldStopAudioRef.current) {
       playAudioQueue()
     }
   }
 
   const clearAudioQueue = () => {
+    // Stop any currently playing audio source
+    if (currentAudioSourceRef.current) {
+      try {
+        currentAudioSourceRef.current.stop()
+        currentAudioSourceRef.current.disconnect()
+      } catch (e) {
+        // Audio source may already be stopped
+      }
+      currentAudioSourceRef.current = null
+    }
+    
+    // Clear the queue and stop flag
     audioQueueRef.current = []
     isPlayingAudioRef.current = false
+    shouldStopAudioRef.current = true
+    
+    // Suspend the audio context to stop all audio
+    if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+      outputAudioContextRef.current.suspend().catch(() => {
+        // Ignore errors if context is already closed
+      })
+    }
   }
 
   const playAudioQueue = async () => {
     if (audioQueueRef.current.length === 0) {
+      isPlayingAudioRef.current = false
+      return
+    }
+
+    // Check if we should stop playing
+    if (shouldStopAudioRef.current) {
       isPlayingAudioRef.current = false
       return
     }
@@ -181,9 +217,14 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     }
 
     try {
-      while (audioQueueRef.current.length > 0) {
+      while (audioQueueRef.current.length > 0 && !shouldStopAudioRef.current) {
         const audioData = audioQueueRef.current.shift()
         if (!audioData) continue
+        
+        // Check again before processing
+        if (shouldStopAudioRef.current) {
+          break
+        }
         
         const binaryString = atob(audioData)
         const bytes = new Uint8Array(binaryString.length)
@@ -204,19 +245,31 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
         const source = outputAudioContextRef.current.createBufferSource()
         source.buffer = audioBuffer
         source.connect(outputAudioContextRef.current.destination)
+        
+        // Store the current source so we can stop it if needed
+        currentAudioSourceRef.current = source
+        
         source.start(0)
         
         await new Promise((resolve) => {
-          source.onended = resolve
+          source.onended = () => {
+            currentAudioSourceRef.current = null
+            resolve(undefined)
+          }
         })
+        
+        // Clear the source reference after it ends
+        currentAudioSourceRef.current = null
       }
     } catch (error) {
       console.error('Error playing audio:', error)
+      currentAudioSourceRef.current = null
     }
 
     isPlayingAudioRef.current = false
     
-    if (audioQueueRef.current.length > 0) {
+    // Only continue playing if we haven't been told to stop
+    if (audioQueueRef.current.length > 0 && !shouldStopAudioRef.current) {
       playAudioQueue()
     }
   }
@@ -402,6 +455,9 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
     const RETRY_DELAY = 2000 // 2 seconds between retries
     
     try {
+      // Reset audio stop flag for new conversation
+      shouldStopAudioRef.current = false
+      
       if (retryCount === 0) {
         setStatus('Connecting...')
         setStatusType('active')
@@ -658,12 +714,22 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
   }
 
   const stopConversation = () => {
-    // Stop the timer first
+    // Stop audio immediately - this must happen first
+    clearAudioQueue()
+    
+    // Stop the timer
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current)
       timerIntervalRef.current = null
     }
     
+    // Stop recording
+    isRecordingRef.current = false
+    setIsRecording(false)
+    setStatus('Stopped')
+    setStatusType('idle')
+    
+    // Send stop messages to server
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       if (currentResponseIdRef.current) {
         wsRef.current.send(JSON.stringify({ 
@@ -674,11 +740,6 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       wsRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }))
       wsRef.current.send(JSON.stringify({ type: 'stop' }))
     }
-    isRecordingRef.current = false
-    setIsRecording(false)
-    setStatus('Stopped')
-    setStatusType('idle')
-    clearAudioQueue()
     
     // Automatically save the conversation after stopping
     // Wait a moment for the stop message to be processed

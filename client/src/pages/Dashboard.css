@@ -1010,7 +1010,7 @@
   font-weight: 700;
   color: var(--gray-900);
   min-width: 80px;
-  text-align: right;
+  text-align: left;
 }
 
 [data-theme="dark"] .metric-value {
@@ -2855,8 +2855,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 120px;
-  height: 120px;
+  width: 180px;
+  height: 180px;
   border-radius: 50%;
   background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
   box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
@@ -2865,15 +2865,15 @@
 }
 
 .scorecard-grade-number {
-  font-size: 48px;
+  font-size: 72px;
   font-weight: 700;
   color: white;
   line-height: 1;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .scorecard-grade-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   text-transform: uppercase;
@@ -2911,6 +2911,7 @@
   font-weight: 700;
   color: var(--gray-900);
   line-height: 1;
+  text-align: left;
 }
 
 [data-theme="dark"] .scorecard-grade-metric .metric-value {
@@ -2930,8 +2931,15 @@
   .scorecard-grade-metric {
     min-width: calc(50% - 12px);
   }
-}
-  border: 1px solid rgba(229, 231, 235, 0.8);
+  
+  .scorecard-grade-circle {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .scorecard-grade-number {
+    font-size: 56px;
+  }
 }
 
 [data-theme="dark"] .dashboard-scorecard-section {

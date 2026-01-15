@@ -34,17 +34,32 @@ const AccountModal = ({ onClose }: AccountModalProps) => {
       setError(null)
       
       try {
-        // Get user data from localStorage
-        const userStr = localStorage.getItem('user') || sessionStorage.getItem('user')
-        if (userStr) {
-          const user = JSON.parse(userStr)
-          setUserData({
-            name: user.name || 'User',
-            email: user.email || '',
-            createdAt: user.createdAt || user.created_at || null,
-            role: user.role || 'USER'
-          })
+        // Fetch user profile from API to get actual createdAt from database
+        let userProfile = null
+        try {
+          userProfile = await api.get('/api/auth/me')
+        } catch (profileError: any) {
+          console.warn('Failed to fetch user profile, using localStorage data:', profileError)
         }
+
+        // Get user data from localStorage as fallback
+        const userStr = localStorage.getItem('user') || sessionStorage.getItem('user')
+        let user = null
+        if (userStr) {
+          try {
+            user = JSON.parse(userStr)
+          } catch (e) {
+            console.warn('Failed to parse user data from storage')
+          }
+        }
+
+        // Use API data if available, otherwise fallback to localStorage
+        setUserData({
+          name: userProfile?.name || user?.name || 'User',
+          email: userProfile?.email || user?.email || '',
+          createdAt: userProfile?.createdAt || user?.createdAt || user?.created_at || null,
+          role: userProfile?.role || user?.role || 'USER'
+        })
 
         // Fetch billing status
         try {

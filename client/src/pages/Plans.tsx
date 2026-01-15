@@ -351,7 +351,11 @@ const Plans = () => {
                       background: '#22c55e',
                       color: '#ffffff',
                       cursor: 'not-allowed',
-                      opacity: 0.7
+                      opacity: 0.7,
+                      textAlign: 'center',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                   >
                     Active Plan
@@ -369,7 +373,8 @@ const Plans = () => {
                       gap: '8px',
                       opacity: activatingPlan === plan.id ? 0.5 : 1,
                       cursor: activatingPlan === plan.id ? 'not-allowed' : 'pointer',
-                      color: '#ffffff'
+                      color: '#ffffff',
+                      textAlign: 'center'
                     }}
                   >
                     {activatingPlan === plan.id ? (
@@ -395,6 +400,12 @@ const Plans = () => {
                     }}>
                       Need ${(plan.price - (billingStatus?.creditBalance || 0)).toFixed(2)} more credit
                     </p>
+                  </div>
+                )}
+                
+                {/* Add Credit First button at bottom of all cards (when not active) */}
+                {!isActive && (
+                  <div style={{ marginTop: '16px' }}>
                     <button
                       onClick={handleCreateCheckout}
                       className="primary-button"
@@ -402,7 +413,11 @@ const Plans = () => {
                         width: '100%',
                         background: '#475569',
                         color: '#ffffff',
-                        border: 'none'
+                        border: 'none',
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
                     >
                       Add Credit First

@@ -40,30 +40,49 @@ const getOrCreateCustomer = async (user) => {
   try {
     // If user already has Stripe customer ID, retrieve it
     if (user.stripeCustomerId) {
-      const customer = await stripe.customers.retrieve(user.stripeCustomerId);
-      return customer;
+      try {
+        const customer = await stripe.customers.retrieve(user.stripeCustomerId);
+        console.log(`✅ Retrieved existing Stripe customer: ${customer.id}`);
+        return customer;
+      } catch (retrieveError) {
+        // If customer doesn't exist in Stripe, create a new one
+        console.warn(`⚠️ Customer ${user.stripeCustomerId} not found in Stripe, creating new customer`);
+        // Continue to create new customer below
+      }
     }
 
     // Create new Stripe customer
+    console.log(`📝 Creating new Stripe customer for user ${user.id} (${user.email})`);
     const customer = await stripe.customers.create({
       email: user.email,
-      name: user.name,
+      name: user.name || user.email,
       metadata: {
         userId: user.id.toString(),
         userEmail: user.email
       }
     });
+    console.log(`✅ Created Stripe customer: ${customer.id}`);
 
     // Update user with Stripe customer ID
-    const prisma = require('./prisma');
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { stripeCustomerId: customer.id }
-    });
+    try {
+      const prisma = require('./prisma');
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: customer.id }
+      });
+      console.log(`✅ Updated user ${user.id} with Stripe customer ID: ${customer.id}`);
+    } catch (updateError) {
+      console.error('⚠️ Failed to update user with Stripe customer ID:', updateError);
+      // Don't throw - customer was created successfully, just couldn't save the ID
+      // This is not critical for the checkout to work
+    }
 
     return customer;
   } catch (error) {
-    console.error('Error creating/retrieving Stripe customer:', error);
+    console.error('❌ Error creating/retrieving Stripe customer:', error);
+    console.error('   Error type:', error.type);
+    console.error('   Error code:', error.code);
+    console.error('   Error message:', error.message);
     throw error;
   }
 };
@@ -81,7 +100,11 @@ const createCheckoutSession = async (user, amount, currency = 'usd', metadata = 
   }
   
   try {
+    console.log(`🔧 Creating checkout session for user ${user.id}, amount: $${amount}`);
     const customer = await getOrCreateCustomer(user);
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://10xcoach.ai';
+    console.log(`🔗 Using frontend URL: ${frontendUrl}`);
 
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
@@ -100,8 +123,8 @@ const createCheckoutSession = async (user, amount, currency = 'usd', metadata = 
         }
       ],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'https://10xcoach.ai'}/plans?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://10xcoach.ai'}/plans?payment=cancelled`,
+      success_url: `${frontendUrl}/plans?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${frontendUrl}/plans?payment=cancelled`,
       metadata: {
         userId: user.id.toString(),
         userEmail: user.email,
@@ -111,9 +134,14 @@ const createCheckoutSession = async (user, amount, currency = 'usd', metadata = 
       }
     });
 
+    console.log(`✅ Checkout session created successfully: ${session.id}`);
     return session;
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('❌ Error creating checkout session:', error);
+    console.error('   Error type:', error.type);
+    console.error('   Error code:', error.code);
+    console.error('   Error message:', error.message);
+    console.error('   Error stack:', error.stack);
     throw error;
   }
 };

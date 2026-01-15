@@ -110,6 +110,15 @@ router.post('/billing/create-checkout', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Valid amount is required' });
     }
 
+    // Check if Stripe is initialized
+    if (!stripe) {
+      console.error('❌ Stripe is not initialized. Check STRIPE_SECRET_KEY in .env');
+      return res.status(500).json({ 
+        error: 'Payment system is not configured. Please contact support.',
+        details: 'Stripe is not initialized'
+      });
+    }
+
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: req.user.id }
@@ -119,21 +128,45 @@ router.post('/billing/create-checkout', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    console.log(`💳 Creating checkout session for user ${user.id}, amount: $${amount}`);
+
     // Create checkout session
-    const session = await createCheckoutSession(user, amount);
+    let session;
+    try {
+      session = await createCheckoutSession(user, amount);
+      console.log(`✅ Checkout session created: ${session.id}`);
+    } catch (stripeError) {
+      console.error('❌ Stripe checkout session creation failed:', stripeError);
+      console.error('   Error type:', stripeError.type);
+      console.error('   Error code:', stripeError.code);
+      console.error('   Error message:', stripeError.message);
+      return res.status(500).json({ 
+        error: 'Failed to create checkout session',
+        details: stripeError.message || 'Stripe API error'
+      });
+    }
 
     // Create pending transaction record
-    await prisma.paymentTransaction.create({
-      data: {
-        userId: user.id,
-        amount: amount,
-        currency: 'usd',
-        stripeCheckoutSessionId: session.id,
-        status: 'PENDING',
-        transactionType: 'DEPOSIT',
-        description: `Account credit deposit of $${amount}`
-      }
-    });
+    try {
+      await prisma.paymentTransaction.create({
+        data: {
+          userId: user.id,
+          amount: amount,
+          currency: 'usd',
+          stripeCheckoutSessionId: session.id,
+          status: 'PENDING',
+          transactionType: 'DEPOSIT',
+          description: `Account credit deposit of $${amount}`
+        }
+      });
+      console.log(`✅ Payment transaction record created for session ${session.id}`);
+    } catch (dbError) {
+      console.error('❌ Failed to create payment transaction record:', dbError);
+      console.error('   Error code:', dbError.code);
+      console.error('   Error message:', dbError.message);
+      // Don't fail the request if transaction record creation fails
+      // The webhook will handle it
+    }
 
     res.json({
       sessionId: session.id,
@@ -141,8 +174,12 @@ router.post('/billing/create-checkout', authenticate, async (req, res) => {
       publishableKey: STRIPE_PUBLISHABLE_KEY
     });
   } catch (error) {
-    console.error('Create checkout error:', error);
-    res.status(500).json({ error: 'Failed to create checkout session', details: error.message });
+    console.error('❌ Create checkout error:', error);
+    console.error('   Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to create checkout session',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
   }
 });
 

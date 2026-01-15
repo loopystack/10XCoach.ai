@@ -530,8 +530,8 @@ wss.on('connection', (ws, req) => {
   setTimeout(() => {
     try {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'connected', connectionId }));
-        console.log(`✅ Sent connection acknowledgment to client: ${connectionId}`);
+        ws.send(JSON.stringify({ type: 'client_connected', connectionId }));
+        console.log(`✅ Sent client connection acknowledgment: ${connectionId}`);
       } else {
         console.warn(`⚠️ WebSocket not ready for acknowledgment. State: ${ws.readyState}`);
       }
@@ -863,6 +863,11 @@ wss.on('connection', (ws, req) => {
                 console.log('🎯 OpenAI session created');
               } else if (message.type === 'session.updated') {
                 console.log('✅ OpenAI session configured');
+                
+                // Send 'connected' message to client AFTER session is fully configured
+                // This tells the client it's safe to start sending audio
+                safeSend({ type: 'connected' });
+                console.log('✅ Sent connected message to client - ready for audio');
 
                 // Send initial greeting immediately
                 if (!greetingSent) {
@@ -1474,8 +1479,6 @@ wss.on('connection', (ws, req) => {
             errorCode: error.code || 'CONNECTION_FAILED'
           });
         }
-
-        safeSend({ type: 'connected' });
 
       } else if (message.type === 'audio') {
         // Forward audio to OpenAI

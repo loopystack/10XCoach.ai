@@ -21,6 +21,8 @@ model User {
   role              UserRole  @default(USER)
   businessName      String?   @map("business_name") @db.VarChar(255)
   industry          String?   @db.VarChar(100)
+  phone             String?   @db.VarChar(20) // Cell number for text messages
+  address           String?   @db.Text // Full address
   plan              PlanTier  @default(FOUNDATION)
   status            UserStatus @default(ACTIVE)
   emailVerified     Boolean   @default(false) @map("email_verified")
@@ -43,6 +45,18 @@ model User {
   stripeSubscriptionId String? @map("stripe_subscription_id") @db.VarChar(255)
   lastPaymentStatus String?   @map("last_payment_status") @db.VarChar(50)
   lastPaymentDate   DateTime? @map("last_payment_date")
+  
+  // Prepaid Time Tracking
+  prepaidHoursBalance Decimal @default(0) @map("prepaid_hours_balance") @db.Decimal(10, 2)
+  includedHoursMonthly Decimal? @map("included_hours_monthly") @db.Decimal(10, 2)
+  hoursUsedThisMonth Decimal @default(0) @map("hours_used_this_month") @db.Decimal(10, 2)
+  lastUsageResetDate DateTime? @map("last_usage_reset_date")
+  usageAlert75Sent Boolean @default(false) @map("usage_alert_75_sent")
+  usageAlert90Sent Boolean @default(false) @map("usage_alert_90_sent")
+  usageAlert100Sent Boolean @default(false) @map("usage_alert_100_sent")
+  hardStopAtLimit Boolean @default(false) @map("hard_stop_at_limit")
+  autoPurchaseEnabled Boolean @default(false) @map("auto_purchase_enabled")
+  autoPurchasePackSize Int? @map("auto_purchase_pack_size") // 5, 10, or 25 hours
 
   // Relations
   primaryCoachId Int?      @map("primary_coach_id")
@@ -56,6 +70,7 @@ model User {
   actionSteps    ActionStep[]
   coachAssignments CoachAssignment[]
   paymentTransactions PaymentTransaction[]
+  timePackPurchases TimePackPurchase[]
 
   @@map("users")
 }
@@ -501,12 +516,49 @@ model PaymentTransaction {
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timePackPurchases TimePackPurchase[]
 
   @@map("payment_transactions")
   @@index([userId])
   @@index([stripePaymentIntentId])
   @@index([stripeCheckoutSessionId])
   @@index([status])
+}
+
+// =============================================
+// TIME PACK PURCHASE MODEL
+// =============================================
+model TimePackPurchase {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @map("user_id")
+  packSize          Int       @map("pack_size") // 5, 10, or 25 hours
+  hoursPurchased    Decimal   @map("hours_purchased") @db.Decimal(10, 2)
+  amount            Decimal   @db.Decimal(10, 2)
+  currency          String    @default("usd") @db.VarChar(10)
+  hoursUsed         Decimal   @default(0) @map("hours_used") @db.Decimal(10, 2)
+  hoursRemaining    Decimal   @map("hours_remaining") @db.Decimal(10, 2)
+  expiresAt         DateTime? @map("expires_at") // 6-12 months from purchase
+  status            TimePackStatus @default(ACTIVE)
+  stripeCheckoutSessionId String? @map("stripe_checkout_session_id") @db.VarChar(255)
+  paymentTransactionId Int? @map("payment_transaction_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentTransaction PaymentTransaction? @relation(fields: [paymentTransactionId], references: [id])
+
+  @@map("time_pack_purchases")
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+enum TimePackStatus {
+  ACTIVE
+  EXPIRED
+  USED_UP
+  CANCELLED
 }
 
 enum PaymentStatus {
@@ -521,5 +573,6 @@ enum TransactionType {
   DEPOSIT
   PLAN_PURCHASE
   REFUND
+  TIME_PACK
 }
 

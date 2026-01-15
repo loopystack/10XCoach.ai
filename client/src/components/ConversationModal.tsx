@@ -202,24 +202,35 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       return
     }
     
-    if (responseId && responseId !== currentResponseIdRef.current) {
-      clearAudioQueue()
-      shouldStopAudioRef.current = false // Reset stop flag for new response
-      currentResponseIdRef.current = responseId
+    // Handle response ID changes - only clear queue if we have a valid new response ID
+    // and it's actually different from the current one
+    if (responseId) {
+      if (currentResponseIdRef.current && responseId !== currentResponseIdRef.current) {
+        // New response started - clear old audio but don't stop playback immediately
+        // Let the current audio finish playing naturally
+        console.log(`🔄 Response ID changed: ${currentResponseIdRef.current} -> ${responseId}`)
+        // Only clear if we're not currently playing (to avoid cutting off mid-sentence)
+        if (!isPlayingAudioRef.current) {
+          clearAudioQueue()
+        }
+        currentResponseIdRef.current = responseId
+        shouldStopAudioRef.current = false // Reset stop flag for new response
+      } else if (!currentResponseIdRef.current) {
+        // First response ID for this conversation
+        currentResponseIdRef.current = responseId
+      }
     }
     
-    if (!currentResponseIdRef.current && responseId) {
-      currentResponseIdRef.current = responseId
-    }
-    
-    if (responseId && responseId !== currentResponseIdRef.current) {
-      return
-    }
-    
-    audioQueueRef.current.push(audioData)
-    
-    if (!isPlayingAudioRef.current && !shouldStopAudioRef.current) {
-      playAudioQueue()
+    // Only queue audio if it matches the current response ID (or if no response ID is set)
+    if (!responseId || responseId === currentResponseIdRef.current) {
+      audioQueueRef.current.push(audioData)
+      
+      if (!isPlayingAudioRef.current && !shouldStopAudioRef.current) {
+        playAudioQueue()
+      }
+    } else {
+      // Response ID mismatch - ignore this audio chunk
+      console.warn(`⚠️ Ignoring audio chunk - response ID mismatch: expected ${currentResponseIdRef.current}, got ${responseId}`)
     }
   }
 

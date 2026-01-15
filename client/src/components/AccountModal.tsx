@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, User, Mail, Calendar, CreditCard, Loader } from 'lucide-react'
+import { X, User, Mail, Calendar, CreditCard, Loader, Phone, MapPin, Building2, Edit2 } from 'lucide-react'
 import { api } from '../utils/api'
+import { notify } from '../utils/notification'
 import './AccountModal.css'
 
 interface AccountModalProps {
@@ -12,6 +13,10 @@ interface UserData {
   email?: string
   createdAt?: string
   role?: string
+  businessName?: string
+  industry?: string
+  phone?: string
+  address?: string
 }
 
 interface BillingData {
@@ -27,6 +32,15 @@ const AccountModal = ({ onClose }: AccountModalProps) => {
   const [billingData, setBillingData] = useState<BillingData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showAccountInfo, setShowAccountInfo] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState({
+    businessName: '',
+    industry: '',
+    phone: '',
+    address: ''
+  })
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const fetchAccountData = async () => {
@@ -54,11 +68,24 @@ const AccountModal = ({ onClose }: AccountModalProps) => {
         }
 
         // Use API data if available, otherwise fallback to localStorage
-        setUserData({
+        const userDataObj = {
           name: userProfile?.name || user?.name || 'User',
           email: userProfile?.email || user?.email || '',
           createdAt: userProfile?.createdAt || user?.createdAt || user?.created_at || null,
-          role: userProfile?.role || user?.role || 'USER'
+          role: userProfile?.role || user?.role || 'USER',
+          businessName: userProfile?.businessName || user?.businessName || '',
+          industry: userProfile?.industry || user?.industry || '',
+          phone: userProfile?.phone || user?.phone || '',
+          address: userProfile?.address || user?.address || ''
+        }
+        setUserData(userDataObj)
+        
+        // Set form data for editing
+        setFormData({
+          businessName: userDataObj.businessName || '',
+          industry: userDataObj.industry || '',
+          phone: userDataObj.phone || '',
+          address: userDataObj.address || ''
         })
 
         // Fetch billing status
@@ -130,6 +157,41 @@ const AccountModal = ({ onClose }: AccountModalProps) => {
     }
     
     return '#ef4444' // Red for expired/no plan
+  }
+
+  const handleSaveAccountInfo = async () => {
+    setSaving(true)
+    try {
+      const response = await api.put('/api/auth/profile', formData)
+      if (response.success) {
+        notify.success('Account information updated successfully')
+        // Update local user data
+        setUserData(prev => prev ? {
+          ...prev,
+          businessName: formData.businessName,
+          industry: formData.industry,
+          phone: formData.phone,
+          address: formData.address
+        } : null)
+        setIsEditing(false)
+      }
+    } catch (error: any) {
+      console.error('Failed to update account info:', error)
+      notify.error(error.message || 'Failed to update account information')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    // Reset form data to current user data
+    setFormData({
+      businessName: userData?.businessName || '',
+      industry: userData?.industry || '',
+      phone: userData?.phone || '',
+      address: userData?.address || ''
+    })
+    setIsEditing(false)
   }
 
   return (
@@ -210,6 +272,145 @@ const AccountModal = ({ onClose }: AccountModalProps) => {
                   <span className={`role-badge role-${userData.role.toLowerCase()}`}>
                     {userData.role}
                   </span>
+                </div>
+              )}
+
+              {/* Account Information Button */}
+              <div className="account-info-button-container">
+                <button 
+                  className="account-info-button"
+                  onClick={() => setShowAccountInfo(!showAccountInfo)}
+                >
+                  <Edit2 size={18} />
+                  <span>ACCOUNT Information</span>
+                </button>
+              </div>
+
+              {/* Additional Account Information Section */}
+              {showAccountInfo && (
+                <div className="account-info-expanded">
+                  {isEditing ? (
+                    <div className="account-info-form">
+                      <div className="account-form-group">
+                        <label>
+                          <Building2 size={18} />
+                          Business Name
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.businessName}
+                          onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+                          placeholder="Enter your business name"
+                        />
+                      </div>
+
+                      <div className="account-form-group">
+                        <label>
+                          <Building2 size={18} />
+                          Industry
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.industry}
+                          onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                          placeholder="Enter your industry"
+                        />
+                      </div>
+
+                      <div className="account-form-group">
+                        <label>
+                          <Phone size={18} />
+                          Cell Number <span className="field-hint">(for text messages from coaches)</span>
+                        </label>
+                        <input
+                          type="tel"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          placeholder="Enter your cell phone number"
+                        />
+                      </div>
+
+                      <div className="account-form-group">
+                        <label>
+                          <MapPin size={18} />
+                          Address
+                        </label>
+                        <textarea
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          placeholder="Enter your address"
+                          rows={3}
+                        />
+                      </div>
+
+                      <div className="account-form-actions">
+                        <button 
+                          className="account-form-button account-form-button-save"
+                          onClick={handleSaveAccountInfo}
+                          disabled={saving}
+                        >
+                          {saving ? <Loader size={16} className="spinner" /> : 'Save'}
+                        </button>
+                        <button 
+                          className="account-form-button account-form-button-cancel"
+                          onClick={handleCancelEdit}
+                          disabled={saving}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="account-info-display">
+                      <div className="account-info-item">
+                        <div className="account-info-icon">
+                          <Building2 size={20} />
+                        </div>
+                        <div className="account-info-content">
+                          <label>Business Name</label>
+                          <p>{userData?.businessName || 'Not set'}</p>
+                        </div>
+                      </div>
+
+                      <div className="account-info-item">
+                        <div className="account-info-icon">
+                          <Building2 size={20} />
+                        </div>
+                        <div className="account-info-content">
+                          <label>Industry</label>
+                          <p>{userData?.industry || 'Not set'}</p>
+                        </div>
+                      </div>
+
+                      <div className="account-info-item">
+                        <div className="account-info-icon">
+                          <Phone size={20} />
+                        </div>
+                        <div className="account-info-content">
+                          <label>Cell Number <span className="field-hint">(for text messages)</span></label>
+                          <p>{userData?.phone || 'Not set'}</p>
+                        </div>
+                      </div>
+
+                      <div className="account-info-item">
+                        <div className="account-info-icon">
+                          <MapPin size={20} />
+                        </div>
+                        <div className="account-info-content">
+                          <label>Address</label>
+                          <p>{userData?.address || 'Not set'}</p>
+                        </div>
+                      </div>
+
+                      <button 
+                        className="account-edit-button"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        <Edit2 size={16} />
+                        Edit Information
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>

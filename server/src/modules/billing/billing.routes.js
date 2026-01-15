@@ -30,7 +30,17 @@ router.get('/billing/status', authenticate, async (req, res) => {
           planStartDate: true,
           planEndDate: true,
           creditBalance: true,
-          stripeCustomerId: true
+          stripeCustomerId: true,
+          prepaidHoursBalance: true,
+          includedHoursMonthly: true,
+          hoursUsedThisMonth: true,
+          lastUsageResetDate: true,
+          usageAlert75Sent: true,
+          usageAlert90Sent: true,
+          usageAlert100Sent: true,
+          hardStopAtLimit: true,
+          autoPurchaseEnabled: true,
+          autoPurchasePackSize: true
         }
       });
     } catch (dbError) {
@@ -76,6 +86,28 @@ router.get('/billing/status', authenticate, async (req, res) => {
       trialDaysRemaining = Math.ceil((user.trialEndDate - now) / (1000 * 60 * 60 * 24));
     }
 
+    // Calculate prepaid time stats
+    const prepaidHoursBalance = parseFloat(user.prepaidHoursBalance) || 0;
+    const includedHoursMonthly = user.includedHoursMonthly ? parseFloat(user.includedHoursMonthly) : null;
+    const hoursUsedThisMonth = parseFloat(user.hoursUsedThisMonth) || 0;
+    
+    // Get active time pack purchases
+    const activeTimePacks = await prisma.timePackPurchase.findMany({
+      where: {
+        userId: req.user.id,
+        status: 'ACTIVE',
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ]
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    const totalPrepaidHours = activeTimePacks.reduce((sum, pack) => {
+      return sum + parseFloat(pack.hoursRemaining);
+    }, 0);
+
     res.json({
       trialStartDate: user.trialStartDate,
       trialEndDate: user.trialEndDate,
@@ -86,7 +118,31 @@ router.get('/billing/status', authenticate, async (req, res) => {
       planStartDate: user.planStartDate,
       planEndDate: user.planEndDate,
       creditBalance: parseFloat(user.creditBalance) || 0,
-      stripeCustomerId: user.stripeCustomerId
+      stripeCustomerId: user.stripeCustomerId,
+      // Prepaid time info
+      prepaidHoursBalance: totalPrepaidHours,
+      includedHoursMonthly,
+      hoursUsedThisMonth,
+      lastUsageResetDate: user.lastUsageResetDate,
+      usageAlerts: {
+        alert75Sent: user.usageAlert75Sent || false,
+        alert90Sent: user.usageAlert90Sent || false,
+        alert100Sent: user.usageAlert100Sent || false
+      },
+      spendingControls: {
+        hardStopAtLimit: user.hardStopAtLimit || false,
+        autoPurchaseEnabled: user.autoPurchaseEnabled || false,
+        autoPurchasePackSize: user.autoPurchasePackSize
+      },
+      activeTimePacks: activeTimePacks.map(pack => ({
+        id: pack.id,
+        packSize: pack.packSize,
+        hoursPurchased: parseFloat(pack.hoursPurchased),
+        hoursUsed: parseFloat(pack.hoursUsed),
+        hoursRemaining: parseFloat(pack.hoursRemaining),
+        expiresAt: pack.expiresAt,
+        createdAt: pack.createdAt
+      }))
     });
   } catch (error) {
     console.error('Get billing status error:', error);
@@ -355,30 +411,68 @@ const processPaymentSuccess = async (sessionId) => {
       }
     });
 
-    // Add credit to user account
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) {
-      console.error(`❌ User ${userId} not found`);
-      return { success: false, message: 'User not found' };
-    }
-
-    const currentCredit = parseFloat(user.creditBalance) || 0;
-    const newCredit = currentCredit + amount;
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        creditBalance: newCredit,
-        lastPaymentStatus: 'SUCCEEDED',
-        lastPaymentDate: new Date()
+    // Check if this is a time pack purchase
+    const isTimePack = transaction.transactionType === 'TIME_PACK' || 
+                       (transaction.metadata && transaction.metadata.type === 'time_pack');
+    
+    if (isTimePack) {
+      // Handle time pack purchase
+      const packSize = transaction.metadata?.packSize ? parseInt(transaction.metadata.packSize) : null;
+      const hours = transaction.metadata?.hours ? parseFloat(transaction.metadata.hours) : null;
+      
+      if (!packSize || !hours) {
+        console.error(`❌ Invalid time pack metadata: packSize=${packSize}, hours=${hours}`);
+        return { success: false, message: 'Invalid time pack purchase data' };
       }
-    });
 
-    console.log(`✅ Added $${amount} credit to user ${userId}. New balance: $${newCredit}`);
-    return { success: true, amount, newCredit, userId };
+      // Calculate expiration date (9 months from now - middle of 6-12 month range)
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + 9);
+
+      // Create time pack purchase record
+      const timePack = await prisma.timePackPurchase.create({
+        data: {
+          userId: userId,
+          packSize: packSize,
+          hoursPurchased: hours,
+          hoursRemaining: hours,
+          amount: amount,
+          currency: 'usd',
+          expiresAt: expiresAt,
+          status: 'ACTIVE',
+          paymentTransactionId: transaction.id,
+          stripeCheckoutSessionId: session.id
+        }
+      });
+
+      console.log(`✅ Created time pack purchase ${timePack.id}: ${packSize} hours for user ${userId}`);
+      return { success: true, amount, timePackId: timePack.id, userId, type: 'time_pack' };
+    } else {
+      // Handle regular credit deposit
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!user) {
+        console.error(`❌ User ${userId} not found`);
+        return { success: false, message: 'User not found' };
+      }
+
+      const currentCredit = parseFloat(user.creditBalance) || 0;
+      const newCredit = currentCredit + amount;
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          creditBalance: newCredit,
+          lastPaymentStatus: 'SUCCEEDED',
+          lastPaymentDate: new Date()
+        }
+      });
+
+      console.log(`✅ Added $${amount} credit to user ${userId}. New balance: $${newCredit}`);
+      return { success: true, amount, newCredit, userId, type: 'credit' };
+    }
   } catch (error) {
     console.error('❌ Error processing payment:', error);
     console.error('   Error stack:', error.stack);
@@ -545,6 +639,230 @@ router.post('/billing/admin/grant-credit', authenticate, requireAdmin, async (re
   } catch (error) {
     console.error('Grant credit error:', error);
     res.status(500).json({ error: 'Failed to grant credit' });
+  }
+});
+
+// =============================================
+// POST /api/billing/purchase-time-pack
+// Purchase a prepaid time pack (5, 10, or 25 hours)
+// =============================================
+router.post('/billing/purchase-time-pack', authenticate, async (req, res) => {
+  try {
+    const { packSize } = req.body; // 5, 10, or 25 hours
+
+    // Validate pack size
+    const validPackSizes = [5, 10, 25];
+    if (!validPackSizes.includes(packSize)) {
+      return res.status(400).json({ error: 'Invalid pack size. Must be 5, 10, or 25 hours' });
+    }
+
+    // Calculate price ($35 per hour)
+    const hours = packSize;
+    const amount = hours * 35;
+
+    // Check if Stripe is initialized
+    if (!stripe) {
+      console.error('❌ Stripe is not initialized. Check STRIPE_SECRET_KEY in .env');
+      return res.status(500).json({ 
+        error: 'Payment system is not configured. Please contact support.',
+        details: 'Stripe is not initialized'
+      });
+    }
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`⏰ Creating time pack checkout session for user ${user.id}, pack: ${packSize} hours, amount: $${amount}`);
+
+    // Create checkout session
+    let session;
+    try {
+      session = await createCheckoutSession(user, amount, 'usd', {
+        type: 'time_pack',
+        packSize: packSize.toString(),
+        hours: hours.toString()
+      });
+      console.log(`✅ Time pack checkout session created: ${session.id}`);
+    } catch (stripeError) {
+      console.error('❌ Stripe checkout session creation failed:', stripeError);
+      return res.status(500).json({ 
+        error: 'Failed to create checkout session',
+        details: stripeError.message || 'Stripe API error'
+      });
+    }
+
+    // Create pending transaction record
+    try {
+      await prisma.paymentTransaction.create({
+        data: {
+          userId: user.id,
+          amount: amount,
+          currency: 'usd',
+          stripeCheckoutSessionId: session.id,
+          status: 'PENDING',
+          transactionType: 'TIME_PACK',
+          description: `Time Pack Purchase: ${packSize} hours`,
+          metadata: {
+            packSize,
+            hours,
+            type: 'time_pack'
+          }
+        }
+      });
+      console.log(`✅ Payment transaction record created for time pack session ${session.id}`);
+    } catch (dbError) {
+      console.error('❌ Failed to create payment transaction record:', dbError);
+    }
+
+    res.json({
+      sessionId: session.id,
+      url: session.url,
+      publishableKey: STRIPE_PUBLISHABLE_KEY,
+      packSize,
+      hours,
+      amount
+    });
+  } catch (error) {
+    console.error('❌ Purchase time pack error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create time pack purchase',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
+
+// =============================================
+// GET /api/billing/usage
+// Get user's usage statistics
+// =============================================
+router.get('/billing/usage', authenticate, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        includedHoursMonthly: true,
+        hoursUsedThisMonth: true,
+        lastUsageResetDate: true,
+        prepaidHoursBalance: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get active time packs
+    const activeTimePacks = await prisma.timePackPurchase.findMany({
+      where: {
+        userId: req.user.id,
+        status: 'ACTIVE',
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } }
+        ]
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Calculate totals
+    const includedHours = user.includedHoursMonthly ? parseFloat(user.includedHoursMonthly) : 0;
+    const extraHoursPurchased = activeTimePacks.reduce((sum, pack) => {
+      return sum + parseFloat(pack.hoursPurchased);
+    }, 0);
+    const hoursUsed = parseFloat(user.hoursUsedThisMonth) || 0;
+    const remainingBalance = includedHours + extraHoursPurchased - hoursUsed;
+
+    // Get sessions this month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const sessions = await prisma.session.findMany({
+      where: {
+        userId: req.user.id,
+        startTime: { gte: startOfMonth }
+      },
+      select: {
+        id: true,
+        duration: true,
+        startTime: true
+      }
+    });
+
+    const totalMinutesUsed = sessions.reduce((sum, session) => {
+      return sum + (parseFloat(session.duration) || 0);
+    }, 0);
+    const totalHoursUsed = totalMinutesUsed / 60;
+
+    res.json({
+      includedHours,
+      extraHoursPurchased,
+      hoursUsed: totalHoursUsed,
+      remainingBalance: Math.max(0, remainingBalance),
+      hoursUsedThisMonth: hoursUsed,
+      lastUsageResetDate: user.lastUsageResetDate,
+      activeTimePacks: activeTimePacks.map(pack => ({
+        id: pack.id,
+        packSize: pack.packSize,
+        hoursPurchased: parseFloat(pack.hoursPurchased),
+        hoursUsed: parseFloat(pack.hoursUsed),
+        hoursRemaining: parseFloat(pack.hoursRemaining),
+        expiresAt: pack.expiresAt,
+        createdAt: pack.createdAt
+      })),
+      sessionsThisMonth: sessions.length,
+      totalMinutesUsed
+    });
+  } catch (error) {
+    console.error('Get usage error:', error);
+    res.status(500).json({ error: 'Failed to get usage statistics' });
+  }
+});
+
+// =============================================
+// POST /api/billing/update-spending-controls
+// Update spending controls and alerts
+// =============================================
+router.post('/billing/update-spending-controls', authenticate, async (req, res) => {
+  try {
+    const { hardStopAtLimit, autoPurchaseEnabled, autoPurchasePackSize } = req.body;
+
+    const updateData = {};
+    if (typeof hardStopAtLimit === 'boolean') {
+      updateData.hardStopAtLimit = hardStopAtLimit;
+    }
+    if (typeof autoPurchaseEnabled === 'boolean') {
+      updateData.autoPurchaseEnabled = autoPurchaseEnabled;
+    }
+    if (autoPurchasePackSize !== undefined) {
+      if (autoPurchasePackSize === null || [5, 10, 25].includes(autoPurchasePackSize)) {
+        updateData.autoPurchasePackSize = autoPurchasePackSize;
+      } else {
+        return res.status(400).json({ error: 'Invalid auto purchase pack size. Must be 5, 10, or 25' });
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData
+    });
+
+    res.json({
+      success: true,
+      spendingControls: {
+        hardStopAtLimit: updatedUser.hardStopAtLimit,
+        autoPurchaseEnabled: updatedUser.autoPurchaseEnabled,
+        autoPurchasePackSize: updatedUser.autoPurchasePackSize
+      }
+    });
+  } catch (error) {
+    console.error('Update spending controls error:', error);
+    res.status(500).json({ error: 'Failed to update spending controls' });
   }
 });
 

@@ -2,6 +2,10 @@
 const https = require('https');
 
 async function getUserConversationHistory(userId, coachId, token, limit = 5) {
+  // Declare variables outside try block so they're accessible in catch
+  const useHttps = process.env.HTTPS !== 'false';
+  const originalReject = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  
   try {
     // Skip fetching history if token is invalid or server is still starting
     if (!token || token === 'invalid' || token === 'undefined') {
@@ -10,13 +14,11 @@ async function getUserConversationHistory(userId, coachId, token, limit = 5) {
     }
 
     // Use HTTPS if server is using HTTPS, otherwise HTTP
-    const useHttps = process.env.HTTPS !== 'false';
     const protocol = useHttps ? 'https' : 'http';
-    const mainApiUrl = process.env.MAIN_API_URL || `${protocol}://localhost:3001`;
+    const mainApiUrl = process.env.MAIN_API_URL || `${protocol}://localhost:3080`;
     
     // For local development with self-signed certs, disable SSL verification
     // Node.js fetch doesn't support agent, so we set environment variable
-    const originalReject = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     if (useHttps) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Allow self-signed certs
     }

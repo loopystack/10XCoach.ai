@@ -753,7 +753,7 @@ wss.on('connection', (ws, req) => {
               type: 'server_vad',
               threshold: 0.7,
               prefix_padding_ms: 300,
-              silence_duration_ms: 800,
+              silence_duration_ms: 2000, // Increased to 2 seconds to prevent premature turn detection
               create_response: true // Auto-create responses when user finishes speaking
             },
             tools: [
@@ -1038,11 +1038,16 @@ wss.on('connection', (ws, req) => {
                   try {
                     if (functionName === 'schedule_10x_meeting') {
                       // Schedule a 10X meeting (create huddle)
-                      console.log(`📅 Attempting to schedule meeting with args:`, functionArgs);
+                      console.log(`📅 Attempting to schedule meeting with args:`, JSON.stringify(functionArgs, null, 2));
                       
-                      if (!currentUserId || !currentCoachId) {
-                        console.error('❌ Missing user or coach ID:', { currentUserId, currentCoachId });
-                        throw new Error('User ID or Coach ID not available');
+                      if (!currentUserId) {
+                        console.error('❌ Missing user ID:', { currentUserId, currentCoachId });
+                        throw new Error('User ID not available. Please ensure you are logged in.');
+                      }
+                      
+                      if (!currentCoachId) {
+                        console.error('❌ Missing coach ID:', { currentUserId, currentCoachId });
+                        throw new Error('Coach ID not available. Please try again.');
                       }
                       
                       // Parse meeting date - handle relative dates like "Friday"
@@ -1085,30 +1090,41 @@ wss.on('connection', (ws, req) => {
                         userId: currentUserId
                       });
                       
-                      const huddle = await prisma.huddle.create({
-                        data: {
-                          title: functionArgs.title || '10X Coaching Session',
-                          huddleDate: meetingDate,
-                          coachId: currentCoachId,
-                          userId: currentUserId,
-                          hasShortAgenda: true,
-                          hasNotetaker: true,
-                          hasActionSteps: true,
-                          status: 'SCHEDULED'
-                        },
-                        include: {
-                          coach: { select: { name: true } },
-                          user: { select: { name: true, email: true } }
-                        }
-                      });
-                      
-                      console.log(`✅ Huddle created successfully:`, {
-                        id: huddle.id,
-                        title: huddle.title,
-                        date: huddle.huddleDate,
-                        coachId: huddle.coachId,
-                        userId: huddle.userId
-                      });
+                      let huddle;
+                      try {
+                        huddle = await prisma.huddle.create({
+                          data: {
+                            title: functionArgs.title || '10X Coaching Session',
+                            huddleDate: meetingDate,
+                            coachId: currentCoachId,
+                            userId: currentUserId,
+                            hasShortAgenda: true,
+                            hasNotetaker: true,
+                            hasActionSteps: true,
+                            status: 'SCHEDULED'
+                          },
+                          include: {
+                            coach: { select: { name: true } },
+                            user: { select: { name: true, email: true } }
+                          }
+                        });
+                        
+                        console.log(`✅ Huddle created successfully:`, {
+                          id: huddle.id,
+                          title: huddle.title,
+                          date: huddle.huddleDate,
+                          coachId: huddle.coachId,
+                          userId: huddle.userId
+                        });
+                      } catch (dbError) {
+                        console.error('❌ Database error creating huddle:', dbError);
+                        console.error('   Error details:', {
+                          message: dbError.message,
+                          code: dbError.code,
+                          meta: dbError.meta
+                        });
+                        throw new Error(`Failed to create meeting in database: ${dbError.message}`);
+                      }
                       
                       functionResult = {
                         success: true,
@@ -1185,11 +1201,22 @@ wss.on('connection', (ws, req) => {
                     }
                   } catch (error) {
                     console.error(`❌ Error executing function ${functionName}:`, error);
-                    functionError = error.message;
+                    console.error(`   Error details:`, {
+                      message: error.message,
+                      stack: error.stack,
+                      name: error.name
+                    });
+                    functionError = error.message || String(error);
                     functionResult = {
                       success: false,
-                      error: error.message
+                      error: error.message || String(error)
                     };
+                    
+                    // Send error message to user
+                    safeSend({
+                      type: 'error',
+                      message: `Error executing ${functionName}: ${error.message || String(error)}`
+                    });
                   }
                   
                   // Submit tool output to OpenAI using conversation.item.create

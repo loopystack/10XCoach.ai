@@ -196,6 +196,8 @@ router.get('/me', authenticate, async (req, res) => {
       status: user.status,
       businessName: user.businessName,
       industry: user.industry,
+      phone: user.phone,
+      address: user.address,
       lastLogin: user.lastLogin,
       createdAt: user.createdAt,
       primaryCoach: user.primaryCoach ? {
@@ -208,6 +210,54 @@ router.get('/me', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Failed to get profile' });
+  }
+});
+
+// =============================================
+// PUT /api/auth/profile
+// Update current user's profile (name, businessName, industry, phone, address)
+// =============================================
+router.put('/profile', authenticate, async (req, res) => {
+  try {
+    const { name, businessName, industry, phone, address } = req.body;
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (businessName !== undefined) updateData.businessName = businessName;
+    if (industry !== undefined) updateData.industry = industry;
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        businessName: true,
+        industry: true,
+        phone: true,
+        address: true,
+        updatedAt: true
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 

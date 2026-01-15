@@ -581,31 +581,44 @@ wss.on('connection', (ws, req) => {
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data.toString());
+      
+      // Log all incoming messages for debugging
+      if (message.type !== 'audio') {
+        console.log(`📨 Received client message: ${message.type}`);
+      }
 
       if (message.type === 'start') {
         console.log('🎯 Starting conversation session...');
         
-        // Clear the connection timeout since conversation has started
-        if (connectionTimeout) {
-          clearTimeout(connectionTimeout);
-          connectionTimeout = null;
-          console.log('✅ Cleared connection timeout - conversation started');
-        }
-        
-        // Check user access before starting conversation
-        const { checkUserAccess } = require('./middleware/access.middleware');
-        if (currentUserId) {
-          const access = await checkUserAccess(currentUserId);
-          if (!access.hasAccess) {
-            safeSend({ 
-              type: 'error', 
-              message: 'Trial expired. Please upgrade to continue.',
-              requiresUpgrade: true,
-              redirectTo: '/plans'
-            });
-            return;
+        // Wrap the entire start handler in try-catch to prevent connection closure
+        try {
+          // Clear the connection timeout since conversation has started
+          if (connectionTimeout) {
+            clearTimeout(connectionTimeout);
+            connectionTimeout = null;
+            console.log('✅ Cleared connection timeout - conversation started');
           }
-        }
+          
+          // Check user access before starting conversation
+          try {
+            const { checkUserAccess } = require('./middleware/access.middleware');
+            if (currentUserId) {
+              const access = await checkUserAccess(currentUserId);
+              if (!access.hasAccess) {
+                safeSend({ 
+                  type: 'error', 
+                  message: 'Trial expired. Please upgrade to continue.',
+                  requiresUpgrade: true,
+                  redirectTo: '/plans'
+                });
+                return;
+              }
+            }
+          } catch (accessError) {
+            console.error('❌ Error checking user access:', accessError);
+            // Don't block conversation start if access check fails
+            // Just log and continue
+          }
 
         // Extract parameters
         const apiType = (message.apiType || 'openai').toLowerCase();
@@ -1478,6 +1491,20 @@ wss.on('connection', (ws, req) => {
             message: 'Failed to connect to OpenAI. Please try again.',
             errorCode: error.code || 'CONNECTION_FAILED'
           });
+          // Don't close the client WebSocket - let them retry
+        }
+        } catch (startError) {
+          console.error('❌ Error in start message handler:', startError);
+          console.error('Error details:', {
+            message: startError.message,
+            code: startError.code,
+            stack: startError.stack
+          });
+          safeSend({ 
+            type: 'error', 
+            message: 'Error starting conversation: ' + (startError.message || 'Unknown error')
+          });
+          // Don't close the connection - keep it alive for retry
         }
 
       } else if (message.type === 'audio') {
@@ -1754,7 +1781,24 @@ wss.on('connection', (ws, req) => {
         }
       }
     } catch (error) {
-      console.error('Error processing client message:', error);
+      console.error('❌ Error processing client message:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      // Send error to client but don't close the connection
+      try {
+        safeSend({ 
+          type: 'error', 
+          message: error.message || 'Error processing message'
+        });
+      } catch (sendError) {
+        console.error('❌ Failed to send error message to client:', sendError);
+      }
+      
+      // Don't rethrow - keep the connection alive
     }
   });
 

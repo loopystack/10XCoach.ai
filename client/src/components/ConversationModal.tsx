@@ -757,7 +757,13 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
             console.log('📨 Received message:', data.type)
           }
           
-          if (data.type === 'connected') {
+          if (data.type === 'client_connected') {
+            // Just an acknowledgment - don't initialize audio yet
+            console.log('✅ Client WebSocket connected, waiting for OpenAI connection...')
+            setStatus('Connecting to coach...')
+            setStatusType('active')
+          } else if (data.type === 'connected') {
+            // OpenAI is connected and ready - initialize audio now
             try {
               await initializeAudio()
               isConnectedRef.current = true

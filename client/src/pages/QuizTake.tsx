@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, Circle } from 'lucide-react'
 import { isAuthenticated, api } from '../utils/api'
+import { notify } from '../utils/notification'
 import './PageStyles.css'
 
 interface QuizQuestion {

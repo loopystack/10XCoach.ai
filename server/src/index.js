@@ -1734,6 +1734,109 @@ wss.on('connection', (ws, req) => {
           
           sessionId = savedSession.id;
           
+          // Update user's usage tracking (hoursUsedThisMonth)
+          try {
+            if (durationMinutes && durationMinutes > 0) {
+              const durationHours = durationMinutes / 60; // Convert minutes to hours
+              
+              // Get current user to check usage reset date
+              const user = await prisma.user.findUnique({
+                where: { id: parseInt(currentUserId) },
+                select: {
+                  hoursUsedThisMonth: true,
+                  lastUsageResetDate: true,
+                  includedHoursMonthly: true,
+                  prepaidHoursBalance: true
+                }
+              });
+              
+              if (user) {
+                const now = new Date();
+                const lastReset = user.lastUsageResetDate ? new Date(user.lastUsageResetDate) : null;
+                
+                // Check if we need to reset usage (new month)
+                let hoursUsedThisMonth = parseFloat(user.hoursUsedThisMonth || 0);
+                let shouldReset = false;
+                
+                if (!lastReset) {
+                  // First time tracking, set reset date to start of current month
+                  shouldReset = false; // Don't reset, just start tracking
+                  await prisma.user.update({
+                    where: { id: parseInt(currentUserId) },
+                    data: {
+                      lastUsageResetDate: new Date(now.getFullYear(), now.getMonth(), 1)
+                    }
+                  });
+                } else {
+                  // Check if we're in a new month
+                  const resetMonth = lastReset.getMonth();
+                  const resetYear = lastReset.getFullYear();
+                  const currentMonth = now.getMonth();
+                  const currentYear = now.getFullYear();
+                  
+                  if (currentYear > resetYear || (currentYear === resetYear && currentMonth > resetMonth)) {
+                    // New month, reset usage
+                    shouldReset = true;
+                    hoursUsedThisMonth = 0;
+                    await prisma.user.update({
+                      where: { id: parseInt(currentUserId) },
+                      data: {
+                        lastUsageResetDate: new Date(now.getFullYear(), now.getMonth(), 1),
+                        hoursUsedThisMonth: 0
+                      }
+                    });
+                  }
+                }
+                
+                // Add current session duration to usage
+                const newHoursUsed = hoursUsedThisMonth + durationHours;
+                
+                await prisma.user.update({
+                  where: { id: parseInt(currentUserId) },
+                  data: {
+                    hoursUsedThisMonth: newHoursUsed
+                  }
+                });
+                
+                console.log(`📊 Updated usage for user ${currentUserId}: +${durationHours.toFixed(2)}h (total: ${newHoursUsed.toFixed(2)}h this month)`);
+                
+                // Check for usage alerts (75%, 90%, 100%)
+                const includedHours = parseFloat(user.includedHoursMonthly || 0);
+                const prepaidHours = parseFloat(user.prepaidHoursBalance || 0);
+                const totalAvailable = includedHours + prepaidHours;
+                
+                if (totalAvailable > 0) {
+                  const usagePercent = (newHoursUsed / totalAvailable) * 100;
+                  
+                  // Check and send alerts if thresholds are reached
+                  if (usagePercent >= 100 && !user.usageAlert100Sent) {
+                    console.log(`🚨 User ${currentUserId} reached 100% usage (${newHoursUsed.toFixed(2)}h / ${totalAvailable.toFixed(2)}h)`);
+                    await prisma.user.update({
+                      where: { id: parseInt(currentUserId) },
+                      data: { usageAlert100Sent: true }
+                    });
+                  } else if (usagePercent >= 90 && !user.usageAlert90Sent) {
+                    console.log(`⚠️ User ${currentUserId} reached 90% usage (${newHoursUsed.toFixed(2)}h / ${totalAvailable.toFixed(2)}h)`);
+                    await prisma.user.update({
+                      where: { id: parseInt(currentUserId) },
+                      data: { usageAlert90Sent: true }
+                    });
+                  } else if (usagePercent >= 75 && !user.usageAlert75Sent) {
+                    console.log(`⚠️ User ${currentUserId} reached 75% usage (${newHoursUsed.toFixed(2)}h / ${totalAvailable.toFixed(2)}h)`);
+                    await prisma.user.update({
+                      where: { id: parseInt(currentUserId) },
+                      data: { usageAlert75Sent: true }
+                    });
+                  }
+                }
+              }
+            }
+          } catch (usageError) {
+            // Don't fail session save if usage tracking fails
+            console.error('❌ Error updating usage tracking:', usageError);
+            console.error('   Session was saved successfully, but usage was not updated');
+          }
+          
           // Automatically create a note from the session for the 10X Coach Notetaking page
           try {
             // Generate note content from transcript

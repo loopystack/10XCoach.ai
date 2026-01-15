@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Check, CreditCard, Clock, AlertCircle, ArrowRight } from 'lucide-react'
+import { Check, CreditCard, Clock, AlertCircle, ArrowRight, Package, Settings, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { api, isAuthenticated } from '../utils/api'
 import { notify } from '../utils/notification'
 import './PageStyles.css'
@@ -17,6 +17,50 @@ interface BillingStatus {
   planEndDate: string | null
   creditBalance: number
   stripeCustomerId: string | null
+  // Prepaid time fields
+  prepaidHoursBalance?: number
+  includedHoursMonthly?: number | null
+  hoursUsedThisMonth?: number
+  lastUsageResetDate?: string | null
+  usageAlerts?: {
+    alert75Sent: boolean
+    alert90Sent: boolean
+    alert100Sent: boolean
+  }
+  spendingControls?: {
+    hardStopAtLimit: boolean
+    autoPurchaseEnabled: boolean
+    autoPurchasePackSize: number | null
+  }
+  activeTimePacks?: Array<{
+    id: number
+    packSize: number
+    hoursPurchased: number
+    hoursUsed: number
+    hoursRemaining: number
+    expiresAt: string | null
+    createdAt: string
+  }>
+}
+
+interface UsageData {
+  includedHours: number
+  extraHoursPurchased: number
+  hoursUsed: number
+  remainingBalance: number
+  hoursUsedThisMonth: number
+  lastUsageResetDate: string | null
+  activeTimePacks: Array<{
+    id: number
+    packSize: number
+    hoursPurchased: number
+    hoursUsed: number
+    hoursRemaining: number
+    expiresAt: string | null
+    createdAt: string
+  }>
+  sessionsThisMonth: number
+  totalMinutesUsed: number
 }
 
 interface Plan {
@@ -39,6 +83,15 @@ const Plans = () => {
   const [depositAmount, setDepositAmount] = useState<number>(50)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [activatingPlan, setActivatingPlan] = useState<number | null>(null)
+  const [usageData, setUsageData] = useState<UsageData | null>(null)
+  const [purchasingPack, setPurchasingPack] = useState<number | null>(null) // packSize being purchased
+  const [showSpendingControls, setShowSpendingControls] = useState(false)
+  const [spendingControls, setSpendingControls] = useState({
+    hardStopAtLimit: false,
+    autoPurchaseEnabled: false,
+    autoPurchasePackSize: null as number | null
+  })
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -48,6 +101,7 @@ const Plans = () => {
 
     fetchBillingStatus()
     fetchPlans()
+    fetchUsageData()
     
     // Check for payment success/cancel in URL
     const params = new URLSearchParams(location.search)
@@ -66,6 +120,7 @@ const Plans = () => {
       } else {
         notify.success('Payment successful! Your credit has been added.')
         fetchBillingStatus() // Refresh status
+        fetchUsageData() // Refresh usage data
         // Remove URL parameters after showing notification
         const newUrl = window.location.pathname
         window.history.replaceState({}, '', newUrl)
@@ -132,6 +187,71 @@ const Plans = () => {
       setPlans(plansData)
     } catch (error: any) {
       console.error('Failed to fetch plans:', error)
+    }
+  }
+
+  const fetchUsageData = async () => {
+    try {
+      const usage = await api.get('/api/billing/usage')
+      // Map backend response to frontend UsageData interface
+      setUsageData({
+        includedHours: usage.includedHours || 0,
+        extraHoursPurchased: usage.extraHoursPurchased || 0,
+        hoursUsed: usage.hoursUsed || 0,
+        remainingBalance: usage.remainingBalance || 0,
+        hoursUsedThisMonth: usage.hoursUsedThisMonth || 0,
+        lastUsageResetDate: usage.lastUsageResetDate || null,
+        activeTimePacks: usage.activeTimePacks || [],
+        sessionsThisMonth: usage.sessionsThisMonth || 0,
+        totalMinutesUsed: usage.totalMinutesUsed || 0
+      })
+    } catch (error: any) {
+      console.error('Failed to fetch usage data:', error)
+      // Set default usage data on error
+      setUsageData({
+        includedHours: 0,
+        extraHoursPurchased: 0,
+        hoursUsed: 0,
+        remainingBalance: 0,
+        hoursUsedThisMonth: 0,
+        lastUsageResetDate: null,
+        activeTimePacks: [],
+        sessionsThisMonth: 0,
+        totalMinutesUsed: 0
+      })
+    }
+  }
+
+  const handlePurchaseTimePack = async (packSize: number) => {
+    try {
+      setPurchasingPack(packSize)
+      const response = await api.post('/api/billing/purchase-time-pack', { 
+        packSize: packSize
+      })
+      
+      // Redirect to Stripe checkout
+      if (response.url) {
+        window.location.href = response.url
+      }
+    } catch (error: any) {
+      console.error('Failed to purchase time pack:', error)
+      notify.error(error.message || 'Failed to start checkout. Please try again.')
+      setPurchasingPack(null)
+    }
+  }
+
+  const handleUpdateSpendingControls = async () => {
+    try {
+      const response = await api.post('/api/billing/update-spending-controls', spendingControls)
+      if (response.success) {
+        notify.success('Spending controls updated successfully')
+        setSpendingControls(response.spendingControls)
+        // Update billing status to reflect changes
+        fetchBillingStatus()
+      }
+    } catch (error: any) {
+      console.error('Failed to update spending controls:', error)
+      notify.error(error.message || 'Failed to update spending controls')
     }
   }
 
@@ -319,6 +439,505 @@ const Plans = () => {
             </div>
           </div>
         )}
+
+        {/* Usage Dashboard */}
+        {usageData && (
+          <div 
+            className="content-card" 
+            style={{ 
+              marginBottom: '32px',
+              padding: '24px',
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(5, 150, 105, 0.02) 100%)',
+              border: '1px solid rgba(16, 185, 129, 0.2)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: 'var(--gray-900)' }}>
+                Usage Dashboard
+              </h2>
+              <button
+                onClick={() => setShowSpendingControls(!showSpendingControls)}
+                style={{
+                  padding: '8px 16px',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  borderRadius: '8px',
+                  color: '#3b82f6',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Settings size={16} />
+                Spending Controls
+              </button>
+            </div>
+
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px'
+            }}>
+              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+                <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Included Hours
+                </p>
+                <p style={{ fontSize: '28px', fontWeight: 800, color: 'var(--gray-900)', margin: 0 }}>
+                  {usageData.includedHours.toFixed(1)}h
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px', margin: 0 }}>
+                  Monthly
+                </p>
+              </div>
+
+              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+                <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Extra Hours Purchased
+                </p>
+                <p style={{ fontSize: '28px', fontWeight: 800, color: '#8b5cf6', margin: 0 }}>
+                  {usageData.extraHoursPurchased.toFixed(1)}h
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px', margin: 0 }}>
+                  Prepaid
+                </p>
+              </div>
+
+              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+                <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Hours Used
+                </p>
+                <p style={{ fontSize: '28px', fontWeight: 800, color: '#ef4444', margin: 0 }}>
+                  {usageData.hoursUsed.toFixed(1)}h
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px', margin: 0 }}>
+                  This Month
+                </p>
+              </div>
+
+              <div style={{ padding: '16px', background: 'white', borderRadius: '12px', border: '1px solid rgba(229, 231, 235, 0.8)' }}>
+                <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase' }}>
+                  Remaining Balance
+                </p>
+                <p style={{ fontSize: '28px', fontWeight: 800, color: '#10b981', margin: 0 }}>
+                  {Math.max(0, usageData.remainingBalance).toFixed(1)}h
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px', margin: 0 }}>
+                  Available
+                </p>
+              </div>
+            </div>
+
+            {/* Estimated Overage Cost */}
+            {usageData.hoursUsed > (usageData.includedHours + usageData.extraHoursPurchased) && (
+              <div style={{ 
+                marginTop: '20px', 
+                padding: '16px', 
+                background: 'rgba(239, 68, 68, 0.1)', 
+                borderRadius: '12px',
+                border: '1px solid rgba(239, 68, 68, 0.2)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <AlertCircle size={18} style={{ color: '#ef4444' }} />
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#dc2626' }}>Estimated Overage</span>
+                </div>
+                <p style={{ fontSize: '24px', fontWeight: 800, color: '#dc2626', margin: 0 }}>
+                  ${((usageData.hoursUsed - (usageData.includedHours + usageData.extraHoursPurchased)) * 35).toFixed(2)}
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-600)', marginTop: '4px', margin: 0 }}>
+                  {((usageData.hoursUsed - (usageData.includedHours + usageData.extraHoursPurchased)) * 60).toFixed(0)} minutes × $0.5833/minute
+                </p>
+              </div>
+            )}
+
+            {/* Usage Progress Bar */}
+            {usageData.includedHours + usageData.extraHoursPurchased > 0 && (
+              <div style={{ marginTop: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-700)' }}>Usage Progress</span>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-700)' }}>
+                    {((usageData.hoursUsed / (usageData.includedHours + usageData.extraHoursPurchased)) * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div style={{ 
+                  width: '100%', 
+                  height: '12px', 
+                  background: 'rgba(229, 231, 235, 0.8)', 
+                  borderRadius: '6px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{ 
+                    width: `${Math.min(100, (usageData.hoursUsed / (usageData.includedHours + usageData.extraHoursPurchased)) * 100)}%`,
+                    height: '100%',
+                    background: usageData.hoursUsed / (usageData.includedHours + usageData.extraHoursPurchased) > 0.9
+                      ? 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)'
+                      : usageData.hoursUsed / (usageData.includedHours + usageData.extraHoursPurchased) > 0.75
+                      ? 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)'
+                      : 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
+                {/* Usage Alerts */}
+                {billingStatus?.usageAlerts && (
+                  <div style={{ marginTop: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {usageData.hoursUsed / (usageData.includedHours + usageData.extraHoursPurchased) >= 0.75 && !billingStatus.usageAlerts.alert75Sent && (
+                      <div style={{ padding: '8px 12px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '6px', fontSize: '12px', color: '#d97706' }}>
+                        ⚠️ 75% usage reached
+                      </div>
+                    )}
+                    {usageData.hoursUsed / (usageData.includedHours + usageData.extraHoursPurchased) >= 0.9 && !billingStatus.usageAlerts.alert90Sent && (
+                      <div style={{ padding: '8px 12px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '6px', fontSize: '12px', color: '#d97706' }}>
+                        ⚠️ 90% usage reached
+                      </div>
+                    )}
+                    {usageData.hoursUsed >= (usageData.includedHours + usageData.extraHoursPurchased) && !billingStatus.usageAlerts.alert100Sent && (
+                      <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', fontSize: '12px', color: '#dc2626' }}>
+                        🚨 100% usage reached
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Spending Controls Modal */}
+            {showSpendingControls && (
+              <div style={{ 
+                marginTop: '24px', 
+                padding: '20px', 
+                background: 'rgba(249, 250, 251, 0.8)', 
+                borderRadius: '12px',
+                border: '1px solid rgba(229, 231, 235, 0.8)'
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '18px', fontWeight: 700 }}>Spending Controls & Alerts</h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={spendingControls.hardStopAtLimit}
+                      onChange={(e) => setSpendingControls({ ...spendingControls, hardStopAtLimit: e.target.checked })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '14px', fontWeight: 500 }}>Hard stop at limit (prevent usage when balance reaches 0)</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={spendingControls.autoPurchaseEnabled}
+                      onChange={(e) => setSpendingControls({ ...spendingControls, autoPurchaseEnabled: e.target.checked })}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '14px', fontWeight: 500 }}>Auto-purchase next pack when balance reaches 0</span>
+                  </label>
+
+                  {spendingControls.autoPurchaseEnabled && (
+                    <div style={{ marginLeft: '30px' }}>
+                      <label style={{ fontSize: '14px', fontWeight: 500, marginBottom: '8px', display: 'block' }}>
+                        Auto-purchase pack size:
+                      </label>
+                      <select
+                        value={spendingControls.autoPurchasePackSize || ''}
+                        onChange={(e) => setSpendingControls({ ...spendingControls, autoPurchasePackSize: e.target.value ? parseInt(e.target.value) : null })}
+                        style={{
+                          padding: '8px 12px',
+                          border: '1px solid rgba(229, 231, 235, 0.8)',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          width: '200px'
+                        }}
+                      >
+                        <option value="">Select pack size</option>
+                        <option value="5">5 hours ($175)</option>
+                        <option value="10">10 hours ($350)</option>
+                        <option value="25">25 hours ($875)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                    <button
+                      onClick={handleUpdateSpendingControls}
+                      className="primary-button"
+                      style={{ padding: '10px 20px', fontSize: '14px' }}
+                    >
+                      Save Controls
+                    </button>
+                    <button
+                      onClick={() => setShowSpendingControls(false)}
+                      style={{
+                        padding: '10px 20px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '8px',
+                        color: '#ef4444',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Prepaid Time Packs */}
+        <div 
+          className="content-card" 
+          style={{ 
+            marginBottom: '32px',
+            padding: '24px',
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%)',
+            border: '1px solid rgba(139, 92, 246, 0.2)'
+          }}
+        >
+          <div style={{ marginBottom: '24px' }}>
+            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: 'var(--gray-900)', marginBottom: '8px' }}>
+              Prepaid Time Packs
+            </h2>
+            <p style={{ margin: 0, fontSize: '14px', color: 'var(--gray-600)' }}>
+              Buy additional time upfront at the same rate. Unused time can roll over (6-12 months).
+            </p>
+            <div style={{ marginTop: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--gray-600)' }}>
+                <Check size={14} style={{ color: '#10b981' }} />
+                <span>Predictable</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--gray-600)' }}>
+                <Check size={14} style={{ color: '#10b981' }} />
+                <span>No surprise bills</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--gray-600)' }}>
+                <Check size={14} style={{ color: '#10b981' }} />
+                <span>Easy to explain</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '20px'
+          }}>
+            {/* 5 Hours Pack */}
+            <div style={{
+              padding: '20px',
+              background: 'white',
+              borderRadius: '12px',
+              border: '2px solid rgba(139, 92, 246, 0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%'
+            }}>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Package size={20} style={{ color: '#8b5cf6' }} />
+                  <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--gray-900)' }}>5 Hours</h3>
+                </div>
+                <p style={{ fontSize: '32px', fontWeight: 800, color: '#8b5cf6', margin: 0 }}>
+                  $175
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px', margin: 0 }}>
+                  $35/hour
+                </p>
+              </div>
+              <div style={{ flexGrow: 1, marginBottom: '16px' }}>
+                <p style={{ fontSize: '14px', color: 'var(--gray-600)', margin: 0 }}>
+                  Perfect for occasional use or trying out the service.
+                </p>
+              </div>
+              <button
+                onClick={() => handlePurchaseTimePack(5)}
+                disabled={purchasingPack === 5}
+                className="primary-button"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  opacity: purchasingPack === 5 ? 0.6 : 1,
+                  cursor: purchasingPack === 5 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {purchasingPack === 5 ? (
+                  <>
+                    <div className="modern-spinner"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={16} />
+                    <span>Purchase 5 Hours</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* 10 Hours Pack */}
+            <div style={{
+              padding: '20px',
+              background: 'white',
+              borderRadius: '12px',
+              border: '2px solid rgba(139, 92, 246, 0.3)',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                padding: '4px 12px',
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                color: 'white',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 700,
+                textTransform: 'uppercase'
+              }}>
+                Popular
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Package size={20} style={{ color: '#8b5cf6' }} />
+                  <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--gray-900)' }}>10 Hours</h3>
+                </div>
+                <p style={{ fontSize: '32px', fontWeight: 800, color: '#8b5cf6', margin: 0 }}>
+                  $350
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px', margin: 0 }}>
+                  $35/hour
+                </p>
+              </div>
+              <div style={{ flexGrow: 1, marginBottom: '16px' }}>
+                <p style={{ fontSize: '14px', color: 'var(--gray-600)', margin: 0 }}>
+                  Great value for regular users. Most popular choice.
+                </p>
+              </div>
+              <button
+                onClick={() => handlePurchaseTimePack(10)}
+                disabled={purchasingPack === 10}
+                className="primary-button"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                  opacity: purchasingPack === 10 ? 0.6 : 1,
+                  cursor: purchasingPack === 10 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {purchasingPack === 10 ? (
+                  <>
+                    <div className="modern-spinner"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={16} />
+                    <span>Purchase 10 Hours</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* 25 Hours Pack */}
+            <div style={{
+              padding: '20px',
+              background: 'white',
+              borderRadius: '12px',
+              border: '2px solid rgba(139, 92, 246, 0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%'
+            }}>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Package size={20} style={{ color: '#8b5cf6' }} />
+                  <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--gray-900)' }}>25 Hours</h3>
+                </div>
+                <p style={{ fontSize: '32px', fontWeight: 800, color: '#8b5cf6', margin: 0 }}>
+                  $875
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--gray-500)', marginTop: '4px', margin: 0 }}>
+                  $35/hour
+                </p>
+              </div>
+              <div style={{ flexGrow: 1, marginBottom: '16px' }}>
+                <p style={{ fontSize: '14px', color: 'var(--gray-600)', margin: 0 }}>
+                  Best value for heavy users. Maximum savings.
+                </p>
+              </div>
+              <button
+                onClick={() => handlePurchaseTimePack(25)}
+                disabled={purchasingPack === 25}
+                className="primary-button"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  opacity: purchasingPack === 25 ? 0.6 : 1,
+                  cursor: purchasingPack === 25 ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {purchasingPack === 25 ? (
+                  <>
+                    <div className="modern-spinner"></div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={16} />
+                    <span>Purchase 25 Hours</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Contract Language */}
+          <div style={{ 
+            marginTop: '24px', 
+            padding: '16px', 
+            background: 'rgba(249, 250, 251, 0.8)', 
+            borderRadius: '8px',
+            fontSize: '13px',
+            color: 'var(--gray-600)',
+            lineHeight: '1.6'
+          }}>
+            <p style={{ margin: 0, fontWeight: 600, marginBottom: '8px', color: 'var(--gray-700)' }}>
+              Contract Language:
+            </p>
+            <p style={{ margin: 0 }}>
+              "Additional usage beyond the included monthly hours is billed at $35 per hour, calculated per minute. 
+              Clients may pre-purchase additional hours at the same rate. Unused prepaid hours expire after 9 months."
+            </p>
+          </div>
+        </div>
 
         {/* Plans Grid */}
         <div style={{ 
@@ -522,28 +1141,160 @@ const Plans = () => {
           })}
         </div>
 
-        {/* FAQ Section */}
-        <div style={{ marginTop: '32px', paddingTop: '32px', borderTop: '1px solid rgba(229, 231, 235, 0.8)' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '20px', color: 'var(--gray-900)' }}>Frequently Asked Questions</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <h3 style={{ fontWeight: 700, marginBottom: '8px', color: 'var(--gray-900)' }}>How does the credit system work?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--gray-600)', lineHeight: 1.6 }}>
-                When you make a payment, the amount is added to your account credit. You can then use this credit to activate any plan. Plans are activated for 30 days.
-              </p>
-            </div>
-            <div>
-              <h3 style={{ fontWeight: 700, marginBottom: '8px', color: 'var(--gray-900)' }}>What happens when my trial ends?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--gray-600)', lineHeight: 1.6 }}>
-                When your 14-day free trial ends, you'll need to upgrade to a paid plan to continue using features like talking to coaches, taking quizzes, creating huddles, notes, and todos.
-              </p>
-            </div>
-            <div>
-              <h3 style={{ fontWeight: 700, marginBottom: '8px', color: 'var(--gray-900)' }}>Can I cancel my plan?</h3>
-              <p style={{ fontSize: '14px', color: 'var(--gray-600)', lineHeight: 1.6 }}>
-                Yes, you can cancel at any time. Your plan will remain active until the end of the current billing period.
-              </p>
-            </div>
+        {/* 10X Billing FAQ Section */}
+        <div 
+          className="content-card" 
+          style={{ 
+            marginBottom: '32px',
+            padding: '24px',
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%)',
+            border: '1px solid rgba(59, 130, 246, 0.2)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <HelpCircle size={24} style={{ color: '#3b82f6' }} />
+            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: 'var(--gray-900)' }}>
+              10X Billing FAQ
+            </h2>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* FAQ Items - using the same expandable format as before */}
+            {[
+              {
+                id: 1,
+                question: 'How does billing work?',
+                answer: 'We bill on a subscription basis, which includes a set number of hours/minutes each billing cycle. If you use more than your included time, you can either pre-purchase additional hours or be billed automatically for overage at a flat rate of $35 per hour.'
+              },
+              {
+                id: 2,
+                question: 'What happens if I exceed my included hours?',
+                answer: (
+                  <>
+                    <p style={{ marginBottom: '12px', marginTop: 0 }}>
+                      If you exceed your included usage:
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                      <li>Additional time is billed at $35 per hour ($0.5833 per minute)</li>
+                      <li>Usage is calculated per minute (not rounded up to full hours)</li>
+                      <li>You can choose to be billed automatically at the end of the billing period, or pre-purchase additional hours in advance</li>
+                    </ul>
+                  </>
+                )
+              },
+              {
+                id: 3,
+                question: 'Can I pre-purchase additional hours?',
+                answer: (
+                  <>
+                    <p style={{ marginBottom: '12px', marginTop: 0 }}>
+                      Yes. You may pre-purchase additional hours at the same rate of $35 per hour. Common options include:
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                      <li>5 hours for $175</li>
+                      <li>10 hours for $350</li>
+                      <li>25 hours for $875</li>
+                    </ul>
+                    <p style={{ marginTop: '12px', marginBottom: 0 }}>
+                      Pre-purchased hours are applied automatically as you use the service.
+                    </p>
+                  </>
+                )
+              },
+              {
+                id: 4,
+                question: 'Do unused purchased hours roll over?',
+                answer: 'Yes. Unused pre-purchased hours roll over and remain available for up to 9 months from the purchase date. Unused hours expire after that period.'
+              },
+              {
+                id: 5,
+                question: 'Will I be notified before I incur extra charges?',
+                answer: (
+                  <>
+                    <p style={{ marginBottom: '12px', marginTop: 0 }}>
+                      Yes. You can enable usage alerts to notify you when you reach:
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                      <li>75% of included usage</li>
+                      <li>90% of included usage</li>
+                      <li>100% of included usage</li>
+                    </ul>
+                    <p style={{ marginTop: '12px', marginBottom: 0 }}>
+                      You can also set a monthly spending limit or hard stop in your account settings (Spending Controls).
+                    </p>
+                  </>
+                )
+              },
+              {
+                id: 6,
+                question: 'Can I cap or control overage charges?',
+                answer: (
+                  <>
+                    <p style={{ marginBottom: '12px', marginTop: 0 }}>
+                      Yes. You may:
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                      <li>Set a maximum monthly overage limit</li>
+                      <li>Enable auto-purchase of additional hours</li>
+                      <li>Disable overages entirely (service pauses once usage is exhausted)</li>
+                    </ul>
+                    <p style={{ marginTop: '12px', marginBottom: 0 }}>
+                      You are always in control. Configure these settings in Spending Controls above.
+                    </p>
+                  </>
+                )
+              },
+              {
+                id: 7,
+                question: 'When will I be billed?',
+                answer: (
+                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                    <li>Subscriptions are billed in advance at the start of each billing cycle</li>
+                    <li>Overage charges (if any) are billed in arrears at the end of the billing cycle</li>
+                    <li>Pre-purchased hours are billed at the time of purchase</li>
+                    <li>All charges appear as line items on your invoice</li>
+                  </ul>
+                )
+              },
+              {
+                id: 8,
+                question: 'Are there refunds for unused time?',
+                answer: 'Subscription fees are non-refundable. Pre-purchased hours are non-refundable but may be used until they expire (up to 9 months from purchase).'
+              }
+            ].map((faq) => (
+              <div key={faq.id} style={{
+                background: 'white',
+                borderRadius: '12px',
+                border: '1px solid rgba(229, 231, 235, 0.8)',
+                overflow: 'hidden'
+              }}>
+                <button
+                  onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
+                  style={{
+                    width: '100%',
+                    padding: '16px 20px',
+                    background: 'transparent',
+                    border: 'none',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    color: 'var(--gray-900)'
+                  }}
+                >
+                  <span>{faq.question}</span>
+                  {expandedFaq === faq.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+                {expandedFaq === faq.id && (
+                  <div style={{ padding: '0 20px 20px 20px', fontSize: '14px', color: 'var(--gray-700)', lineHeight: '1.6' }}>
+                    {typeof faq.answer === 'string' ? <p style={{ margin: 0 }}>{faq.answer}</p> : faq.answer}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>

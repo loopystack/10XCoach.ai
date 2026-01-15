@@ -550,6 +550,7 @@ wss.on('connection', (ws, req) => {
   let connectionErrorCount = 0;
   let lastConnectionErrorTime = 0;
   let keepaliveInterval = null;
+  let clientKeepaliveInterval = null; // Keepalive for client connection
   let useElevenLabsMode = false;
   let elevenLabsVoiceId = null;
   let accumulatedText = {};

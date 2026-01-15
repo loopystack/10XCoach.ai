@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Edit, Trash2, Save, X, Check, X as XIcon, Sparkles, Crown, Zap, DollarSign, Mic, Users, Target, BarChart3, Shield } from 'lucide-react'
 import { api } from '../../utils/api'
+import { notify } from '../../utils/notification'
 import '../PageStyles.css'
 import './AdminPages.css'
 
@@ -181,7 +182,7 @@ const Plans = () => {
       handleCancel()
     } catch (error) {
       console.error('Failed to update plan:', error)
-      alert('Failed to update plan')
+      notify.error('Failed to update plan')
     }
   }
 
@@ -193,7 +194,7 @@ const Plans = () => {
       setPlans(plans.filter(p => p.id !== id))
     } catch (error) {
       console.error('Failed to delete plan:', error)
-      alert('Failed to delete plan')
+      notify.error('Failed to delete plan')
     }
   }
 
@@ -204,7 +205,7 @@ const Plans = () => {
       handleCancel()
     } catch (error) {
       console.error('Failed to create plan:', error)
-      alert('Failed to create plan')
+      notify.error('Failed to create plan')
     }
   }
 

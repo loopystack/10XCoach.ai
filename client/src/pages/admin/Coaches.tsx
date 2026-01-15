@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Edit2, Save, X, Settings, ToggleLeft, ToggleRight, User, Mail, Briefcase, MessageSquare, Upload, Image as ImageIcon, Mic } from 'lucide-react'
 import { api } from '../../utils/api'
+import { notify } from '../../utils/notification'
 import '../PageStyles.css'
 import './AdminPages.css'
 
@@ -98,7 +99,7 @@ const Coaches = () => {
       }
     } catch (error) {
       console.error('Failed to fetch coaches:', error)
-      alert('Failed to load coaches')
+      notify.error('Failed to load coaches')
     } finally {
       setLoading(false)
     }
@@ -156,7 +157,7 @@ const Coaches = () => {
       return data.filePath
     } catch (error: any) {
       console.error('Photo upload error:', error)
-      alert(error.message || 'Failed to upload photo')
+      notify.error(error.message || 'Failed to upload photo')
       return null
     } finally {
       setUploadingPhoto(false)
@@ -170,13 +171,13 @@ const Coaches = () => {
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
-      alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)')
+      notify.warning('Please select a valid image file (JPEG, PNG, GIF, or WebP)')
       return
     }
 
     // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB')
+      notify.warning('File size must be less than 5MB')
       return
     }
 
@@ -190,7 +191,7 @@ const Coaches = () => {
 
   const handleAddCoach = async () => {
     if (!formData.name.trim()) {
-      alert('Coach name is required')
+      notify.warning('Coach name is required')
       return
     }
 
@@ -210,12 +211,12 @@ const Coaches = () => {
         ...formData,
         avatar: avatarUrl
       })
-      alert('Coach added successfully!')
+      notify.success('Coach added successfully!')
       resetForm()
       fetchCoaches()
     } catch (error: any) {
       console.error('Failed to add coach:', error)
-      alert(error.message || 'Failed to add coach')
+      notify.error(error.message || 'Failed to add coach')
     }
   }
 
@@ -244,7 +245,7 @@ const Coaches = () => {
 
   const handleUpdateCoach = async () => {
     if (!formData.name.trim()) {
-      alert('Coach name is required')
+      notify.warning('Coach name is required')
       return
     }
 
@@ -266,12 +267,12 @@ const Coaches = () => {
         ...formData,
         avatar: avatarUrl
       })
-      alert('Coach updated successfully!')
+      notify.success('Coach updated successfully!')
       resetForm()
       fetchCoaches()
     } catch (error: any) {
       console.error('Failed to update coach:', error)
-      alert(error.message || 'Failed to update coach')
+      notify.error(error.message || 'Failed to update coach')
     }
   }
 
@@ -282,11 +283,11 @@ const Coaches = () => {
 
     try {
       await api.delete(`/api/coaches/${id}`)
-      alert('Coach deleted successfully!')
+      notify.success('Coach deleted successfully!')
       fetchCoaches()
     } catch (error: any) {
       console.error('Failed to delete coach:', error)
-      alert(error.message || 'Failed to delete coach')
+      notify.error(error.message || 'Failed to delete coach')
     }
   }
 
@@ -296,7 +297,7 @@ const Coaches = () => {
       fetchCoaches()
     } catch (error: any) {
       console.error('Failed to toggle coach status:', error)
-      alert('Failed to update coach status')
+      notify.error('Failed to update coach status')
     }
   }
 
@@ -640,7 +641,7 @@ const Coaches = () => {
                       setEditingPromptId(coach.id)
                     } catch (error) {
                       console.error('Failed to load coach:', error)
-                      alert('Failed to load coach details')
+                      notify.error('Failed to load coach details')
                     }
                   }}
                   title="Edit AI Prompt"
@@ -686,12 +687,12 @@ const Coaches = () => {
                     await api.put(`/api/coaches/${editingPromptId}`, {
                       personaJson: { systemPrompt: editingPrompt }
                     })
-                    alert('Prompt updated successfully!')
+                    notify.success('Prompt updated successfully!')
                     setEditingPromptId(null)
                     fetchCoaches()
                   } catch (error) {
                     console.error('Failed to update prompt:', error)
-                    alert('Failed to update prompt')
+                    notify.error('Failed to update prompt')
                   }
                 }}
               >

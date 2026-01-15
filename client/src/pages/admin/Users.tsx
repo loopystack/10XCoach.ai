@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Eye, Shield, User as UserIcon, Trash2, X as XIcon, Mail, Building2, Calendar, Clock, Briefcase, Award, Activity } from 'lucide-react'
 import { api } from '../../utils/api'
+import { notify } from '../../utils/notification'
 import '../PageStyles.css'
 import './AdminPages.css'
 
@@ -115,7 +116,7 @@ const Users = () => {
   const handleRoleChange = async (userId: number, newRole: 'USER' | 'ADMIN' | 'COACH_ADMIN' | 'SUPER_ADMIN') => {
     // Only super admins can change roles
     if (currentUserRole !== 'SUPER_ADMIN') {
-      alert('Only Super Admins can change user roles.')
+      notify.warning('Only Super Admins can change user roles.')
       return
     }
 
@@ -127,7 +128,7 @@ const Users = () => {
       
       // Don't allow changing Daniel Rosario's role
       if (isDanielRosario) {
-        alert('Cannot change role for Daniel Rosario. This user always has super admin access.')
+        notify.warning('Cannot change role for Daniel Rosario. This user always has super admin access.')
         setUpdatingRole(null)
         return
       }
@@ -157,7 +158,7 @@ const Users = () => {
     } catch (error: any) {
       console.error('Failed to update user role:', error)
       const errorMessage = error?.response?.data?.error || error?.message || 'Failed to update user role. Please try again.'
-      alert(errorMessage)
+      notify.error(errorMessage)
     } finally {
       setUpdatingRole(null)
     }
@@ -175,7 +176,7 @@ const Users = () => {
     
     // Don't allow deleting Daniel Rosario
     if (isDanielRosario) {
-      alert('Cannot delete Daniel Rosario. This user always has admin access.')
+      notify.warning('Cannot delete Daniel Rosario. This user always has admin access.')
       return
     }
 
@@ -193,7 +194,7 @@ const Users = () => {
     } catch (error: any) {
       console.error('Failed to delete user:', error)
       const errorMessage = error?.response?.data?.error || error?.message || 'Failed to delete user. Please try again.'
-      alert(errorMessage)
+      notify.error(errorMessage)
     } finally {
       setDeletingUserId(null)
     }

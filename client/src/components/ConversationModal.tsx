@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Mic, Square, Save } from 'lucide-react'
+import { notify } from '../utils/notification'
 import './ConversationModal.css'
 
 interface Coach {
@@ -470,7 +471,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
 
       const token = localStorage.getItem('token') || sessionStorage.getItem('token')
       if (!token) {
-        alert('Please log in to start a conversation')
+        notify.warning('Please log in to start a conversation')
         onClose()
         return
       }
@@ -533,7 +534,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
           } else {
             setStatus('Connection failed after multiple attempts. Please check your connection and try again.')
             setStatusType('error')
-            alert('Unable to connect to the coach. Please check your internet connection and try again.')
+            notify.error('Unable to connect to the coach. Please check your internet connection and try again.')
             cleanup()
           }
         }
@@ -692,7 +693,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
               setStatus('Ready')
               setStatusType('idle')
             }, 3000)
-            alert('Conversation saved successfully!')
+            notify.success('Conversation saved successfully!')
           } else if (data.type === 'stopped') {
             isRecordingRef.current = false
             setIsRecording(false)
@@ -750,13 +751,13 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
 
   const saveConversation = () => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      alert('Not connected. Please start a conversation first.')
+      notify.warning('Not connected. Please start a conversation first.')
       return
     }
 
     const token = localStorage.getItem('token') || sessionStorage.getItem('token')
     if (!token) {
-      alert('Authentication token not found. Please log in again.')
+      notify.warning('Authentication token not found. Please log in again.')
       return
     }
 
@@ -776,7 +777,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       console.error('⏱️ Save conversation timeout')
       setStatus('Save timeout - please try again')
       setStatusType('error')
-      alert('Save conversation timed out. Please try again.')
+          notify.error('Save conversation timed out. Please try again.')
     }, 10000)
 
     try {
@@ -795,7 +796,7 @@ const ConversationModal = ({ coach, isOpen, onClose, apiType = 'openai' }: Conve
       }
       setStatus('Error sending save request')
       setStatusType('error')
-      alert('Failed to send save request: ' + error.message)
+          notify.error('Failed to send save request: ' + error.message)
     }
   }
 

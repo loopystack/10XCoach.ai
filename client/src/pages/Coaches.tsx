@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Sparkles, Mic } from 'lucide-react'
 import { isAuthenticated, api } from '../utils/api'
+import { notify } from '../utils/notification'
 import ConversationModal from '../components/ConversationModal'
 import './PageStyles.css'
 
@@ -91,7 +92,7 @@ const Coaches = () => {
     try {
       const billingStatus = await api.get('/api/billing/status')
       if (!billingStatus.hasAccess) {
-        alert('Your free trial has ended. Please upgrade to continue using this feature.')
+        notify.warning('Your free trial has ended. Please upgrade to continue using this feature.')
         navigate('/plans', { state: { from: 'talk-to-coach', coachId } })
         return
       }
@@ -99,7 +100,7 @@ const Coaches = () => {
       // If access check fails, still allow but log the error
       console.error('Failed to check billing status:', error)
       if (error.requiresUpgrade) {
-        alert('Your free trial has ended. Please upgrade to continue.')
+        notify.warning('Your free trial has ended. Please upgrade to continue.')
         navigate('/plans', { state: { from: 'talk-to-coach', coachId } })
         return
       }
@@ -109,7 +110,7 @@ const Coaches = () => {
     const coach = coaches.find(c => c.id === coachId)
     if (!coach) {
       console.error('Coach not found')
-      alert('Coach not found. Please try again.')
+      notify.error('Coach not found. Please try again.')
       return
     }
     

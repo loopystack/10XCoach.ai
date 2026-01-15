@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { StickyNote, Send, Calendar, User, Plus, Edit2, Trash2, X, Search, Filter, Info } from 'lucide-react'
 import { api } from '../utils/api'
+import { notify } from '../utils/notification'
 import './PageStyles.css'
 
 interface Note {
@@ -302,7 +303,7 @@ const Notes = () => {
       setShowCreateModal(false)
     } catch (error: any) {
       console.error('Error creating note:', error)
-      alert('Failed to create note: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to create note: ' + (error.message || 'Unknown error'))
     } finally {
       setSubmitting(false)
     }
@@ -328,7 +329,7 @@ const Notes = () => {
       setEditingNote(null)
     } catch (error: any) {
       console.error('Error updating note:', error)
-      alert('Failed to update note: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to update note: ' + (error.message || 'Unknown error'))
     } finally {
       setSubmitting(false)
     }
@@ -345,7 +346,7 @@ const Notes = () => {
       setDeletingNote(null)
     } catch (error: any) {
       console.error('Error deleting note:', error)
-      alert('Failed to delete note: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to delete note: ' + (error.message || 'Unknown error'))
     } finally {
       setDeleting(false)
     }
@@ -357,7 +358,7 @@ const Notes = () => {
       await fetchNotes()
     } catch (error: any) {
       console.error('Error sending note:', error)
-      alert('Failed to send note: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to send note: ' + (error.message || 'Unknown error'))
     }
   }
 

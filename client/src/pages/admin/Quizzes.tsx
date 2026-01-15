@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit2, Save, X, FileText, Hash, Type, Weight, List, Tag } from 'lucide-react'
 import { api } from '../../utils/api'
+import { notify } from '../../utils/notification'
 import '../PageStyles.css'
 import './AdminPages.css'
 
@@ -89,7 +90,7 @@ const Quizzes = () => {
       }
     } catch (error) {
       console.error('Failed to fetch questions:', error)
-      alert('Failed to load quiz questions')
+      notify.error('Failed to load quiz questions')
     } finally {
       setLoading(false)
     }
@@ -156,7 +157,7 @@ const Quizzes = () => {
 
   const handleSave = async () => {
     if (!formData.text.trim()) {
-      alert('Question text is required')
+      notify.warning('Question text is required')
       return
     }
 
@@ -164,17 +165,17 @@ const Quizzes = () => {
       if (editingId) {
         // Update existing question
         await api.put(`/api/admin/manage-quiz-questions/${editingId}`, formData)
-        alert('Question updated successfully!')
+        notify.success('Question updated successfully!')
       } else {
         // Create new question
         await api.post('/api/admin/manage-quiz-questions', formData)
-        alert('Question added successfully!')
+        notify.success('Question added successfully!')
       }
       resetForm()
       fetchQuestions()
     } catch (error: any) {
       console.error('Failed to save question:', error)
-      alert(error.message || 'Failed to save question')
+      notify.error(error.message || 'Failed to save question')
     }
   }
 
@@ -185,11 +186,11 @@ const Quizzes = () => {
 
     try {
       await api.delete(`/api/admin/manage-quiz-questions/${id}`)
-      alert('Question deleted successfully!')
+      notify.success('Question deleted successfully!')
       fetchQuestions()
     } catch (error: any) {
       console.error('Failed to delete question:', error)
-      alert(error.message || 'Failed to delete question')
+      notify.error(error.message || 'Failed to delete question')
     }
   }
 
@@ -235,14 +236,14 @@ const Quizzes = () => {
 
   const handleSavePillar = async () => {
     if (!pillarFormData.tag.trim() || !pillarFormData.name.trim()) {
-      alert('Tag and name are required')
+      notify.warning('Tag and name are required')
       return
     }
 
     // Validate tag format
     const tagRegex = /^[A-Z_]+$/
     if (!tagRegex.test(pillarFormData.tag.toUpperCase())) {
-      alert('Tag must be uppercase letters and underscores only (e.g., CUSTOM_PILLAR)')
+      notify.warning('Tag must be uppercase letters and underscores only (e.g., CUSTOM_PILLAR)')
       return
     }
 
@@ -255,13 +256,13 @@ const Quizzes = () => {
           description: pillarFormData.description,
           order: pillarFormData.order
         })
-        alert('Pillar updated successfully!')
+        notify.success('Pillar updated successfully!')
       } else {
         await api.post('/api/admin/manage-pillars', {
           ...pillarFormData,
           tag: pillarFormData.tag.toUpperCase()
         })
-        alert('Pillar added successfully!')
+        notify.success('Pillar added successfully!')
       }
       resetPillarForm()
       await fetchPillars()
@@ -272,7 +273,7 @@ const Quizzes = () => {
       }
     } catch (error: any) {
       console.error('Failed to save pillar:', error)
-      alert(error.message || 'Failed to save pillar')
+      notify.error(error.message || 'Failed to save pillar')
     }
   }
 
@@ -283,7 +284,7 @@ const Quizzes = () => {
 
     try {
       await api.delete(`/api/admin/manage-pillars/${id}`)
-      alert('Pillar deleted successfully!')
+      notify.success('Pillar deleted successfully!')
       await fetchPillars()
       await fetchQuestions()
       // Select first pillar if current one was deleted
@@ -295,7 +296,7 @@ const Quizzes = () => {
       }
     } catch (error: any) {
       console.error('Failed to delete pillar:', error)
-      alert(error.message || 'Failed to delete pillar')
+      notify.error(error.message || 'Failed to delete pillar')
     }
   }
 

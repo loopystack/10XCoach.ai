@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Check, CreditCard, Clock, AlertCircle, ArrowRight } from 'lucide-react'
 import { api, isAuthenticated } from '../utils/api'
+import { notify } from '../utils/notification'
 import './PageStyles.css'
 import './Dashboard.css'
 
@@ -53,16 +54,27 @@ const Plans = () => {
     const paymentStatus = params.get('payment')
     const sessionId = params.get('session_id')
     
+    // Only process payment notification if URL parameters exist (first time only)
     if (paymentStatus === 'success') {
       // Verify payment and add credit if webhook hasn't fired yet
       if (sessionId) {
-        verifyPayment(sessionId)
+        verifyPayment(sessionId).then(() => {
+          // Remove URL parameters after processing to prevent showing notification on refresh
+          const newUrl = window.location.pathname
+          window.history.replaceState({}, '', newUrl)
+        })
       } else {
-        alert('Payment successful! Your credit has been added.')
+        notify.success('Payment successful! Your credit has been added.')
         fetchBillingStatus() // Refresh status
+        // Remove URL parameters after showing notification
+        const newUrl = window.location.pathname
+        window.history.replaceState({}, '', newUrl)
       }
     } else if (paymentStatus === 'cancelled') {
-      alert('Payment was cancelled.')
+      notify.info('Payment was cancelled.')
+      // Remove URL parameters after showing notification
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, '', newUrl)
     }
   }, [location.search])
 
@@ -70,17 +82,23 @@ const Plans = () => {
     try {
       const result = await api.get(`/api/billing/verify-payment?session_id=${sessionId}`)
       if (result.success) {
-        alert(`Payment successful! $${result.amount?.toFixed(2) || 'Credit'} has been added to your account.`)
+        // Only show notification if credit was actually added (not already processed)
+        if (!result.alreadyProcessed) {
+          notify.success(`Payment successful! $${result.amount?.toFixed(2) || 'Credit'} has been added to your account.`)
+        }
         fetchBillingStatus() // Refresh status
       } else {
-        alert('Payment was successful, but there was an issue adding credit. Please contact support.')
+        notify.error('Payment was successful, but there was an issue adding credit. Please contact support.')
         fetchBillingStatus() // Still refresh to check if webhook processed it
       }
     } catch (error: any) {
       console.error('Failed to verify payment:', error)
       // Still refresh status in case webhook processed it
       fetchBillingStatus()
-      alert('Payment was successful. Please wait a moment and refresh the page to see your updated credit balance.')
+      // Only show alert if it's the first attempt (URL params still present)
+      if (new URLSearchParams(location.search).get('payment') === 'success') {
+        notify.warning('Payment was successful. Please wait a moment and refresh the page to see your updated credit balance.')
+      }
     }
   }
 
@@ -130,7 +148,7 @@ const Plans = () => {
       }
     } catch (error: any) {
       console.error('Failed to create checkout:', error)
-      alert(error.message || 'Failed to start checkout. Please try again.')
+      notify.error(error.message || 'Failed to start checkout. Please try again.')
       setCheckoutLoading(false)
     }
   }
@@ -143,7 +161,7 @@ const Plans = () => {
       const planPrice = plan.price
       
       if (billingStatus && billingStatus.creditBalance < planPrice) {
-        alert(`Insufficient credit. You need $${planPrice} but only have $${billingStatus.creditBalance}. Please add more credit.`)
+        notify.warning(`Insufficient credit. You need $${planPrice} but only have $${billingStatus.creditBalance}. Please add more credit.`)
         setActivatingPlan(null)
         return
       }
@@ -154,11 +172,11 @@ const Plans = () => {
         planDurationDays: 30 // Default 30 days, adjust as needed
       })
 
-      alert(response.message || 'Plan activated successfully!')
+      notify.success(response.message || 'Plan activated successfully!')
       fetchBillingStatus() // Refresh status
     } catch (error: any) {
       console.error('Failed to activate plan:', error)
-      alert(error.message || 'Failed to activate plan. Please try again.')
+      notify.error(error.message || 'Failed to activate plan. Please try again.')
     } finally {
       setActivatingPlan(null)
     }

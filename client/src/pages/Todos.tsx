@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ListTodo, CheckCircle2, Circle, Clock, Plus, Edit2, Trash2, X, Search, Filter, AlertCircle, Calendar as CalendarIcon, User, CalendarDays, Grid3x3, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../utils/api'
+import { notify } from '../utils/notification'
 import './PageStyles.css'
 import {
   DndContext,
@@ -557,7 +558,7 @@ const Todos = () => {
       fetchTodos()
     } catch (error: any) {
       console.error('Error creating todo:', error)
-      alert('Failed to create todo: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to create todo: ' + (error.message || 'Unknown error'))
     } finally {
       setSubmitting(false)
     }
@@ -583,7 +584,7 @@ const Todos = () => {
       fetchTodos()
     } catch (error: any) {
       console.error('Error updating todo:', error)
-      alert('Failed to update todo: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to update todo: ' + (error.message || 'Unknown error'))
     } finally {
       setSubmitting(false)
     }
@@ -600,7 +601,7 @@ const Todos = () => {
       fetchTodos()
     } catch (error: any) {
       console.error('Error deleting todo:', error)
-      alert('Failed to delete todo: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to delete todo: ' + (error.message || 'Unknown error'))
     } finally {
       setDeleting(false)
     }
@@ -615,7 +616,7 @@ const Todos = () => {
       fetchTodos()
     } catch (error: any) {
       console.error('Error updating status:', error)
-      alert('Failed to update status: ' + (error.message || 'Unknown error'))
+      notify.error('Failed to update status: ' + (error.message || 'Unknown error'))
     }
   }
 
@@ -705,7 +706,7 @@ const Todos = () => {
           fetchTodos()
         } catch (error: any) {
           console.error('Error updating todo status:', error)
-          alert('Failed to update todo: ' + (error.message || 'Unknown error'))
+          notify.error('Failed to update todo: ' + (error.message || 'Unknown error'))
         }
       }
     }

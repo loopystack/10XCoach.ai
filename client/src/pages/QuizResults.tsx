@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, TrendingUp, Award, BarChart3, Sparkles, CheckCircle2, Target, Mail, Download, AlertCircle, X } from 'lucide-react'
 import { isAuthenticated } from '../utils/api'
+import { notify } from '../utils/notification'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 import './PageStyles.css'
 
@@ -193,11 +194,11 @@ const QuizResults = () => {
         URL.revokeObjectURL(url)
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Failed to export' }))
-        alert(errorData.error || 'Failed to export results. Please try again.')
+        notify.error(errorData.error || 'Failed to export results. Please try again.')
       }
     } catch (error) {
       console.error('Error exporting results:', error)
-      alert('Failed to export results. Please try again.')
+      notify.error('Failed to export results. Please try again.')
     }
   }
 

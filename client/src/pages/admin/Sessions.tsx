@@ -19,6 +19,7 @@ import {
   History
 } from 'lucide-react'
 import { api } from '../../utils/api'
+import { notify } from '../../utils/notification'
 import '../PageStyles.css'
 import './AdminPages.css'
 
@@ -225,7 +226,7 @@ const Sessions = () => {
       }
     } catch (error) {
       console.error('Failed to delete session:', error)
-      alert('Failed to delete session. Please try again.')
+      notify.error('Failed to delete session. Please try again.')
       setDeletingSessionId(null)
     }
   }

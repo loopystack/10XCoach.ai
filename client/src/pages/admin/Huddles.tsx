@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Edit2, Save, X, UsersRound, CheckCircle2, XCircle, Calendar, AlertCircle, Search, Filter, User } from 'lucide-react'
 import { api } from '../../utils/api'
+import { notify } from '../../utils/notification'
 import '../PageStyles.css'
 import './AdminPages.css'
 
@@ -104,7 +105,7 @@ const Huddles = () => {
       }
     } catch (error) {
       console.error('Failed to fetch huddles:', error)
-      alert('Failed to load huddles')
+      notify.error('Failed to load huddles')
     } finally {
       setLoading(false)
     }
@@ -195,15 +196,15 @@ const Huddles = () => {
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
-      alert('Title is required')
+      notify.warning('Title is required')
       return
     }
     if (!formData.user_id) {
-      alert('User is required')
+      notify.warning('User is required')
       return
     }
     if (!formData.coach_id) {
-      alert('Coach is required')
+      notify.warning('Coach is required')
       return
     }
 
@@ -221,17 +222,17 @@ const Huddles = () => {
 
       if (editingId) {
         await api.put(`/api/huddles/${editingId}`, payload)
-        alert('Huddle updated successfully!')
+        notify.success('Huddle updated successfully!')
       } else {
         await api.post('/api/huddles', payload)
-        alert('Huddle created successfully!')
+        notify.success('Huddle created successfully!')
       }
       resetForm()
       fetchHuddles()
       fetchStats()
     } catch (error: any) {
       console.error('Failed to save huddle:', error)
-      alert(error.response?.data?.error || error.message || 'Failed to save huddle')
+      notify.error(error.response?.data?.error || error.message || 'Failed to save huddle')
     }
   }
 
@@ -242,12 +243,12 @@ const Huddles = () => {
 
     try {
       await api.delete(`/api/huddles/${id}`)
-      alert('Huddle deleted successfully!')
+      notify.success('Huddle deleted successfully!')
       fetchHuddles()
       fetchStats()
     } catch (error: any) {
       console.error('Failed to delete huddle:', error)
-      alert(error.response?.data?.error || error.message || 'Failed to delete huddle')
+      notify.error(error.response?.data?.error || error.message || 'Failed to delete huddle')
     }
   }
 

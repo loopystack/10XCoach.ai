@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { UsersRound, CheckCircle2, XCircle, AlertCircle, Target, Plus, Edit2, Trash2, X, Save, Calendar } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { api } from '../utils/api'
+import { notify } from '../utils/notification'
 import './PageStyles.css'
 
 interface Huddle {
@@ -163,14 +164,14 @@ const Huddles = () => {
     try {
       const billingStatus = await api.get('/api/billing/status')
       if (!billingStatus.hasAccess) {
-        alert('Your free trial has ended. Please upgrade to continue using this feature.')
+        notify.warning('Your free trial has ended. Please upgrade to continue using this feature.')
         navigate('/plans', { state: { from: 'add-huddle' } })
         return
       }
     } catch (error: any) {
       console.error('Failed to check billing status:', error)
       if (error.requiresUpgrade) {
-        alert('Your free trial has ended. Please upgrade to continue.')
+        notify.warning('Your free trial has ended. Please upgrade to continue.')
         navigate('/plans', { state: { from: 'add-huddle' } })
         return
       }
@@ -214,17 +215,17 @@ const Huddles = () => {
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
-      alert('Title is required')
+      notify.warning('Title is required')
       return
     }
 
     if (!currentUserId) {
-      alert('User not found. Please log in again.')
+      notify.error('User not found. Please log in again.')
       return
     }
 
     if (!formData.coach_id) {
-      alert('Please select a coach')
+      notify.warning('Please select a coach')
       return
     }
 
@@ -246,18 +247,18 @@ const Huddles = () => {
       if (editingId) {
         // Update existing huddle
         await api.put(`/api/huddles/${editingId}`, payload)
-        alert('Huddle updated successfully!')
+        notify.success('Huddle updated successfully!')
       } else {
         // Create new huddle
         await api.post('/api/huddles', payload)
-        alert('Huddle created successfully!')
+        notify.success('Huddle created successfully!')
       }
       resetForm()
       // Refetch huddles
       window.location.reload()
     } catch (error: any) {
       console.error('Failed to save huddle:', error)
-      alert(error.response?.data?.error || error.message || 'Failed to save huddle')
+      notify.error(error.response?.data?.error || error.message || 'Failed to save huddle')
     }
   }
 
@@ -268,12 +269,12 @@ const Huddles = () => {
 
     try {
       await api.delete(`/api/huddles/${id}`)
-      alert('Huddle deleted successfully!')
+      notify.success('Huddle deleted successfully!')
       // Refetch huddles
       window.location.reload()
     } catch (error: any) {
       console.error('Failed to delete huddle:', error)
-      alert(error.response?.data?.error || error.message || 'Failed to delete huddle')
+      notify.error(error.response?.data?.error || error.message || 'Failed to delete huddle')
     }
   }
 

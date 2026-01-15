@@ -82,7 +82,7 @@ const QuizTake = () => {
         } else {
           console.warn('Quiz loaded but no questions found')
           const pillarName = pillar ? PILLAR_INFO[pillar as keyof typeof PILLAR_INFO]?.name || pillar : 'this quiz'
-          alert(`No questions found for ${pillarName}. Please add questions in the admin panel.`)
+          notify.warning(`No questions found for ${pillarName}. Please add questions in the admin panel.`)
         }
       } catch (apiError: any) {
         console.error('API error fetching quiz:', apiError)
@@ -99,11 +99,11 @@ const QuizTake = () => {
           errorMessage = `No questions have been added for ${pillarName} yet. Please add questions in the admin panel.`
         }
         
-        alert(errorMessage)
+        notify.error(errorMessage)
       }
     } catch (error: any) {
       console.error('Failed to fetch quiz:', error)
-      alert(error.message || 'Failed to load quiz. Please try again.')
+      notify.error(error.message || 'Failed to load quiz. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -249,10 +249,10 @@ const QuizTake = () => {
     } catch (error: any) {
       console.error('Failed to submit quiz:', error)
       if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
-        alert('Your session has expired. Please log in again.')
+        notify.warning('Your session has expired. Please log in again.')
         navigate('/login', { state: { from: '/quiz/take' } })
       } else {
-        alert(error.message || 'Failed to submit quiz. Please try again.')
+        notify.error(error.message || 'Failed to submit quiz. Please try again.')
       }
     } finally {
       setSubmitting(false)

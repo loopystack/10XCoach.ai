@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { NotificationProvider } from './components/NotificationProvider'
 import DashboardLayout from './components/DashboardLayout'
 import AdminLayout from './components/AdminLayout'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -52,8 +53,9 @@ import System from './pages/admin/System'
 
 function App() {
   return (
-    <Router>
-      <Routes>
+    <NotificationProvider>
+      <Router>
+        <Routes>
         {/* Landing Pages - Public Website */}
         <Route path="/" element={<Landing />} />
         <Route path="/ai-coaches" element={<AICoaches />} />
@@ -229,6 +231,7 @@ function App() {
         } />
       </Routes>
     </Router>
+    </NotificationProvider>
   )
 }
 

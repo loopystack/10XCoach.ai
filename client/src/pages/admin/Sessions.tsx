@@ -52,6 +52,39 @@ interface Coach {
   role: string
 }
 
+// Component to highlight search terms in text
+const HighlightedText = ({ text, searchTerm }: { text: string; searchTerm: string }) => {
+  if (!searchTerm || !text) {
+    return <span>{text}</span>
+  }
+
+  const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escapedSearchTerm})`, 'gi'))
+  
+  return (
+    <span>
+      {parts.map((part, index) =>
+        part.toLowerCase() === searchTerm.toLowerCase() ? (
+          <mark
+            key={index}
+            style={{
+              backgroundColor: '#fef08a',
+              color: '#713f12',
+              padding: '2px 4px',
+              borderRadius: '3px',
+              fontWeight: 600
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </span>
+  )
+}
+
 const Sessions = () => {
   const [sessions, setSessions] = useState<Session[]>([])
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([])
@@ -439,15 +472,31 @@ const Sessions = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ fontWeight: 500 }}>{session.user.name}</span>
+                        <span style={{ fontWeight: 500 }}>
+                          {searchTerm ? (
+                            <HighlightedText text={session.user.name} searchTerm={searchTerm} />
+                          ) : (
+                            session.user.name
+                          )}
+                        </span>
                         <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-                          {session.user.email}
+                          {searchTerm ? (
+                            <HighlightedText text={session.user.email} searchTerm={searchTerm} />
+                          ) : (
+                            session.user.email
+                          )}
                         </span>
                       </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 500 }}>{session.coach.name}</span>
+                        <span style={{ fontWeight: 500 }}>
+                          {searchTerm ? (
+                            <HighlightedText text={session.coach.name} searchTerm={searchTerm} />
+                          ) : (
+                            session.coach.name
+                          )}
+                        </span>
                         <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', padding: '2px 8px', background: 'var(--gray-100)', borderRadius: '4px' }}>
                           {session.coach.role}
                         </span>
@@ -636,7 +685,11 @@ const Sessions = () => {
                     <h3>Session Summary & Notes</h3>
                   </div>
                   <div className="session-summary-content">
-                    {selectedSession.summary}
+                    {searchTerm && selectedSession.summary ? (
+                      <HighlightedText text={selectedSession.summary} searchTerm={searchTerm} />
+                    ) : (
+                      selectedSession.summary
+                    )}
                   </div>
                 </div>
               )}

@@ -27,6 +27,39 @@ interface User {
   role?: string
 }
 
+// Component to highlight search terms in text
+const HighlightedText = ({ text, searchTerm }: { text: string; searchTerm: string }) => {
+  if (!searchTerm || !text) {
+    return <span>{text}</span>
+  }
+
+  const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escapedSearchTerm})`, 'gi'))
+  
+  return (
+    <span>
+      {parts.map((part, index) =>
+        part.toLowerCase() === searchTerm.toLowerCase() ? (
+          <mark
+            key={index}
+            style={{
+              backgroundColor: '#fef08a',
+              color: '#713f12',
+              padding: '2px 4px',
+              borderRadius: '3px',
+              fontWeight: 600
+            }}
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </span>
+  )
+}
+
 const Notes = () => {
   const [notes, setNotes] = useState<Note[]>([])
   const [filteredNotes, setFilteredNotes] = useState<Note[]>([])
@@ -182,15 +215,8 @@ const Notes = () => {
   const fetchNotes = async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams()
-      if (selectedCoach) params.append('coachId', selectedCoach.toString())
-      if (selectedUser) params.append('userId', selectedUser.toString())
-      if (startDate) params.append('startDate', startDate)
-      if (endDate) params.append('endDate', endDate)
-      if (searchTerm) params.append('search', searchTerm)
-
-      const url = `/api/notes${params.toString() ? '?' + params.toString() : ''}`
-      const data = await api.get(url)
+      // Fetch all notes - filtering will be done client-side via applyFilters
+      const data = await api.get('/api/notes')
       
       // Ensure data is always an array
       if (Array.isArray(data)) {
@@ -558,17 +584,35 @@ const Notes = () => {
                     <div className="note-participants">
                       <div className="participant">
                         <User size={16} />
-                        <span><strong>Coach:</strong> {note.coach_name || 'N/A'}</span>
+                        <span>
+                          <strong>Coach:</strong>{' '}
+                          {searchTerm ? (
+                            <HighlightedText text={note.coach_name || 'N/A'} searchTerm={searchTerm} />
+                          ) : (
+                            note.coach_name || 'N/A'
+                          )}
+                        </span>
                       </div>
                       <div className="participant">
                         <User size={16} />
-                        <span><strong>Client:</strong> {note.client_name || 'N/A'}</span>
+                        <span>
+                          <strong>Client:</strong>{' '}
+                          {searchTerm ? (
+                            <HighlightedText text={note.client_name || 'N/A'} searchTerm={searchTerm} />
+                          ) : (
+                            note.client_name || 'N/A'
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="note-content">
-                  <p>{note.content || 'No content'}</p>
+                  {searchTerm ? (
+                    <p><HighlightedText text={note.content || 'No content'} searchTerm={searchTerm} /></p>
+                  ) : (
+                    <p>{note.content || 'No content'}</p>
+                  )}
                 </div>
                 <div className="note-footer" style={{ 
                   display: 'flex', 

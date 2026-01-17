@@ -352,6 +352,8 @@ const Todos = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showEventModal, setShowEventModal] = useState(false)
+  const [selectedEventActivity, setSelectedEventActivity] = useState<any>(null)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [deletingTodo, setDeletingTodo] = useState<Todo | null>(null)
   
@@ -965,15 +967,8 @@ const Todos = () => {
 
   const handleActivityClick = (activity: any) => {
     setSelectedActivity({ type: activity.type, id: activity.id })
-    
-    // If it's a todo, open the edit modal
-    if (activity.type === 'todo') {
-      const todo = todos.find(t => t.id === activity.id)
-      if (todo) {
-        openEditModal(todo)
-      }
-    }
-    // For other types, you could add navigation or details modal
+    setSelectedEventActivity(activity)
+    setShowEventModal(true)
   }
 
   const isActivitySelected = (activity: any): boolean => {
@@ -1663,6 +1658,275 @@ const Todos = () => {
                 disabled={deleting}
               >
                 {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Detail Modal */}
+      {showEventModal && selectedEventActivity && (
+        <div className="modal-overlay" onClick={() => setShowEventModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h2>
+                {selectedEventActivity.type === 'todo' && '📋 Todo Details'}
+                {selectedEventActivity.type === 'huddle' && '👥 Huddle Details'}
+                {selectedEventActivity.type === 'action' && '✅ Action Step Details'}
+                {selectedEventActivity.type === 'session' && '💼 Coaching Session Details'}
+              </h2>
+              <button className="modal-close" onClick={() => setShowEventModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '24px' }}>
+              {/* Todo Details */}
+              {selectedEventActivity.type === 'todo' && (() => {
+                const todo = selectedEventActivity.data as Todo
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Title</label>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>{todo.title}</div>
+                    </div>
+                    {todo.description && (
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Description</label>
+                        <div style={{ color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{todo.description}</div>
+                      </div>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</label>
+                        <div>
+                          <span className={`status-badge status-${todo.status?.toLowerCase()}`}>
+                            {todo.status}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Priority</label>
+                        <div>
+                          <span style={{
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            backgroundColor: getPriorityColor(todo.priority),
+                            color: 'white'
+                          }}>
+                            {getPriorityLabel(todo.priority)}
+                          </span>
+                        </div>
+                      </div>
+                      {(todo.due_date || todo.dueDate) && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Due Date</label>
+                          <div style={{ color: 'var(--text)' }}>
+                            {new Date(todo.due_date || todo.dueDate || '').toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {todo.assigned_to && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Assigned To</label>
+                          <div style={{ color: 'var(--text)' }}>{todo.assigned_to}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Huddle Details */}
+              {selectedEventActivity.type === 'huddle' && (() => {
+                const huddle = selectedEventActivity.data as Huddle
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Title</label>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>{huddle.title}</div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Date</label>
+                        <div style={{ color: 'var(--text)' }}>
+                          {new Date(huddle.huddle_date || huddle.huddleDate || '').toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                      {huddle.coach_name && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Coach</label>
+                          <div style={{ color: 'var(--text)' }}>{huddle.coach_name}</div>
+                        </div>
+                      )}
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</label>
+                        <div>
+                          <span className={`status-badge status-${huddle.status?.toLowerCase()}`}>
+                            {huddle.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Compliance</label>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          backgroundColor: ((huddle as any).has_short_agenda || (huddle as any).hasShortAgenda) ? 'var(--success-light)' : 'var(--error-light)',
+                          color: ((huddle as any).has_short_agenda || (huddle as any).hasShortAgenda) ? 'var(--success)' : 'var(--error)'
+                        }}>
+                          {(huddle as any).has_short_agenda || (huddle as any).hasShortAgenda ? '✓' : '✗'} Short Agenda
+                        </span>
+                        <span style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          backgroundColor: ((huddle as any).has_notetaker || (huddle as any).hasNotetaker) ? 'var(--success-light)' : 'var(--error-light)',
+                          color: ((huddle as any).has_notetaker || (huddle as any).hasNotetaker) ? 'var(--success)' : 'var(--error)'
+                        }}>
+                          {(huddle as any).has_notetaker || (huddle as any).hasNotetaker ? '✓' : '✗'} Notetaker
+                        </span>
+                        <span style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          backgroundColor: ((huddle as any).has_action_steps || (huddle as any).hasActionSteps) ? 'var(--success-light)' : 'var(--error-light)',
+                          color: ((huddle as any).has_action_steps || (huddle as any).hasActionSteps) ? 'var(--success)' : 'var(--error)'
+                        }}>
+                          {(huddle as any).has_action_steps || (huddle as any).hasActionSteps ? '✓' : '✗'} Action Steps
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Action Step Details */}
+              {selectedEventActivity.type === 'action' && (() => {
+                const actionStep = selectedEventActivity.data as ActionStep
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Description</label>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>{actionStep.description}</div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      {(actionStep.due_date || actionStep.dueDate) && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Due Date</label>
+                          <div style={{ color: 'var(--text)' }}>
+                            {new Date(actionStep.due_date || actionStep.dueDate || '').toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</label>
+                        <div>
+                          <span className={`status-badge status-${actionStep.status?.toLowerCase()}`}>
+                            {actionStep.status}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Priority</label>
+                        <div>
+                          <span style={{
+                            padding: '4px 12px',
+                            borderRadius: '12px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            backgroundColor: getPriorityColor(actionStep.priority),
+                            color: 'white'
+                          }}>
+                            {getPriorityLabel(actionStep.priority)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Session Details */}
+              {selectedEventActivity.type === 'session' && (() => {
+                const session = selectedEventActivity.data as Session
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Coaching Session</label>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)' }}>
+                        {session.coach?.name ? `Session with ${session.coach.name}` : 'Coaching Session'}
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Start Time</label>
+                        <div style={{ color: 'var(--text)' }}>
+                          {new Date(session.startTime || session.start_time || '').toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+                      {(session.endTime || session.end_time) && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>End Time</label>
+                          <div style={{ color: 'var(--text)' }}>
+                            {new Date(session.endTime || session.end_time || '').toLocaleString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</label>
+                        <div>
+                          <span className={`status-badge status-${session.status?.toLowerCase()}`}>
+                            {session.status}
+                          </span>
+                        </div>
+                      </div>
+                      {session.user?.name && (
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>User</label>
+                          <div style={{ color: 'var(--text)' }}>{session.user.name}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowEventModal(false)}
+              >
+                Close
               </button>
             </div>
           </div>

@@ -29,7 +29,7 @@ const Settings = () => {
 
   const loadSettings = async () => {
     try {
-      const data = await api.get('/api/admin/manage-settings')
+      const data = await api.get('/api/manage-settings')
       // Settings are stored as key-value pairs, convert to object
       const settingsObj: Partial<Settings> = {}
       if (Array.isArray(data)) {
@@ -84,7 +84,7 @@ const Settings = () => {
         value
       }))
 
-      await api.post('/api/admin/manage-settings', { settings: settingsArray })
+      await api.post('/api/manage-settings', { settings: settingsArray })
       
       setMessage({ type: 'success', text: 'Settings saved successfully! Changes will take effect after server restart.' })
       setHasChanges(false)

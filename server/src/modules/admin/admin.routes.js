@@ -58,10 +58,22 @@ console.log('[ADMIN ROUTES] Module setup complete, registering routes...');
 // =============================================
 router.get('/manage-overview', async (req, res) => {
   try {
+    const date30dAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const date7dAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
     const [
       userStats,
       sessionStats,
-      coachStats
+      coachStats,
+      usersByPlan,
+      usersByStatus,
+      recentSignups7d,
+      recentSignups30d,
+      activeUsers7d,
+      inactiveUsers30d,
+      quizResults,
+      sessionsByCoach,
+      allCoaches
     ] = await Promise.all([
       // User statistics
       prisma.user.aggregate({
@@ -73,37 +85,180 @@ router.get('/manage-overview', async (req, res) => {
         _avg: { duration: true }
       }),
       // Active coaches count
-      prisma.coach.count({ where: { active: true } })
+      prisma.coach.count({ where: { active: true } }),
+      // Users by plan
+      prisma.user.groupBy({
+        by: ['plan'],
+        _count: { id: true }
+      }),
+      // Users by status
+      prisma.user.groupBy({
+        by: ['status'],
+        _count: { id: true }
+      }),
+      // Recent signups (7 days)
+      prisma.user.count({
+        where: {
+          createdAt: { gte: date7dAgo }
+        }
+      }),
+      // Recent signups (30 days)
+      prisma.user.count({
+        where: {
+          createdAt: { gte: date30dAgo }
+        }
+      }),
+      // Active users (logged in within last 7 days)
+      prisma.user.count({
+        where: {
+          lastLogin: { gte: date7dAgo }
+        }
+      }),
+      // Inactive users (no login in 30 days)
+      prisma.user.count({
+        where: {
+          OR: [
+            { lastLogin: null },
+            { lastLogin: { lt: date30dAgo } }
+          ]
+        }
+      }),
+      // Quiz results for business health calculation
+      prisma.quizResult.findMany({
+        select: { scoresJson: true, createdAt: true }
+      }),
+      // Sessions by coach
+      prisma.session.groupBy({
+        by: ['coachId'],
+        _count: { id: true }
+      }),
+      // All coaches for mapping
+      prisma.coach.findMany({
+        select: { id: true, name: true }
+      })
     ]);
 
-    // Get user counts by plan and status
-    const usersByPlan = await prisma.user.groupBy({
-      by: ['plan'],
-      _count: { id: true }
-    });
-
-    const usersByStatus = await prisma.user.groupBy({
-      by: ['status'],
-      _count: { id: true }
-    });
-
-    // Recent signups
-    const recentSignups = await prisma.user.count({
-      where: {
-        createdAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // last 7 days
-        }
+    // Calculate average business health from quiz results
+    const pillarScores = {};
+    const pillarCounts = {};
+    quizResults.forEach(result => {
+      if (result.scoresJson && typeof result.scoresJson === 'object') {
+        Object.keys(result.scoresJson).forEach(pillar => {
+          const score = result.scoresJson[pillar];
+          if (typeof score === 'number') {
+            pillarScores[pillar] = (pillarScores[pillar] || 0) + score;
+            pillarCounts[pillar] = (pillarCounts[pillar] || 0) + 1;
+          }
+        });
       }
     });
 
-    // Active users (logged in within last 7 days)
-    const activeUsers = await prisma.user.count({
-      where: {
-        lastLogin: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const avgPillarScores = Object.keys(pillarScores).map(pillar => ({
+      name: pillar,
+      score: pillarCounts[pillar] > 0 ? Math.round((pillarScores[pillar] / pillarCounts[pillar]) * 10) / 10 : 0
+    }));
+
+    const avgBusinessHealth = avgPillarScores.length > 0
+      ? Math.round((avgPillarScores.reduce((sum, p) => sum + p.score, 0) / avgPillarScores.length) * 10) / 10
+      : 0;
+
+    // Calculate health trend (compare last 30 days vs previous 30 days)
+    const date60dAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const recentQuizResults = quizResults.filter(r => r.createdAt >= date30dAgo);
+    const previousQuizResults = quizResults.filter(r => r.createdAt >= date60dAgo && r.createdAt < date30dAgo);
+    
+    let recentAvg = 0;
+    let previousAvg = 0;
+    
+    if (recentQuizResults.length > 0) {
+      const recentScores = {};
+      const recentCounts = {};
+      recentQuizResults.forEach(result => {
+        if (result.scoresJson && typeof result.scoresJson === 'object') {
+          Object.keys(result.scoresJson).forEach(pillar => {
+            const score = result.scoresJson[pillar];
+            if (typeof score === 'number') {
+              recentScores[pillar] = (recentScores[pillar] || 0) + score;
+              recentCounts[pillar] = (recentCounts[pillar] || 0) + 1;
+            }
+          });
         }
+      });
+      const recentPillars = Object.keys(recentScores).map(p => ({
+        score: recentCounts[p] > 0 ? recentScores[p] / recentCounts[p] : 0
+      }));
+      recentAvg = recentPillars.length > 0
+        ? recentPillars.reduce((sum, p) => sum + p.score, 0) / recentPillars.length
+        : 0;
+    }
+    
+    if (previousQuizResults.length > 0) {
+      const previousScores = {};
+      const previousCounts = {};
+      previousQuizResults.forEach(result => {
+        if (result.scoresJson && typeof result.scoresJson === 'object') {
+          Object.keys(result.scoresJson).forEach(pillar => {
+            const score = result.scoresJson[pillar];
+            if (typeof score === 'number') {
+              previousScores[pillar] = (previousScores[pillar] || 0) + score;
+              previousCounts[pillar] = (previousCounts[pillar] || 0) + 1;
+            }
+          });
+        }
+      });
+      const previousPillars = Object.keys(previousScores).map(p => ({
+        score: previousCounts[p] > 0 ? previousScores[p] / previousCounts[p] : 0
+      }));
+      previousAvg = previousPillars.length > 0
+        ? previousPillars.reduce((sum, p) => sum + p.score, 0) / previousPillars.length
+        : 0;
+    }
+
+    const healthTrend = previousAvg > 0
+      ? parseFloat(((recentAvg - previousAvg) / previousAvg * 100).toFixed(1))
+      : 0;
+
+    // Calculate red flag users (users with average quiz score < 50%)
+    const allUserQuizResults = await prisma.quizResult.findMany({
+      select: { userId: true, totalScore: true }
+    });
+    
+    const userAvgScores = {};
+    allUserQuizResults.forEach(result => {
+      if (result.userId && result.totalScore !== null && result.totalScore !== undefined) {
+        if (!userAvgScores[result.userId]) {
+          userAvgScores[result.userId] = { sum: 0, count: 0 };
+        }
+        userAvgScores[result.userId].sum += result.totalScore;
+        userAvgScores[result.userId].count += 1;
       }
     });
+
+    const redFlagCount = Object.keys(userAvgScores).filter(userId => {
+      const userData = userAvgScores[parseInt(userId)];
+      if (!userData || userData.count === 0) return false;
+      const avg = userData.sum / userData.count;
+      return avg < 50; // Any user with average score < 50%
+    }).length;
+
+    // Coach usage mapping
+    const coachMap = allCoaches.reduce((acc, c) => {
+      acc[c.id] = c.name;
+      return acc;
+    }, {});
+
+    const coachUsage = sessionsByCoach
+      .map(s => ({
+        name: coachMap[s.coachId] || 'Unknown',
+        sessions: s._count.id
+      }))
+      .sort((a, b) => b.sessions - a.sessions);
+
+    const totalSessions = sessionStats._count.id;
+    const coachUsageWithPercentage = coachUsage.map(coach => ({
+      ...coach,
+      percentage: totalSessions > 0 ? Math.round((coach.sessions / totalSessions) * 100) : 0
+    }));
 
     res.json({
       totalUsers: userStats._count.id,
@@ -118,18 +273,22 @@ router.get('/manage-overview', async (req, res) => {
         acc[item.status] = item._count.id;
         return acc;
       }, {}),
-      recentSignups,
-      activeUsers,
-      // Placeholder metrics (would be calculated from real data)
-      avgBusinessHealth: 68.5,
-      healthTrend: 4.2,
-      sessionsPerUser: sessionStats._count.id / (userStats._count.id || 1),
-      redFlagUsers: 0,
-      inactiveUsers30d: 0
+      recentSignups7d,
+      recentSignups30d,
+      activeUsers7d,
+      avgBusinessHealth,
+      healthTrend,
+      sessionsPerUser: userStats._count.id > 0 
+        ? parseFloat((sessionStats._count.id / userStats._count.id).toFixed(1))
+        : 0,
+      redFlagUsers: redFlagCount,
+      inactiveUsers30d,
+      pillarScores: avgPillarScores,
+      coachUsage: coachUsageWithPercentage
     });
   } catch (error) {
     console.error('Get admin overview error:', error);
-    res.status(500).json({ error: 'Failed to get overview' });
+    res.status(500).json({ error: 'Failed to get overview', details: error.message });
   }
 });
 

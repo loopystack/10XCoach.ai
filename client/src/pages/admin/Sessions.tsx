@@ -80,7 +80,7 @@ const Sessions = () => {
   const loadSessions = async () => {
     try {
       setLoading(true)
-      const data = await api.get('/api/admin/manage-sessions')
+      const data = await api.get('/api/manage-sessions')
       setSessions(Array.isArray(data) ? data : [])
       setLoading(false)
     } catch (error) {
@@ -92,7 +92,7 @@ const Sessions = () => {
 
   const loadCoaches = async () => {
     try {
-      const data = await api.get('/api/admin/manage-coaches')
+      const data = await api.get('/api/manage-coaches')
       if (Array.isArray(data)) {
         setCoaches(data)
       }

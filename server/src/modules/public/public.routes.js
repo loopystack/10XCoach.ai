@@ -9,6 +9,12 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
+// Test endpoint to verify public routes are accessible
+router.get('/test', (req, res) => {
+  console.log('[PUBLIC ROUTES] Test endpoint hit')
+  res.json({ message: 'Public routes are working!', timestamp: new Date().toISOString() })
+})
+
 // Get Morgan coach data
 async function getMorganCoach() {
   const morgan = await prisma.coach.findFirst({
@@ -35,6 +41,9 @@ async function getMorganCoach() {
 
 // Public endpoint for Morgan chat (no authentication required)
 router.post('/morgan-chat', async (req, res) => {
+  console.log('[MORGAN CHAT] Public endpoint hit:', req.method, req.path)
+  console.log('[MORGAN CHAT] Request body:', { message: req.body?.message?.substring(0, 50) })
+  
   try {
     const { message, conversationHistory = [] } = req.body
 
@@ -90,7 +99,8 @@ Be concise and helpful.`
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Error in Morgan chat:', error)
+    console.error('[MORGAN CHAT] Error:', error)
+    console.error('[MORGAN CHAT] Error stack:', error.stack)
     res.status(500).json({
       error: 'Failed to process chat message',
       message: error.message

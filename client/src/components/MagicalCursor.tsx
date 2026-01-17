@@ -198,7 +198,7 @@ const MagicalCursor = () => {
           width: '100%',
           height: '100%',
           pointerEvents: 'none',
-          zIndex: 9998,
+          zIndex: 10001,
         }}
       />
     </>

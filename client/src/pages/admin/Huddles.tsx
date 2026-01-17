@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Edit2, Save, X, UsersRound, CheckCircle2, XCircle, Calendar, AlertCircle, Search, Filter, User } from 'lucide-react'
+import { Plus, Trash2, Edit2, Save, X, UsersRound, CheckCircle2, XCircle, Calendar, AlertCircle, Search, Filter, User, Clock } from 'lucide-react'
 import { api } from '../../utils/api'
 import { notify } from '../../utils/notification'
 import '../PageStyles.css'
@@ -20,14 +20,14 @@ interface Huddle {
   hasNotetaker?: boolean
   has_action_steps?: boolean
   hasActionSteps?: boolean
-  complianceLineItem1?: string
   compliance_line_item_1?: string
-  complianceLineItem2?: string
+  complianceLineItem1?: string
   compliance_line_item_2?: string
-  complianceLineItem3?: string
+  complianceLineItem2?: string
   compliance_line_item_3?: string
-  complianceLineItem4?: string
+  complianceLineItem3?: string
   compliance_line_item_4?: string
+  complianceLineItem4?: string
   status: string
   coach_name?: string
   user_name?: string
@@ -105,16 +105,7 @@ const Huddles = () => {
       const url = `/api/manage-huddles${params.toString() ? '?' + params.toString() : ''}`
       const data = await api.get(url)
       if (Array.isArray(data)) {
-        let filteredData = data
-        
-        // Client-side compliance filter
-        if (filters.compliance === 'compliant') {
-          filteredData = data.filter(h => isCompliant(h))
-        } else if (filters.compliance === 'non-compliant') {
-          filteredData = data.filter(h => !isCompliant(h))
-        }
-        
-        setHuddles(filteredData)
+        setHuddles(data)
       }
     } catch (error) {
       console.error('Failed to fetch huddles:', error)
@@ -139,7 +130,6 @@ const Huddles = () => {
     try {
       const data = await api.get('/api/users')
       if (Array.isArray(data)) {
-        // Filter to only show regular users (not admins)
         const clientUsers = data
           .filter((user: any) => {
             const role = user.role?.toString().toUpperCase()

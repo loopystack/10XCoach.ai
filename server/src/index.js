@@ -330,8 +330,8 @@ const billingRoutes = require('./modules/billing/billing.routes');
 app.use('/api', billingRoutes);
 
 // Admin Routes
-const adminRoutes = require('./modules/admin/admin.routes'); // Commented out - uses old PostgreSQL
-app.use('/api/admin', adminRoutes); // Commented out - uses old PostgreSQL
+const adminRoutes = require('./modules/admin/admin.routes');
+app.use('/api', adminRoutes); // Mount at /api so routes like /api/manage-analytics work
 
 // Legacy API routes (for backwards compatibility)
 const legacyRoutes = require('./modules/legacy/legacy.routes');

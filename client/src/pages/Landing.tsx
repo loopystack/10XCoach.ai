@@ -362,57 +362,85 @@ const Landing = () => {
 
   const testimonials = [
     {
-      quote: "10XCoach.ai didn't just improve our business—it transformed how I think as a leader. The AI coaches challenge me in ways I never expected.",
-      author: "Sarah Mitchell",
-      role: "CEO, TechVentures Inc",
-      avatar: "/sarah mitchell.jpg",
+      quote: "I've known Alan first as a customer, and later as a friend. From the start, I admired how he ran his business—lean, efficient, and with a strong team spirit that stood out. For years, I wondered what his 'secret sauce' was. Reading The Big Exit felt like finally getting those answers, straight from him. The book is written in such a clear and personal way that it feels like Alan is sitting across the table, sharing his journey. It's not just theory—it's practical wisdom drawn from someone who has built and led a company the right way. If you're an entrepreneur or business leader looking to scale, this book is a must-read. Inspiring, authentic, and highly actionable.",
+      author: "Ram Chellamuthu",
+      role: "President, REVON",
+      avatar: "RC",
       rating: 5,
-      metric: "+340% Revenue"
+      metric: "Practical Wisdom"
     },
     {
-      quote: "I was skeptical about AI coaching. Within 30 days, we identified blind spots that had been costing us millions. Absolute game-changer.",
-      author: "Michael Chen",
-      role: "Founder, GrowthLabs",
-      avatar: "/michael chen.png",
+      quote: "This inspirational book is built on the proven systems Alan Wozniak used to create value and achieve a successful exit. He makes the process straightforward by breaking it into simple, actionable steps any business owner can follow.",
+      author: "David Bennett",
+      role: "President, Unify Financial",
+      avatar: "DB",
       rating: 5,
-      metric: "+$2.4M Saved"
+      metric: "Wisdom Rooted in Experience"
     },
     {
-      quote: "Having 8 specialized coaches available at 3 AM when I'm working on strategy? That's the unfair advantage every entrepreneur needs.",
-      author: "Emily Rodriguez",
-      role: "Managing Director",
-      avatar: "/emily rodriguez.jpg",
+      quote: "A must-read for entrepreneurs seeking a strategic and profitable exit—clear, actionable, and refreshingly honest. 'The Small Business Big Exit' delivers real-world insights that demystify the process and empower owners to plan with confidence. Brilliantly written and packed with value from start to finish.",
+      author: "Dr. Rajiv Sahay",
+      role: "President, Sahay Scientific",
+      avatar: "RS",
       rating: 5,
-      metric: "24/7 Access"
+      metric: "Essential Guide"
+    },
+    {
+      quote: "A true story about finding a way to win. There are no substitutions for hard work, but there are must-have tools that, when combined with hard work, can serve as rocket fuel for the small business owner. Read this book closely and know that the insight and advice comes from someone who has lived the entrepreneurial grind for more than four decades.",
+      author: "Frank Santini",
+      role: "President, Santini Law",
+      avatar: "FS",
+      rating: 5,
+      metric: "The G.O.A.T."
+    },
+    {
+      quote: "The Small Business Big Exit was an absolutely fantastic read. Unlike many books in the business and exit planning category, this one really stood out—it's practical, engaging, and refreshingly clear. The author doesn't just talk theory; they offer actionable steps and real-world insights that feel tailor-made for owners who are genuinely invested in building long-term value and preparing for a successful transition. What I appreciated most was how the book breaks down complex concepts without dumbing them down. Whether you're years away from selling or just beginning to think about what comes next, this book gives you a clear roadmap and the right mindset to make confident decisions.",
+      author: "Tanner Wozniak",
+      role: "Fellowes HVAC Executive",
+      avatar: "TW",
+      rating: 5,
+      metric: "Must-Read Guide"
     }
   ]
 
   const bookTestimonials = [
     {
-      quote: "Alan Wozniak has created a masterpiece for entrepreneurs. The Small Business BIG EXIT changed my entire perspective on building value.",
-      author: "David Thompson",
-      role: "Serial Entrepreneur",
-      avatar: "DT"
+      quote: "I've known Alan first as a customer, and later as a friend. From the start, I admired how he ran his business—lean, efficient, and with a strong team spirit that stood out. For years, I wondered what his 'secret sauce' was. Reading The Big Exit felt like finally getting those answers, straight from him. The book is written in such a clear and personal way that it feels like Alan is sitting across the table, sharing his journey. It's not just theory—it's practical wisdom drawn from someone who has built and led a company the right way. If you're an entrepreneur or business leader looking to scale, this book is a must-read. Inspiring, authentic, and highly actionable.",
+      author: "Ram Chellamuthu",
+      role: "President, REVON",
+      avatar: "RC"
     },
     {
-      quote: "Every business owner needs to read this book. It's not just about the exit—it's about building something truly valuable.",
-      author: "Jennifer Walsh",
-      role: "Business Coach",
-      avatar: "JW"
+      quote: "This inspirational book is built on the proven systems Alan Wozniak used to create value and achieve a successful exit. He makes the process straightforward by breaking it into simple, actionable steps any business owner can follow.",
+      author: "David Bennett",
+      role: "President, Unify Financial",
+      avatar: "DB"
     },
     {
-      quote: "The 8 pillars framework is brilliant. This book gave me the roadmap I was missing for my company's growth.",
-      author: "Marcus Rivera",
-      role: "CEO, Innovate Corp",
-      avatar: "MR"
+      quote: "A must-read for entrepreneurs seeking a strategic and profitable exit—clear, actionable, and refreshingly honest. 'The Small Business Big Exit' delivers real-world insights that demystify the process and empower owners to plan with confidence. Brilliantly written and packed with value from start to finish.",
+      author: "Dr. Rajiv Sahay",
+      role: "President, Sahay Scientific",
+      avatar: "RS"
+    },
+    {
+      quote: "A true story about finding a way to win. There are no substitutions for hard work, but there are must-have tools that, when combined with hard work, can serve as rocket fuel for the small business owner. Read this book closely and know that the insight and advice comes from someone who has lived the entrepreneurial grind for more than four decades.",
+      author: "Frank Santini",
+      role: "President, Santini Law",
+      avatar: "FS"
+    },
+    {
+      quote: "The Small Business Big Exit was an absolutely fantastic read. Unlike many books in the business and exit planning category, this one really stood out—it's practical, engaging, and refreshingly clear. The author doesn't just talk theory; they offer actionable steps and real-world insights that feel tailor-made for owners who are genuinely invested in building long-term value and preparing for a successful transition. What I appreciated most was how the book breaks down complex concepts without dumbing them down. Whether you're years away from selling or just beginning to think about what comes next, this book gives you a clear roadmap and the right mindset to make confident decisions. Highly recommend to any small business owner who wants to be proactive about their future. This is not just another business book—it's one you'll come back to again and again.",
+      author: "Tanner Wozniak",
+      role: "Fellowes HVAC Executive",
+      avatar: "TW"
     }
   ]
 
-  const stats = [
-    { number: '10,847', label: 'Businesses Coached', suffix: '+' },
-    { number: '2.4', label: 'Avg Revenue Growth', suffix: 'x' },
-    { number: '94', label: 'Satisfaction Rate', suffix: '%' },
-    { number: '24/7', label: 'Coach Availability', suffix: '' }
+  const securityCredentials = [
+    { icon: Shield, label: 'SOC 2 Type II', description: 'Certified' },
+    { icon: Shield, label: 'GDPR Compliant', description: 'Data Protection' },
+    { icon: Shield, label: 'ISO 27001', description: 'Information Security' },
+    { icon: Shield, label: 'HIPAA Ready', description: 'Healthcare Data' }
   ]
 
   return (
@@ -493,19 +521,24 @@ const Landing = () => {
           </div>
           
           <div className="hero-stats">
-            {stats.map((stat, index) => (
-              <div 
-                key={index} 
-                className="stat-item"
-                style={{ '--delay': `${0.8 + index * 0.1}s` } as React.CSSProperties}
-              >
-                <div className="stat-number">
-                  <span className="number">{stat.number}</span>
-                  <span className="suffix">{stat.suffix}</span>
+            {securityCredentials.map((credential, index) => {
+              const Icon = credential.icon;
+              return (
+                <div 
+                  key={index} 
+                  className="stat-item security-credential"
+                  style={{ '--delay': `${0.8 + index * 0.1}s` } as React.CSSProperties}
+                >
+                  <div className="credential-icon-wrapper">
+                    <Icon size={24} className="credential-icon" />
+                  </div>
+                  <div className="credential-content">
+                    <div className="stat-label credential-title">{credential.label}</div>
+                    <div className="credential-description">{credential.description}</div>
+                  </div>
                 </div>
-                <div className="stat-label">{stat.label}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         
@@ -1222,11 +1255,11 @@ const Landing = () => {
               <div className="success-badge-shine"></div>
             </div>
             <h2 className="success-stories-title">
-              Loved by 
+              Praised by 
               <span className="gradient-text"> Business Leaders</span>
             </h2>
             <p className="success-stories-subtitle">
-              Real results from real businesses using 10XCoach.ai
+              Real reviews from presidents and executives about "The Small Business BIG EXIT"
             </p>
           </div>
           
@@ -1260,19 +1293,21 @@ const Landing = () => {
                     <div className="author-avatar">
                       <div className="avatar-ring"></div>
                       <div className="avatar-glow-success"></div>
-                      <img 
-                        src={testimonial.avatar} 
-                        alt={testimonial.author}
-                        className="author-avatar-image"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = target.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                      <span className="author-avatar-fallback" style={{ display: 'none' }}>
-                        {testimonial.author.split(' ').map(n => n[0]).join('')}
+                      {typeof testimonial.avatar === 'string' && testimonial.avatar.length > 3 && (
+                        <img 
+                          src={testimonial.avatar} 
+                          alt={testimonial.author}
+                          className="author-avatar-image"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      )}
+                      <span className="author-avatar-fallback" style={{ display: typeof testimonial.avatar === 'string' && testimonial.avatar.length <= 3 ? 'flex' : 'none' }}>
+                        {typeof testimonial.avatar === 'string' && testimonial.avatar.length <= 3 ? testimonial.avatar : testimonial.author.split(' ').map(n => n[0]).join('')}
                       </span>
                     </div>
                     <div className="author-info">

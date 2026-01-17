@@ -21,6 +21,7 @@ interface Coach {
 }
 
 const COACH_ROLES = [
+  'CHIEF_OF_STAFF',
   'STRATEGY',
   'SALES',
   'MARKETING',

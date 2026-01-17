@@ -208,8 +208,14 @@ app.get('/api/coaches', async (req, res) => {
       orderBy: { id: 'asc' }
     });
     
+    // Reorder to put CHIEF_OF_STAFF first (Morgan should always appear first)
+    const chiefOfStaff = coachesResult.find(c => c.role === 'CHIEF_OF_STAFF');
+    const otherCoaches = coachesResult.filter(c => c.role !== 'CHIEF_OF_STAFF');
+    const orderedCoaches = chiefOfStaff ? [chiefOfStaff, ...otherCoaches] : coachesResult;
+    
     // Map coach names to actual avatar filenames in client/avatars
     const avatarFilenameMap = {
+      'Morgan': 'Morgan.png',
       'Alan Wozniak': 'Alan-Wozniak-CEC.jpg',
       'Rob Mercer': 'Robertini-Rob-Mercer.jpg',
       'Robert Mercer': 'Robertini-Rob-Mercer.jpg',
@@ -223,7 +229,7 @@ app.get('/api/coaches', async (req, res) => {
     };
     
     // Ensure avatar paths are correct
-    const coaches = coachesResult.map(coach => {
+    const coaches = orderedCoaches.map(coach => {
       let avatarFilename = null;
       
       // Extract filename from database avatar field (handle both full paths and filenames)

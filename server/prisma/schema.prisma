@@ -139,6 +139,7 @@ model Coach {
 }
 
 enum CoachRole {
+  CHIEF_OF_STAFF
   STRATEGY
   SALES
   MARKETING

@@ -49,10 +49,6 @@ const Business = () => {
     }
   ]
 
-  const logos = [
-    'TechCorp', 'GrowthLabs', 'ScaleUp', 'Innovate Inc', 'FutureTech', 'Enterprise Co'
-  ]
-
   return (
     <div className="landing-page">
       <MagicalCursor />
@@ -79,37 +75,6 @@ const Business = () => {
             Scale world-class business coaching across your entire organization. 
             Enterprise-grade security, unlimited seats, and dedicated support.
           </p>
-          
-          <div className="business-hero-stats">
-            <div className="business-stat" style={{ '--index': 0 } as React.CSSProperties}>
-              <span className="business-stat-number">500+</span>
-              <span className="business-stat-label">Enterprise Clients</span>
-            </div>
-            <div className="business-stat" style={{ '--index': 1 } as React.CSSProperties}>
-              <span className="business-stat-number">50K+</span>
-              <span className="business-stat-label">Users Coached</span>
-            </div>
-            <div className="business-stat" style={{ '--index': 2 } as React.CSSProperties}>
-              <span className="business-stat-number">99.9%</span>
-              <span className="business-stat-label">Uptime SLA</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trusted By Section */}
-      <section className="trusted-by-section">
-        <div className="section-container" style={{ paddingTop: '0', paddingBottom: '0' }}>
-          <p className="trusted-by-label">
-            Trusted by Industry Leaders
-          </p>
-          <div className="trusted-by-logos">
-            {logos.map((logo, i) => (
-              <span key={i} className="trusted-logo">
-                {logo}
-              </span>
-            ))}
-          </div>
         </div>
       </section>
 

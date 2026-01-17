@@ -17,7 +17,8 @@ import {
   Moon,
   User,
   Home,
-  UserCircle
+  UserCircle,
+  Sparkles
 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import { clearAuthToken } from '../utils/api'
@@ -117,6 +118,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   // Define all menu items with their required roles
   const allMenuItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Overview', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
+    { path: '/manage-morgan', icon: Sparkles, label: 'Morgan Oversight', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
     { path: '/manage-users', icon: Users, label: 'Users & Subscriptions', roles: ['SUPER_ADMIN'] },
     { path: '/manage-plans', icon: FileText, label: 'Plans', roles: ['SUPER_ADMIN'] },
     { path: '/manage-coaches', icon: GraduationCap, label: 'Coaches & Knowledge', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },

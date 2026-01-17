@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import DashboardMorgan from '../components/DashboardMorgan'
 import { 
   FileText, 
   UsersRound, 
@@ -1016,6 +1017,11 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Morgan Onboarding Card */}
+      <div style={{ marginBottom: '24px' }}>
+        <DashboardMorgan />
+      </div>
 
       {/* KPI Cards Row */}
       <div className="dashboard-kpi-row">

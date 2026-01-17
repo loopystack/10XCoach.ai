@@ -69,7 +69,7 @@ const HighlightedText = ({ text, searchTerm }: { text: string; searchTerm: strin
             key={index}
             style={{
               backgroundColor: '#fef08a',
-              color: '#713f12',
+              color: '#000000',
               padding: '2px 4px',
               borderRadius: '3px',
               fontWeight: 600
@@ -143,9 +143,9 @@ const Sessions = () => {
         session.coach.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (session.summary && session.summary.toLowerCase().includes(searchTerm.toLowerCase()))
 
-      // Coach filter
+      // Coach filter - handle both number and string comparisons
       const matchesCoach = filterCoach === 'all' || 
-        session.coach.id.toString() === filterCoach
+        Number(session.coach.id) === Number(filterCoach)
 
       // Status filter
       const matchesStatus = filterStatus === 'all' || 

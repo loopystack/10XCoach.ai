@@ -1800,6 +1800,121 @@ router.delete('/manage-knowledge-base/:id', async (req, res) => {
   }
 });
 
+// GET /api/manage-morgan-oversight
+// Morgan AI Chief of Staff oversight data
+router.get('/manage-morgan-oversight', async (req, res) => {
+  try {
+    const date30dAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Get basic stats
+    const [totalUsers, totalCoaches, activeSessions, pendingHuddles] = await Promise.all([
+      prisma.user.count(),
+      prisma.coach.count({ where: { active: true } }),
+      prisma.session.count({
+        where: {
+          status: 'active',
+          startTime: { gte: date30dAgo }
+        }
+      }),
+      prisma.huddle.count({
+        where: {
+          status: 'scheduled',
+          huddle_date: { gte: new Date().toISOString().split('T')[0] }
+        }
+      })
+    ]);
+
+    // Get coach-user activity
+    const sessionsByCoachUser = await prisma.session.groupBy({
+      by: ['coachId', 'userId'],
+      where: { startTime: { gte: date30dAgo } },
+      _count: { id: true },
+      _max: { startTime: true }
+    });
+
+    const coachIds = [...new Set(sessionsByCoachUser.map(s => s.coachId).filter(Boolean))];
+    const userIds = [...new Set(sessionsByCoachUser.map(s => s.userId).filter(Boolean))];
+
+    const [coaches, users] = await Promise.all([
+      prisma.coach.findMany({
+        where: { id: { in: coachIds } },
+        select: { id: true, name: true }
+      }),
+      prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, name: true }
+      })
+    ]);
+
+    const coachMap = coaches.reduce((acc, c) => { acc[c.id] = c.name; return acc; }, {});
+    const userMap = users.reduce((acc, u) => { acc[u.id] = u.name; return acc; }, {});
+
+    const coachUserActivity = sessionsByCoachUser.map(s => {
+      const coachName = coachMap[s.coachId] || 'Unknown Coach';
+      const userName = userMap[s.userId] || 'Unknown User';
+      
+      // Calculate engagement (sessions per month normalized to 0-100)
+      const engagement = Math.min(100, (s._count.id / 4) * 100); // 4 sessions/month = 100%
+      
+      return {
+        coachId: s.coachId,
+        coachName,
+        userId: s.userId,
+        userName,
+        sessions: s._count.id,
+        lastSession: s._max.startTime,
+        engagement: Math.round(engagement)
+      };
+    });
+
+    // Generate summary
+    const summary = `System is operating normally. ${totalUsers} users are actively engaged with ${totalCoaches} coaches. ${activeSessions} active sessions and ${pendingHuddles} scheduled huddles.`;
+
+    // Generate alerts (example - can be enhanced with real business logic)
+    const alerts = [];
+    if (pendingHuddles > 20) {
+      alerts.push({
+        id: 1,
+        type: 'warning',
+        title: 'High Pending Huddles',
+        message: `${pendingHuddles} huddles are scheduled. Consider reviewing scheduling efficiency.`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Generate recommendations (example - can be enhanced)
+    const recommendations = [];
+    coachUserActivity
+      .filter(a => a.engagement < 40 && a.sessions > 0)
+      .slice(0, 5)
+      .forEach((activity, index) => {
+        recommendations.push({
+          id: index + 1,
+          type: 'engagement',
+          title: `Improve Engagement: ${activity.userName} with ${activity.coachName}`,
+          description: `Low engagement detected (${activity.engagement}%). Consider scheduling more frequent sessions.`,
+          priority: activity.engagement < 20 ? 'high' : 'medium',
+          userId: activity.userId,
+          coachId: activity.coachId
+        });
+      });
+
+    res.json({
+      totalUsers,
+      totalCoaches,
+      activeSessions,
+      pendingHuddles,
+      alerts,
+      recommendations,
+      coachUserActivity,
+      summary
+    });
+  } catch (error) {
+    console.error('Get Morgan oversight error:', error);
+    res.status(500).json({ error: 'Failed to get Morgan oversight data', details: error.message });
+  }
+});
+
 console.log('[ADMIN ROUTES] All routes registered, exporting router...');
 console.log('[ADMIN ROUTES] Router type:', typeof router);
 console.log('[ADMIN ROUTES] Router is function?', typeof router === 'function');

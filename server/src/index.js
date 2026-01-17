@@ -337,6 +337,10 @@ app.use('/api', adminRoutes); // Mount at /api so routes like /api/manage-analyt
 const legacyRoutes = require('./modules/legacy/legacy.routes');
 app.use('/api', legacyRoutes);
 
+// Public API routes (no authentication required)
+const publicRoutes = require('./modules/public/public.routes');
+app.use('/api/public', publicRoutes);
+
 // ============================================
 // WEBSOCKET SERVER FOR OPENAI CONVERSATIONS
 // ============================================

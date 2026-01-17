@@ -25,6 +25,8 @@ import {
 import Navbar from '../components/Navbar'
 import MagicalCursor from '../components/MagicalCursor'
 import CookieModal from '../components/CookieModal'
+import MorganChatWidget from '../components/MorganChatWidget'
+import QuickTryOut from '../components/QuickTryOut'
 import './Landing.css'
 
 const Landing = () => {
@@ -1438,6 +1440,12 @@ const Landing = () => {
           </div>
         </div>
       </footer>
+      
+      {/* Morgan Chat Widget */}
+      <MorganChatWidget />
+      
+      {/* Quick Try Out Widget */}
+      <QuickTryOut />
     </div>
   )
 }

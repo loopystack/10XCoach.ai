@@ -42,6 +42,7 @@ import KnowledgeCenter from './pages/KnowledgeCenter'
 import DiscoveryQuestions from './pages/DiscoveryQuestions'
 // Admin Pages
 import Overview from './pages/admin/Overview'
+import MorganOversight from './pages/admin/MorganOversight'
 import Users from './pages/admin/Users'
 import AdminCoaches from './pages/admin/Coaches'
 import AdminQuizzes from './pages/admin/Quizzes'
@@ -164,6 +165,13 @@ function App() {
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
               <Overview />
+            </AdminLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/manage-morgan" element={
+          <ProtectedRoute requireAdmin={true}>
+            <AdminLayout>
+              <MorganOversight />
             </AdminLayout>
           </ProtectedRoute>
         } />

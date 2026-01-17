@@ -44,7 +44,7 @@ const HighlightedText = ({ text, searchTerm }: { text: string; searchTerm: strin
             key={index}
             style={{
               backgroundColor: '#fef08a',
-              color: '#713f12',
+              color: '#000000',
               padding: '2px 4px',
               borderRadius: '3px',
               fontWeight: 600
@@ -255,27 +255,42 @@ const Notes = () => {
 
     let filtered = [...notes]
 
-    // Filter by coach - convert both to numbers for comparison
+    // Filter by coach - handle both number and string comparisons
     if (selectedCoach !== null && selectedCoach !== undefined) {
       const coachId = Number(selectedCoach)
-      filtered = filtered.filter(note => Number(note.coach_id) === coachId)
+      if (!isNaN(coachId)) {
+        filtered = filtered.filter(note => {
+          if (!note.coach_id) return false
+          const noteCoachId = Number(note.coach_id)
+          return !isNaN(noteCoachId) && noteCoachId === coachId
+        })
+      }
     }
 
-    // Filter by client - convert both to numbers for comparison
+    // Filter by client - handle both number and string comparisons, and name matching
     if (selectedUser !== null && selectedUser !== undefined) {
-      const userId = selectedUser
-      filtered = filtered.filter(note => {
-        // Match by user_id if available
-        if (note.user_id) {
-          return Number(note.user_id) === Number(userId)
-        }
-        // Fallback: match by client_name if user_id is missing
-        const selectedUserObj = users.find(u => u.id === userId)
-        if (selectedUserObj && note.client_name) {
-          return note.client_name === selectedUserObj.name
-        }
-        return false
-      })
+      const userId = Number(selectedUser)
+      if (!isNaN(userId)) {
+        filtered = filtered.filter(note => {
+          // First try to match by user_id
+          if (note.user_id) {
+            const noteUserId = Number(note.user_id)
+            if (!isNaN(noteUserId) && noteUserId === userId) {
+              return true
+            }
+          }
+          // Fallback: match by client_name if user_id doesn't match or is missing
+          const selectedUserObj = users.find(u => {
+            const uId = typeof u.id === 'string' ? Number(u.id) : u.id
+            const filterId = Number(userId)
+            return Number(uId) === filterId
+          })
+          if (selectedUserObj && note.client_name) {
+            return note.client_name.trim().toLowerCase() === selectedUserObj.name.trim().toLowerCase()
+          }
+          return false
+        })
+      }
     }
 
     // Filter by date range
@@ -417,10 +432,6 @@ const Notes = () => {
     setDeleting(false)
   }
 
-  const handleFilterChange = () => {
-    // Filters are applied client-side via applyFilters() useEffect
-    // No need to refetch from backend
-  }
 
   const clearFilters = () => {
     setSelectedCoach(null)
@@ -480,7 +491,6 @@ const Notes = () => {
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value)
-                    setTimeout(handleFilterChange, 300)
                   }}
                 />
               </div>
@@ -489,15 +499,15 @@ const Notes = () => {
             <div>
               <label>Coach</label>
               <select
-                value={selectedCoach || ''}
+                value={selectedCoach !== null && selectedCoach !== undefined ? selectedCoach.toString() : ''}
                 onChange={(e) => {
-                  setSelectedCoach(e.target.value ? parseInt(e.target.value) : null)
-                  handleFilterChange()
+                  const value = e.target.value
+                  setSelectedCoach(value && value !== '' ? parseInt(value) : null)
                 }}
               >
                 <option value="">All Coaches</option>
                 {coaches.map(coach => (
-                  <option key={coach.id} value={coach.id}>
+                  <option key={coach.id} value={coach.id.toString()}>
                     {coach.name}
                   </option>
                 ))}
@@ -507,16 +517,15 @@ const Notes = () => {
             <div>
               <label>Client</label>
               <select
-                value={selectedUser || ''}
+                value={selectedUser !== null && selectedUser !== undefined ? selectedUser.toString() : ''}
                 onChange={(e) => {
                   const value = e.target.value
-                  setSelectedUser(value ? Number(value) : null)
-                  handleFilterChange()
+                  setSelectedUser(value && value !== '' ? Number(value) : null)
                 }}
               >
                 <option value="">All Clients</option>
                 {users.map(user => (
-                  <option key={user.id} value={user.id}>
+                  <option key={user.id} value={typeof user.id === 'string' ? user.id : user.id.toString()}>
                     {user.name}
                   </option>
                 ))}
@@ -528,10 +537,9 @@ const Notes = () => {
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value)
-                  handleFilterChange()
-                }}
+                  onChange={(e) => {
+                    setStartDate(e.target.value)
+                  }}
               />
             </div>
 
@@ -540,10 +548,9 @@ const Notes = () => {
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value)
-                  handleFilterChange()
-                }}
+                  onChange={(e) => {
+                    setEndDate(e.target.value)
+                  }}
               />
             </div>
           </div>

@@ -699,47 +699,151 @@ router.post('/manage-emails-test', async (req, res) => {
 
 // =============================================
 // GET /api/manage-analytics
-// Get analytics data
+// Get comprehensive analytics data
 // =============================================
 router.get('/manage-analytics', async (req, res) => {
   try {
     const { period = '30d' } = req.query;
     
     let dateFilter;
+    let days;
     switch (period) {
       case '7d':
+        days = 7;
         dateFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         break;
       case '30d':
+        days = 30;
         dateFilter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         break;
       case '90d':
+        days = 90;
         dateFilter = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
         break;
+      case '1y':
+        days = 365;
+        dateFilter = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+        break;
       default:
+        days = 30;
         dateFilter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     }
 
+    // Calculate previous period for trends
+    const previousDateFilter = new Date(dateFilter.getTime() - (days * 24 * 60 * 60 * 1000));
+
+    // User Metrics
     const [
+      totalUsers,
+      activeUsers,
       newUsers,
-      totalSessions,
-      completedActions
+      previousPeriodUsers,
+      usersWithSessions
     ] = await Promise.all([
       prisma.user.count({
-        where: { createdAt: { gte: dateFilter } }
+        where: { role: 'USER' }
       }),
-      prisma.session.count({
-        where: { startTime: { gte: dateFilter } }
-      }),
-      prisma.actionStep.count({
+      prisma.user.count({
         where: {
-          status: 'COMPLETED',
-          completedAt: { gte: dateFilter }
+          role: 'USER',
+          lastLogin: { gte: dateFilter }
+        }
+      }),
+      prisma.user.count({
+        where: {
+          role: 'USER',
+          createdAt: { gte: dateFilter }
+        }
+      }),
+      prisma.user.count({
+        where: {
+          role: 'USER',
+          createdAt: { gte: previousDateFilter, lt: dateFilter }
+        }
+      }),
+      prisma.user.count({
+        where: {
+          role: 'USER',
+          sessions: { some: { startTime: { gte: dateFilter } } }
         }
       })
     ]);
 
-    // Sessions by coach
+    // Session Metrics
+    const [
+      totalSessions,
+      sessionsWithDuration,
+      previousPeriodSessions
+    ] = await Promise.all([
+      prisma.session.count({
+        where: { startTime: { gte: dateFilter } }
+      }),
+      prisma.session.findMany({
+        where: {
+          startTime: { gte: dateFilter },
+          duration: { not: null }
+        },
+        select: { duration: true }
+      }),
+      prisma.session.count({
+        where: {
+          startTime: { gte: previousDateFilter, lt: dateFilter }
+        }
+      })
+    ]);
+
+    // Calculate average session duration
+    const avgSessionDuration = sessionsWithDuration.length > 0
+      ? sessionsWithDuration.reduce((sum, s) => sum + parseFloat(s.duration || 0), 0) / sessionsWithDuration.length
+      : 0;
+
+    // Content Metrics
+    const [
+      totalQuizzes,
+      totalHuddles,
+      totalNotes,
+      totalTodos,
+      completedTodos,
+      totalActionSteps,
+      completedActionSteps
+    ] = await Promise.all([
+      prisma.quizResult.count({
+        where: { createdAt: { gte: dateFilter } }
+      }),
+      prisma.huddle.count({
+        where: { createdAt: { gte: dateFilter } }
+      }),
+      prisma.note.count({
+        where: { createdAt: { gte: dateFilter } }
+      }),
+      prisma.todo.count({
+        where: { createdAt: { gte: dateFilter } }
+      }),
+      prisma.todo.count({
+        where: {
+          createdAt: { gte: dateFilter },
+          status: 'COMPLETED'
+        }
+      }),
+      prisma.actionStep.count({
+        where: { createdAt: { gte: dateFilter } }
+      }),
+      prisma.actionStep.count({
+        where: {
+          createdAt: { gte: dateFilter },
+          status: 'COMPLETED'
+        }
+      })
+    ]);
+
+    // Plan Distribution
+    const planDistribution = await prisma.user.groupBy({
+      by: ['plan'],
+      where: { role: 'USER' },
+      _count: { id: true }
+    });
+
+    // Sessions by Coach
     const sessionsByCoach = await prisma.session.groupBy({
       by: ['coachId'],
       where: { startTime: { gte: dateFilter } },
@@ -747,7 +851,7 @@ router.get('/manage-analytics', async (req, res) => {
     });
 
     // Get coach names
-    const coachIds = sessionsByCoach.map(s => s.coachId);
+    const coachIds = sessionsByCoach.map(s => s.coachId).filter(Boolean);
     const coaches = await prisma.coach.findMany({
       where: { id: { in: coachIds } },
       select: { id: true, name: true }
@@ -758,20 +862,149 @@ router.get('/manage-analytics', async (req, res) => {
       return acc;
     }, {});
 
+    // Pillar Scores (from Quiz Results)
+    const quizResults = await prisma.quizResult.findMany({
+      where: { createdAt: { gte: dateFilter } },
+      select: { scoresJson: true }
+    });
+
+    const pillarScores = {};
+    const pillarCounts = {};
+    quizResults.forEach(result => {
+      if (result.scoresJson && typeof result.scoresJson === 'object') {
+        Object.keys(result.scoresJson).forEach(pillar => {
+          const score = result.scoresJson[pillar];
+          if (typeof score === 'number') {
+            pillarScores[pillar] = (pillarScores[pillar] || 0) + score;
+            pillarCounts[pillar] = (pillarCounts[pillar] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    const avgPillarScores = Object.keys(pillarScores).map(pillar => ({
+      name: pillar,
+      score: pillarCounts[pillar] > 0 ? Math.round((pillarScores[pillar] / pillarCounts[pillar]) * 10) / 10 : 0,
+      trend: 0 // Can calculate later if needed
+    }));
+
+    const avgBusinessHealth = avgPillarScores.length > 0
+      ? Math.round((avgPillarScores.reduce((sum, p) => sum + p.score, 0) / avgPillarScores.length) * 10) / 10
+      : 0;
+
+    // Top Coaches (by session count)
+    const topCoaches = sessionsByCoach
+      .map(s => ({
+        name: coachMap[s.coachId] || 'Unknown',
+        sessions: s._count.id
+      }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 5);
+
+    // Generate date range for trends
+    const generateDateRange = (days) => {
+      const dates = [];
+      const now = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      return dates;
+    };
+
+    const dateRange = generateDateRange(days);
+
+    // User Growth Trend
+    const userGrowth = await Promise.all(
+      dateRange.map(async (date) => {
+        const count = await prisma.user.count({
+          where: {
+            role: 'USER',
+            createdAt: { lte: new Date(date + 'T23:59:59') }
+          }
+        });
+        return {
+          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          users: count
+        };
+      })
+    );
+
+    // Engagement Trend (Sessions and Quizzes per day)
+    const engagementTrend = await Promise.all(
+      dateRange.map(async (date) => {
+        const [sessions, quizzes] = await Promise.all([
+          prisma.session.count({
+            where: {
+              startTime: {
+                gte: new Date(date + 'T00:00:00'),
+                lt: new Date(date + 'T23:59:59')
+              }
+            }
+          }),
+          prisma.quizResult.count({
+            where: {
+              createdAt: {
+                gte: new Date(date + 'T00:00:00'),
+                lt: new Date(date + 'T23:59:59')
+              }
+            }
+          })
+        ]);
+        return {
+          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          sessions,
+          quizzes
+        };
+      })
+    );
+
+    // Calculate trends
+    const userGrowthTrend = previousPeriodUsers > 0
+      ? ((newUsers - previousPeriodUsers) / previousPeriodUsers * 100).toFixed(1)
+      : 0;
+    const sessionGrowthTrend = previousPeriodSessions > 0
+      ? ((totalSessions - previousPeriodSessions) / previousPeriodSessions * 100).toFixed(1)
+      : 0;
+
     res.json({
       period,
+      // User Metrics
+      totalUsers,
+      activeUsers,
       newUsers,
+      userGrowthTrend: parseFloat(userGrowthTrend),
+      // Session Metrics
       totalSessions,
-      completedActions,
-      sessionsByCoach: sessionsByCoach.map(s => ({
-        coachId: s.coachId,
-        coachName: coachMap[s.coachId] || 'Unknown',
-        count: s._count.id
-      }))
+      avgSessionDuration: Math.round(avgSessionDuration),
+      sessionGrowthTrend: parseFloat(sessionGrowthTrend),
+      // Content Metrics
+      totalQuizzes,
+      totalHuddles,
+      totalNotes,
+      totalTodos,
+      completedTodos,
+      totalActionSteps,
+      completedActionSteps,
+      // Business Health
+      avgBusinessHealth,
+      pillarScores: avgPillarScores,
+      // Plan Distribution
+      planDistribution: planDistribution.map(p => ({
+        plan: p.plan || 'FOUNDATION',
+        count: p._count.id,
+        revenue: 0 // Not tracking revenue in this version
+      })),
+      // Top Coaches
+      topCoaches,
+      // Trends
+      userGrowth,
+      engagementTrend
     });
   } catch (error) {
     console.error('Get analytics error:', error);
-    res.status(500).json({ error: 'Failed to get analytics' });
+    res.status(500).json({ error: 'Failed to get analytics', details: error.message });
   }
 });
 
@@ -926,6 +1159,389 @@ router.delete('/manage-users/:id', requireSuperAdmin, async (req, res) => {
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// =============================================
+// HUDDLES MANAGEMENT ROUTES (ADMIN)
+// =============================================
+
+// GET /api/manage-huddles
+// Get all huddles for admin management (with filtering)
+router.get('/manage-huddles', async (req, res) => {
+  try {
+    const { 
+      search, 
+      userId, 
+      coachId, 
+      status, 
+      compliance, 
+      startDate, 
+      endDate 
+    } = req.query;
+
+    const where = {};
+
+    // Filter by user if specified
+    if (userId) {
+      where.userId = parseInt(userId);
+    }
+
+    // Filter by coach if specified
+    if (coachId) {
+      where.coachId = parseInt(coachId);
+    }
+
+    // Filter by status if specified
+    if (status) {
+      where.status = status.toUpperCase();
+    }
+
+    // Filter by date range if specified
+    if (startDate || endDate) {
+      where.huddleDate = {};
+      if (startDate) {
+        where.huddleDate.gte = new Date(startDate);
+      }
+      if (endDate) {
+        where.huddleDate.lte = new Date(endDate + 'T23:59:59');
+      }
+    }
+
+    // Search filter (title, user name, coach name)
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { coach: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    const huddles = await prisma.huddle.findMany({
+      where,
+      include: {
+        coach: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        huddleDate: 'desc'
+      }
+    });
+
+    // Transform to match frontend expectations
+    let transformedHuddles = huddles.map(h => ({
+      id: h.id,
+      title: h.title,
+      huddle_date: h.huddleDate,
+      date: h.huddleDate,
+      coach_id: h.coachId,
+      coachId: h.coachId,
+      user_id: h.userId,
+      userId: h.userId,
+      has_short_agenda: h.hasShortAgenda,
+      hasShortAgenda: h.hasShortAgenda,
+      has_notetaker: h.hasNotetaker,
+      hasNotetaker: h.hasNotetaker,
+      has_action_steps: h.hasActionSteps,
+      hasActionSteps: h.hasActionSteps,
+      compliance_line_item_1: h.complianceLineItem1,
+      complianceLineItem1: h.complianceLineItem1,
+      compliance_line_item_2: h.complianceLineItem2,
+      complianceLineItem2: h.complianceLineItem2,
+      compliance_line_item_3: h.complianceLineItem3,
+      complianceLineItem3: h.complianceLineItem3,
+      compliance_line_item_4: h.complianceLineItem4,
+      complianceLineItem4: h.complianceLineItem4,
+      status: h.status,
+      coach_name: h.coach?.name,
+      user_name: h.user?.name,
+      user_email: h.user?.email
+    }));
+
+    // Client-side compliance filter (if needed)
+    if (compliance === 'compliant') {
+      transformedHuddles = transformedHuddles.filter(h => 
+        h.has_short_agenda && h.has_notetaker && h.has_action_steps
+      );
+    } else if (compliance === 'non-compliant') {
+      transformedHuddles = transformedHuddles.filter(h => 
+        !(h.has_short_agenda && h.has_notetaker && h.has_action_steps)
+      );
+    }
+
+    res.json(transformedHuddles);
+  } catch (error) {
+    console.error('Error fetching admin huddles:', error);
+    res.status(500).json({ error: 'Failed to fetch huddles', details: error.message });
+  }
+});
+
+// GET /api/manage-huddles/stats
+// Get huddle statistics for admin (all huddles)
+router.get('/manage-huddles/stats', async (req, res) => {
+  try {
+    const total = await prisma.huddle.count();
+
+    const compliant = await prisma.huddle.count({
+      where: {
+        hasShortAgenda: true,
+        hasNotetaker: true,
+        hasActionSteps: true
+      }
+    });
+
+    const nonCompliant = total - compliant;
+
+    res.json({
+      total,
+      compliant,
+      non_compliant: nonCompliant,
+      nonCompliant
+    });
+  } catch (error) {
+    console.error('Error fetching huddle stats:', error);
+    res.status(500).json({ error: 'Failed to fetch huddle stats', details: error.message });
+  }
+});
+
+// POST /api/manage-huddles
+// Create a new huddle (admin can create for any user)
+router.post('/manage-huddles', async (req, res) => {
+  try {
+    const { 
+      title, 
+      coach_id, 
+      user_id, 
+      has_short_agenda, 
+      has_notetaker, 
+      has_action_steps, 
+      compliance_line_item_1, 
+      compliance_line_item_2, 
+      compliance_line_item_3, 
+      compliance_line_item_4, 
+      status, 
+      huddle_date 
+    } = req.body;
+    
+    // Convert status to uppercase enum value for Prisma
+    let statusValue = (status || 'scheduled').toUpperCase();
+    if (!['SCHEDULED', 'COMPLETED', 'CANCELLED'].includes(statusValue)) {
+      statusValue = 'SCHEDULED';
+    }
+    
+    // Handle huddle_date - Prisma expects DateTime
+    let huddleDate;
+    if (huddle_date) {
+      if (huddle_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        huddleDate = new Date(huddle_date + 'T00:00:00');
+      } else {
+        huddleDate = new Date(huddle_date);
+      }
+    } else {
+      huddleDate = new Date();
+    }
+    
+    const huddle = await prisma.huddle.create({
+      data: {
+        title,
+        huddleDate,
+        coachId: parseInt(coach_id),
+        userId: parseInt(user_id),
+        hasShortAgenda: has_short_agenda || false,
+        hasNotetaker: has_notetaker || false,
+        hasActionSteps: has_action_steps || false,
+        complianceLineItem1: compliance_line_item_1 || null,
+        complianceLineItem2: compliance_line_item_2 || null,
+        complianceLineItem3: compliance_line_item_3 || null,
+        complianceLineItem4: compliance_line_item_4 || null,
+        status: statusValue
+      },
+      include: {
+        coach: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Transform response
+    res.status(201).json({
+      id: huddle.id,
+      title: huddle.title,
+      huddle_date: huddle.huddleDate,
+      date: huddle.huddleDate,
+      coach_id: huddle.coachId,
+      coachId: huddle.coachId,
+      user_id: huddle.userId,
+      userId: huddle.userId,
+      has_short_agenda: huddle.hasShortAgenda,
+      hasShortAgenda: huddle.hasShortAgenda,
+      has_notetaker: huddle.hasNotetaker,
+      hasNotetaker: huddle.hasNotetaker,
+      has_action_steps: huddle.hasActionSteps,
+      hasActionSteps: huddle.hasActionSteps,
+      compliance_line_item_1: huddle.complianceLineItem1,
+      complianceLineItem1: huddle.complianceLineItem1,
+      compliance_line_item_2: huddle.complianceLineItem2,
+      complianceLineItem2: huddle.complianceLineItem2,
+      compliance_line_item_3: huddle.complianceLineItem3,
+      complianceLineItem3: huddle.complianceLineItem3,
+      compliance_line_item_4: huddle.complianceLineItem4,
+      complianceLineItem4: huddle.complianceLineItem4,
+      status: huddle.status,
+      coach_name: huddle.coach?.name,
+      user_name: huddle.user?.name,
+      user_email: huddle.user?.email
+    });
+  } catch (error) {
+    console.error('Error creating huddle:', error);
+    res.status(500).json({ error: 'Failed to create huddle', details: error.message });
+  }
+});
+
+// PUT /api/manage-huddles/:id
+// Update a huddle (admin can update any huddle)
+router.put('/manage-huddles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      title, 
+      coach_id, 
+      user_id, 
+      has_short_agenda, 
+      has_notetaker, 
+      has_action_steps, 
+      compliance_line_item_1, 
+      compliance_line_item_2, 
+      compliance_line_item_3, 
+      compliance_line_item_4, 
+      status, 
+      huddle_date 
+    } = req.body;
+    
+    // Convert status to uppercase enum value for Prisma
+    let statusValue = (status || 'scheduled').toUpperCase();
+    if (!['SCHEDULED', 'COMPLETED', 'CANCELLED'].includes(statusValue)) {
+      statusValue = 'SCHEDULED';
+    }
+    
+    // Handle huddle_date - Prisma expects DateTime
+    let huddleDate;
+    if (huddle_date) {
+      if (huddle_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        huddleDate = new Date(huddle_date + 'T00:00:00');
+      } else {
+        huddleDate = new Date(huddle_date);
+      }
+    }
+    
+    const updateData = {
+      title,
+      status: statusValue,
+      coachId: parseInt(coach_id),
+      userId: parseInt(user_id),
+      hasShortAgenda: has_short_agenda || false,
+      hasNotetaker: has_notetaker || false,
+      hasActionSteps: has_action_steps || false,
+      complianceLineItem1: compliance_line_item_1 || null,
+      complianceLineItem2: compliance_line_item_2 || null,
+      complianceLineItem3: compliance_line_item_3 || null,
+      complianceLineItem4: compliance_line_item_4 || null
+    };
+
+    if (huddleDate) {
+      updateData.huddleDate = huddleDate;
+    }
+    
+    const huddle = await prisma.huddle.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      include: {
+        coach: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    // Transform response
+    res.json({
+      id: huddle.id,
+      title: huddle.title,
+      huddle_date: huddle.huddleDate,
+      date: huddle.huddleDate,
+      coach_id: huddle.coachId,
+      coachId: huddle.coachId,
+      user_id: huddle.userId,
+      userId: huddle.userId,
+      has_short_agenda: huddle.hasShortAgenda,
+      hasShortAgenda: huddle.hasShortAgenda,
+      has_notetaker: huddle.hasNotetaker,
+      hasNotetaker: huddle.hasNotetaker,
+      has_action_steps: huddle.hasActionSteps,
+      hasActionSteps: huddle.hasActionSteps,
+      compliance_line_item_1: huddle.complianceLineItem1,
+      complianceLineItem1: huddle.complianceLineItem1,
+      compliance_line_item_2: huddle.complianceLineItem2,
+      complianceLineItem2: huddle.complianceLineItem2,
+      compliance_line_item_3: huddle.complianceLineItem3,
+      complianceLineItem3: huddle.complianceLineItem3,
+      compliance_line_item_4: huddle.complianceLineItem4,
+      complianceLineItem4: huddle.complianceLineItem4,
+      status: huddle.status,
+      coach_name: huddle.coach?.name,
+      user_name: huddle.user?.name,
+      user_email: huddle.user?.email
+    });
+  } catch (error) {
+    console.error('Error updating huddle:', error);
+    res.status(500).json({ error: 'Failed to update huddle', details: error.message });
+  }
+});
+
+// DELETE /api/manage-huddles/:id
+// Delete a huddle (admin can delete any huddle)
+router.delete('/manage-huddles/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await prisma.huddle.delete({
+      where: { id: parseInt(id) }
+    });
+
+    res.json({ message: 'Huddle deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting huddle:', error);
+    res.status(500).json({ error: 'Failed to delete huddle', details: error.message });
   }
 });
 

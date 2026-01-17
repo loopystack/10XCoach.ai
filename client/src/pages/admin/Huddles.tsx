@@ -98,10 +98,11 @@ const Huddles = () => {
       if (filters.userId) params.append('userId', filters.userId)
       if (filters.coachId) params.append('coachId', filters.coachId)
       if (filters.status) params.append('status', filters.status)
+      if (filters.compliance) params.append('compliance', filters.compliance)
       if (filters.startDate) params.append('startDate', filters.startDate)
       if (filters.endDate) params.append('endDate', filters.endDate)
       
-      const url = `/api/huddles${params.toString() ? '?' + params.toString() : ''}`
+      const url = `/api/manage-huddles${params.toString() ? '?' + params.toString() : ''}`
       const data = await api.get(url)
       if (Array.isArray(data)) {
         let filteredData = data
@@ -158,7 +159,7 @@ const Huddles = () => {
 
   const fetchStats = async () => {
     try {
-      const data = await api.get('/api/huddles/stats')
+      const data = await api.get('/api/manage-huddles/stats')
       if (data) {
         setStats({
           total: data.total || 0,
@@ -237,14 +238,18 @@ const Huddles = () => {
         has_short_agenda: formData.has_short_agenda,
         has_notetaker: formData.has_notetaker,
         has_action_steps: formData.has_action_steps,
+        compliance_line_item_1: formData.compliance_line_item_1,
+        compliance_line_item_2: formData.compliance_line_item_2,
+        compliance_line_item_3: formData.compliance_line_item_3,
+        compliance_line_item_4: formData.compliance_line_item_4,
         status: formData.status.toLowerCase()
       }
 
       if (editingId) {
-        await api.put(`/api/huddles/${editingId}`, payload)
+        await api.put(`/api/manage-huddles/${editingId}`, payload)
         notify.success('Huddle updated successfully!')
       } else {
-        await api.post('/api/huddles', payload)
+        await api.post('/api/manage-huddles', payload)
         notify.success('Huddle created successfully!')
       }
       resetForm()
@@ -262,7 +267,7 @@ const Huddles = () => {
     }
 
     try {
-      await api.delete(`/api/huddles/${id}`)
+      await api.delete(`/api/manage-huddles/${id}`)
       notify.success('Huddle deleted successfully!')
       fetchHuddles()
       fetchStats()

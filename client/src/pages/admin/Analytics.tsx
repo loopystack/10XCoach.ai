@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   Users,
   TrendingUp,
-  DollarSign,
   Target,
   Activity,
   BarChart3,
@@ -35,6 +34,7 @@ import {
   ResponsiveContainer
 } from 'recharts'
 import { api } from '../../utils/api'
+import { notify } from '../../utils/notification'
 import '../PageStyles.css'
 import './AdminPages.css'
 
@@ -43,33 +43,32 @@ interface KPIData {
   totalUsers: number
   activeUsers: number
   newUsers: number
-  churnedUsers: number
-  retentionRate: number
-  
-  // Subscription Metrics
-  mrr: number
-  arr: number
-  planDistribution: { plan: string; count: number; revenue: number }[]
+  userGrowthTrend: number
   
   // Engagement Metrics
   totalSessions: number
   avgSessionDuration: number
+  sessionGrowthTrend: number
   totalQuizzes: number
   totalHuddles: number
   totalNotes: number
   totalTodos: number
   completedTodos: number
+  totalActionSteps: number
+  completedActionSteps: number
   
   // Business Health
   avgBusinessHealth: number
   pillarScores: { name: string; score: number; trend: number }[]
   
+  // Plan Distribution
+  planDistribution: { plan: string; count: number; revenue: number }[]
+  
   // Coach Performance
-  topCoaches: { name: string; sessions: number; rating: number }[]
+  topCoaches: { name: string; sessions: number }[]
   
   // Trends
   userGrowth: { date: string; users: number }[]
-  revenueTrend: { date: string; revenue: number }[]
   engagementTrend: { date: string; sessions: number; quizzes: number }[]
 }
 
@@ -85,89 +84,41 @@ const Analytics = () => {
   const fetchKPIData = async () => {
     try {
       setLoading(true)
-      // Try to fetch from API
-      await api.get(`/api/admin/manage-analytics?period=${period}`).catch(() => null)
+      const data = await api.get(`/api/manage-analytics?period=${period}`)
       
-      // Use mock data for now (replace with real API data when available)
-      const mockData: KPIData = {
-        totalUsers: 1247,
-        activeUsers: 892,
-        newUsers: 47,
-        churnedUsers: 12,
-        retentionRate: 94.2,
-        mrr: 124700,
-        arr: 1496400,
-        planDistribution: [
-          { plan: 'Foundation', count: 523, revenue: 52300 },
-          { plan: 'Momentum', count: 612, revenue: 122400 },
-          { plan: 'Elite', count: 112, revenue: 44800 }
-        ],
-        totalSessions: 3421,
-        avgSessionDuration: 18,
-        totalQuizzes: 892,
-        totalHuddles: 1247,
-        totalNotes: 2341,
-        totalTodos: 3421,
-        completedTodos: 2891,
-        avgBusinessHealth: 68.5,
-        pillarScores: [
-          { name: 'Strategy', score: 72, trend: 4.2 },
-          { name: 'Sales', score: 65, trend: -1.3 },
-          { name: 'Marketing', score: 70, trend: 3.1 },
-          { name: 'CX', score: 68, trend: 2.5 },
-          { name: 'Operations', score: 71, trend: 5.1 },
-          { name: 'Culture', score: 69, trend: 1.8 },
-          { name: 'Finance', score: 66, trend: -0.5 },
-          { name: 'Exit', score: 64, trend: 2.2 }
-        ],
-        topCoaches: [
-          { name: 'Alan Wozniak', sessions: 342, rating: 4.9 },
-          { name: 'Rob Mercer', sessions: 298, rating: 4.8 },
-          { name: 'Teresa Lane', sessions: 267, rating: 4.9 },
-          { name: 'Camille Quinn', sessions: 156, rating: 4.7 },
-          { name: 'Jeffrey Wells', sessions: 98, rating: 4.6 }
-        ],
-        userGrowth: generateDateRange(period).map((date, i) => ({
-          date,
-          users: 1000 + i * 15 + Math.random() * 50
-        })),
-        revenueTrend: generateDateRange(period).map((date, i) => ({
-          date,
-          revenue: 100000 + i * 2000 + Math.random() * 5000
-        })),
-        engagementTrend: generateDateRange(period).map((date, i) => ({
-          date,
-          sessions: 50 + i * 2 + Math.random() * 20,
-          quizzes: 30 + i * 1 + Math.random() * 10
-        }))
+      // Transform API data to match frontend interface
+      const kpiData: KPIData = {
+        totalUsers: data.totalUsers || 0,
+        activeUsers: data.activeUsers || 0,
+        newUsers: data.newUsers || 0,
+        userGrowthTrend: data.userGrowthTrend || 0,
+        totalSessions: data.totalSessions || 0,
+        avgSessionDuration: data.avgSessionDuration || 0,
+        sessionGrowthTrend: data.sessionGrowthTrend || 0,
+        totalQuizzes: data.totalQuizzes || 0,
+        totalHuddles: data.totalHuddles || 0,
+        totalNotes: data.totalNotes || 0,
+        totalTodos: data.totalTodos || 0,
+        completedTodos: data.completedTodos || 0,
+        totalActionSteps: data.totalActionSteps || 0,
+        completedActionSteps: data.completedActionSteps || 0,
+        avgBusinessHealth: data.avgBusinessHealth || 0,
+        pillarScores: data.pillarScores || [],
+        planDistribution: data.planDistribution || [],
+        topCoaches: data.topCoaches || [],
+        userGrowth: data.userGrowth || [],
+        engagementTrend: data.engagementTrend || []
       }
       
-      setKpiData(mockData)
+      setKpiData(kpiData)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching KPI data:', error)
+      notify.error('Failed to load analytics data')
       setLoading(false)
     }
   }
 
-  const generateDateRange = (period: string): string[] => {
-    const dates: string[] = []
-    const now = new Date()
-    let days = 30
-    
-    if (period === '7d') days = 7
-    else if (period === '30d') days = 30
-    else if (period === '90d') days = 90
-    else days = 365
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now)
-      date.setDate(date.getDate() - i)
-      dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
-    }
-    
-    return dates
-  }
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#6366f1']
 
@@ -203,33 +154,18 @@ const Analytics = () => {
 
       {/* Primary KPI Cards */}
       <div className="kpi-primary-grid">
-        <div className="kpi-primary-card revenue">
-          <div className="kpi-primary-icon">
-            <DollarSign size={32} />
-          </div>
-          <div className="kpi-primary-content">
-            <div className="kpi-primary-label">Monthly Recurring Revenue</div>
-            <div className="kpi-primary-value">${(kpiData.mrr / 1000).toFixed(1)}K</div>
-            <div className="kpi-primary-trend positive">
-              <TrendingUp size={16} />
-              <span>+12.5% vs last month</span>
-            </div>
-            <div className="kpi-primary-subtext">ARR: ${(kpiData.arr / 1000000).toFixed(2)}M</div>
-          </div>
-        </div>
-
         <div className="kpi-primary-card users">
           <div className="kpi-primary-icon">
             <Users size={32} />
           </div>
           <div className="kpi-primary-content">
-            <div className="kpi-primary-label">Active Users</div>
-            <div className="kpi-primary-value">{kpiData.activeUsers.toLocaleString()}</div>
-            <div className="kpi-primary-trend positive">
-              <TrendingUp size={16} />
-              <span>+{kpiData.newUsers} new this period</span>
+            <div className="kpi-primary-label">Total Users</div>
+            <div className="kpi-primary-value">{kpiData.totalUsers.toLocaleString()}</div>
+            <div className={`kpi-primary-trend ${kpiData.userGrowthTrend >= 0 ? 'positive' : 'negative'}`}>
+              {kpiData.userGrowthTrend >= 0 ? <TrendingUp size={16} /> : <ArrowDownRight size={16} />}
+              <span>{kpiData.userGrowthTrend >= 0 ? '+' : ''}{kpiData.userGrowthTrend.toFixed(1)}% vs last period</span>
             </div>
-            <div className="kpi-primary-subtext">Retention: {kpiData.retentionRate}%</div>
+            <div className="kpi-primary-subtext">{kpiData.newUsers} new this period</div>
           </div>
         </div>
 
@@ -238,11 +174,26 @@ const Analytics = () => {
             <Activity size={32} />
           </div>
           <div className="kpi-primary-content">
-            <div className="kpi-primary-label">Engagement Rate</div>
-            <div className="kpi-primary-value">{((kpiData.activeUsers / kpiData.totalUsers) * 100).toFixed(1)}%</div>
+            <div className="kpi-primary-label">Total Sessions</div>
+            <div className="kpi-primary-value">{kpiData.totalSessions.toLocaleString()}</div>
+            <div className={`kpi-primary-trend ${kpiData.sessionGrowthTrend >= 0 ? 'positive' : 'negative'}`}>
+              {kpiData.sessionGrowthTrend >= 0 ? <TrendingUp size={16} /> : <ArrowDownRight size={16} />}
+              <span>{kpiData.sessionGrowthTrend >= 0 ? '+' : ''}{kpiData.sessionGrowthTrend.toFixed(1)}% vs last period</span>
+            </div>
+            <div className="kpi-primary-subtext">Avg: {kpiData.avgSessionDuration} min</div>
+          </div>
+        </div>
+
+        <div className="kpi-primary-card engagement">
+          <div className="kpi-primary-icon">
+            <UserCheck size={32} />
+          </div>
+          <div className="kpi-primary-content">
+            <div className="kpi-primary-label">Active Users</div>
+            <div className="kpi-primary-value">{kpiData.activeUsers.toLocaleString()}</div>
             <div className="kpi-primary-trend positive">
               <TrendingUp size={16} />
-              <span>+3.2% vs last period</span>
+              <span>{kpiData.totalUsers > 0 ? ((kpiData.activeUsers / kpiData.totalUsers) * 100).toFixed(1) : 0}% of total</span>
             </div>
             <div className="kpi-primary-subtext">{kpiData.totalSessions.toLocaleString()} sessions</div>
           </div>
@@ -254,12 +205,12 @@ const Analytics = () => {
           </div>
           <div className="kpi-primary-content">
             <div className="kpi-primary-label">Avg Business Health</div>
-            <div className="kpi-primary-value">{kpiData.avgBusinessHealth}%</div>
+            <div className="kpi-primary-value">{kpiData.avgBusinessHealth.toFixed(1)}%</div>
             <div className="kpi-primary-trend positive">
-              <TrendingUp size={16} />
-              <span>+4.2% vs last month</span>
+              <Target size={16} />
+              <span>{kpiData.pillarScores.length} pillars tracked</span>
             </div>
-            <div className="kpi-primary-subtext">8 pillars tracked</div>
+            <div className="kpi-primary-subtext">Based on quiz results</div>
           </div>
         </div>
       </div>
@@ -281,12 +232,14 @@ const Analytics = () => {
               <span className="kpi-secondary-value positive">{kpiData.newUsers}</span>
             </div>
             <div className="kpi-secondary-item">
-              <span className="kpi-secondary-label">Churned</span>
-              <span className="kpi-secondary-value negative">{kpiData.churnedUsers}</span>
+              <span className="kpi-secondary-label">Active Users</span>
+              <span className="kpi-secondary-value">{kpiData.activeUsers}</span>
             </div>
             <div className="kpi-secondary-item">
-              <span className="kpi-secondary-label">Retention</span>
-              <span className="kpi-secondary-value">{kpiData.retentionRate}%</span>
+              <span className="kpi-secondary-label">Growth Trend</span>
+              <span className={`kpi-secondary-value ${kpiData.userGrowthTrend >= 0 ? 'positive' : 'negative'}`}>
+                {kpiData.userGrowthTrend >= 0 ? '+' : ''}{kpiData.userGrowthTrend.toFixed(1)}%
+              </span>
             </div>
           </div>
         </div>
@@ -307,11 +260,15 @@ const Analytics = () => {
             </div>
             <div className="kpi-secondary-item">
               <span className="kpi-secondary-label">Sessions/User</span>
-              <span className="kpi-secondary-value">{(kpiData.totalSessions / kpiData.activeUsers).toFixed(1)}</span>
+              <span className="kpi-secondary-value">
+                {kpiData.activeUsers > 0 ? (kpiData.totalSessions / kpiData.activeUsers).toFixed(1) : '0'}
+              </span>
             </div>
             <div className="kpi-secondary-item">
-              <span className="kpi-secondary-label">Completion Rate</span>
-              <span className="kpi-secondary-value">{((kpiData.completedTodos / kpiData.totalTodos) * 100).toFixed(1)}%</span>
+              <span className="kpi-secondary-label">Action Steps</span>
+              <span className="kpi-secondary-value">
+                {kpiData.completedActionSteps}/{kpiData.totalActionSteps}
+              </span>
             </div>
           </div>
         </div>
@@ -386,35 +343,6 @@ const Analytics = () => {
           <div className="kpi-chart-header">
             <div className="kpi-chart-title">
               <BarChart3 size={20} />
-              <h3>Revenue Trend</h3>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={kpiData.revenueTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
-              <YAxis stroke="#6b7280" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                }}
-                formatter={(value: number) => `$${(value / 1000).toFixed(1)}K`}
-              />
-              <Bar dataKey="revenue" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="kpi-charts-grid">
-        <div className="kpi-chart-card">
-          <div className="kpi-chart-header">
-            <div className="kpi-chart-title">
-              <PieChart size={20} />
               <h3>Plan Distribution</h3>
             </div>
           </div>
@@ -438,7 +366,10 @@ const Analytics = () => {
             </RechartsPieChart>
           </ResponsiveContainer>
         </div>
+      </div>
 
+      {/* Charts Row 2 */}
+      <div className="kpi-charts-grid">
         <div className="kpi-chart-card">
           <div className="kpi-chart-header">
             <div className="kpi-chart-title">
@@ -526,7 +457,7 @@ const Analytics = () => {
               </div>
               <div className="coach-performance-rating">
                 <Zap size={16} />
-                <span>{coach.rating}</span>
+                <span>{coach.sessions}</span>
               </div>
               <div className="coach-performance-bar">
                 <div

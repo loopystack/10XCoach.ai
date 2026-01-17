@@ -125,7 +125,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/manage-analytics', icon: BarChart3, label: 'Analytics & KPIs', roles: ['SUPER_ADMIN'] },
     { path: '/manage-emails', icon: Mail, label: 'Email & Follow-ups', roles: ['SUPER_ADMIN'] },
     { path: '/manage-system', icon: Settings, label: 'Settings', roles: ['SUPER_ADMIN'] },
-    { path: '/manage-huddles', icon: UsersRound, label: 'Ops - Huddles', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
+    { path: '/manage-huddles', icon: UsersRound, label: 'Huddles', roles: ['SUPER_ADMIN', 'COACH_ADMIN', 'ADMIN'] },
   ]
 
   // Filter menu items based on user role

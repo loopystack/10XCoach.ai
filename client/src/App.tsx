@@ -33,6 +33,7 @@ import Quizzes from './pages/Quizzes'
 import QuizTake from './pages/QuizTake'
 import QuizResults from './pages/QuizResults'
 import Huddles from './pages/Huddles'
+import AdminHuddles from './pages/admin/Huddles'
 import Notes from './pages/Notes'
 import Sessions from './pages/Sessions'
 import ActionSteps from './pages/ActionSteps'
@@ -225,7 +226,7 @@ function App() {
         <Route path="/manage-huddles" element={
           <ProtectedRoute requireAdmin={true}>
             <AdminLayout>
-              <Huddles />
+              <AdminHuddles />
             </AdminLayout>
           </ProtectedRoute>
         } />

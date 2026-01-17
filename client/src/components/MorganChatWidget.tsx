@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { MessageCircle, X, Send, Bot } from 'lucide-react'
-import { api } from '../utils/api'
 import './MorganChatWidget.css'
 
 interface Message {

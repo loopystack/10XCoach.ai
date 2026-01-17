@@ -3,7 +3,7 @@ import { Play, X, Bot } from 'lucide-react'
 import './DashboardMorgan.css'
 
 // LOOM video URL - Replace with actual LOOM video URL
-const LOOM_VIDEO_URL = process.env.REACT_APP_LOOM_ONBOARDING_URL || 'https://www.loom.com/embed/YOUR_VIDEO_ID'
+const LOOM_VIDEO_URL = import.meta.env.VITE_LOOM_ONBOARDING_URL || 'https://www.loom.com/embed/YOUR_VIDEO_ID'
 
 interface DashboardMorganProps {
   className?: string
